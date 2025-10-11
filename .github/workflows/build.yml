@@ -1,0 +1,55 @@
+name: Build and Deploy
+
+on:
+    push:
+        branches: [main, develop]
+    pull_request:
+        branches: [main]
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: 🏗 Setup repo
+              uses: actions/checkout@v4
+
+            - name: 🏗 Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 18.x
+                  cache: npm
+
+            - name: 🏗 Setup EAS
+              uses: expo/expo-github-action@v8
+              with:
+                  eas-version: latest
+                  token: ${{ secrets.EXPO_TOKEN }}
+
+            - name: 📦 Install dependencies
+              run: npm ci
+
+            - name: 🔧 Setup Firebase config files
+              run: |
+                  # Decode and create google-services.json
+                  echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > google-services.json
+
+                  # Decode and create GoogleService-Info.plist
+                  echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" | base64 --decode > GoogleService-Info.plist
+
+                  # Verify files were created
+                  ls -la google-services.json GoogleService-Info.plist
+
+            - name: 🚀 Build with EAS
+              run: |
+                  # For development build
+                  eas build --platform all --non-interactive --no-wait
+
+                  # Or for specific environments
+                  # eas build --platform android --profile preview --non-interactive
+                  # eas build --platform ios --profile preview --non-interactive
+
+            - name: 🧹 Cleanup sensitive files
+              if: always()
+              run: |
+                  rm -f google-services.json GoogleService-Info.plist

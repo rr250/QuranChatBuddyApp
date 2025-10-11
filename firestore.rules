@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // User documents
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // User settings
+      match /settings/{document} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // User statistics
+      match /stats/{document} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Quran data (read-only for authenticated users)
+    match /quran/{document=**} {
+      allow read: if request.auth != null;
+    }
+
+    // Quiz questions and answers (read-only)
+    match /quiz/{document=**} {
+      allow read: if request.auth != null;
+    }
+
+    // Islamic content (read-only)
+    match /islamic_content/{document=**} {
+      allow read: if request.auth != null;
+    }
+
+    // Prayer times cache
+    match /prayer_times/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only server can write
+    }
+  }
+}
