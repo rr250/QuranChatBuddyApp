@@ -68,12 +68,6 @@ export default function HomeScreen() {
             case "chat":
                 router.push("/(tabs)/chat");
                 break;
-            case "dhikr":
-                // Navigate to dhikr counter
-                break;
-            case "duas":
-                // Navigate to duas collection
-                break;
             default:
                 break;
         }

@@ -306,6 +306,11 @@ export class AuthService {
                 "Too many failed attempts. Please try again later.",
             "auth/network-request-failed":
                 "Network error. Please check your connection.",
+            "auth/invalid-credential": "Invalid authentication credentials.",
+            "auth/popup-closed-by-user": "Authentication popup was closed.",
+            "auth/cancelled-popup-request": "Authentication was cancelled.",
+            "auth/operation-not-allowed":
+                "This sign-in method is not enabled. Please contact support.",
         };
 
         const message = errorMessages[error.code] || error.message;

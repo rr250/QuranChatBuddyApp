@@ -39,7 +39,7 @@ export const useAuthStore = create(
                     });
                 } catch (error) {
                     console.error("Auth initialization error:", error);
-                    set({ error: error.message, loading: false });
+                    set({ error: error.message, loading: false, user: null });
                     throw error;
                 }
             },
