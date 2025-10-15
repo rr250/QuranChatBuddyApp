@@ -37,10 +37,10 @@ export default function RootLayout() {
             else if (onboardingCompleted && !user && !inAuthGroup) {
                 router.replace("/(auth)/register");
             }
-            // If user is authenticated and onboarding is completed, show main app
-            else if (user && onboardingCompleted && !inAuthGroup) {
-                router.replace("/(tabs)");
-            }
+            // // If user is authenticated and onboarding is completed, show main app
+            // else if (user && onboardingCompleted && !inAuthGroup) {
+            //     router.replace("/(tabs)");
+            // }
             // If user is authenticated but in auth group, redirect to main app
             else if (user && inAuthGroup && onboardingCompleted) {
                 router.replace("/(tabs)");
@@ -70,7 +70,7 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <PaperProvider theme={theme}>
                 <Slot />
-                <DebugPanel />
+                {/* <DebugPanel /> */}
                 <StatusBar style="auto" />
             </PaperProvider>
         </GestureHandlerRootView>
