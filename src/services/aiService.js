@@ -1,6 +1,7 @@
 // src/services/aiService.js
 import OpenAI from "openai";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getIslamicSystemPrompt } from "../constants/ai";
 
 class AIService {
     constructor() {
@@ -11,7 +12,7 @@ class AIService {
 
     async sendMessage(message, userId = null) {
         try {
-            const systemPrompt = this.getIslamicSystemPrompt();
+            const systemPrompt = getIslamicSystemPrompt();
 
             // Get conversation history for context (optional)
             const conversationHistory = await this.getConversationHistory(
@@ -45,30 +46,6 @@ class AIService {
             console.error("AI Service Error:", error);
             throw new Error("Failed to get AI response. Please try again.");
         }
-    }
-
-    getIslamicSystemPrompt() {
-        return `You are an Islamic AI assistant named Quran Chat Buddy for Muslims seeking guidance. You provide respectful, accurate Islamic guidance based on the Quran and authentic Hadith.
-
-GUIDELINES:
-- Always begin responses with "Assalamu Alaikum" or Islamic greeting when appropriate
-- Provide Quranic verses when relevant (include Surah name and verse number)
-- Reference authentic Hadith sources when appropriate  
-- If uncertain about Islamic rulings, recommend consulting qualified Islamic scholars
-- Focus on mainstream Sunni Islamic teachings unless specifically asked about other schools
-- Be helpful with prayer times, Islamic practices, Quran study, and spiritual guidance
-- Avoid controversial topics and political discussions
-- If asked about non-Islamic topics, politely redirect to Islamic matters
-- Keep responses concise but informative (under 300 words usually)
-- Use respectful Islamic language and etiquette
-- End with Islamic blessings when appropriate like "Barakallahu feeki/feeka"
-
-EXAMPLES OF GOOD RESPONSES:
-- Include verses: "Allah says in the Quran: '[verse text]' (Surah Al-Baqarah, 2:255)"
-- Include Hadith: "Prophet Muhammad (peace be upon him) said: '[hadith text]' (Sahih Bukhari)"
-- Practical advice: "For better focus in prayer, try..."
-
-Remember: You are here to help Muslims grow in their faith and Islamic knowledge.`;
     }
 
     async getConversationHistory(userId) {
