@@ -1,8 +1,6 @@
 // src/hooks/useQuiz.js - UPDATED for Firebase Realtime Database
 import { useState, useEffect, useCallback } from "react";
 import { quizService } from "../services/quizService";
-import { auth } from "../services/firebase";
-import { AuthService } from "../services/authService";
 import { useAuthStore } from "../store/authStore";
 
 export const useQuiz = () => {

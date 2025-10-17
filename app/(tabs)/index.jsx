@@ -19,6 +19,7 @@ import { StatisticsCard } from "../../src/components/home/StatisticsCard";
 import { IslamicQuoteCard } from "../../src/components/home/IslamicQuoteCard";
 import { QuizDashboard } from "../../src/components/quiz/QuizDashboard";
 import { NotificationService } from "../../src/services/notificationService";
+import { QuranDashboard } from "../../src/components/quran/QuranDashboard";
 
 const { width } = Dimensions.get("window");
 
@@ -140,6 +141,11 @@ export default function HomeScreen() {
                 <QuizDashboard
                     onQuizPress={() => {
                         router.push("/quiz");
+                    }}
+                />
+                <QuranDashboard
+                    onQuranPress={() => {
+                        router.push("/(tabs)/quran");
                     }}
                 />
 
