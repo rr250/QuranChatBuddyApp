@@ -17,6 +17,7 @@ import { QuranVerseCard } from "../../src/components/quran/QuranVerseCard";
 import { QuickActionsGrid } from "../../src/components/home/QuickActionsGrid";
 import { StatisticsCard } from "../../src/components/home/StatisticsCard";
 import { IslamicQuoteCard } from "../../src/components/home/IslamicQuoteCard";
+import { QuizDashboard } from "../../src/components/quiz/QuizDashboard";
 import { NotificationService } from "../../src/services/notificationService";
 
 const { width } = Dimensions.get("window");
@@ -48,10 +49,10 @@ export default function HomeScreen() {
 
     const getGreeting = () => {
         const hour = currentTime.getHours();
-        if (hour < 12) return "Good Morning";
-        if (hour < 17) return "Good Afternoon";
-        if (hour < 20) return "Good Evening";
-        return "Good Night";
+        if (hour < 12) return "Assalamu Alaikum - Blessed Morning";
+        if (hour < 17) return "Assalamu Alaikum - Peaceful Afternoon";
+        if (hour < 20) return "Assalamu Alaikum - Blessed Evening";
+        return "Assalamu Alaikum - Peaceful Night";
     };
 
     const handleQuickAction = (action) => {
@@ -136,6 +137,11 @@ export default function HomeScreen() {
 
                 {/* Prayer Times Card */}
                 <PrayerTimesCard />
+                <QuizDashboard
+                    onQuizPress={() => {
+                        router.push("/quiz");
+                    }}
+                />
 
                 {/* Quick Actions */}
                 <QuickActionsGrid onAction={handleQuickAction} />

@@ -12,6 +12,36 @@ export class PrayerService {
         return PrayerService.instance;
     }
 
+    getPrayerTimesForDisplay(location, date = new Date()) {
+        const now = new Date();
+        const currentPrayerTimes = this.calculatePrayerTimes(location, date);
+
+        // Check if current time is past Isha prayer
+        const isAfterIsha = now > currentPrayerTimes.isha;
+
+        if (isAfterIsha) {
+            // If we're past Isha, show tomorrow's prayer times
+            const tomorrow = new Date(date);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowPrayerTimes = this.calculatePrayerTimes(
+                location,
+                tomorrow
+            );
+
+            return {
+                ...tomorrowPrayerTimes,
+                isNextDay: true,
+                displayDate: tomorrow,
+            };
+        }
+
+        return {
+            ...currentPrayerTimes,
+            isNextDay: false,
+            displayDate: date,
+        };
+    }
+
     calculatePrayerTimes(location, date = new Date()) {
         try {
             const coordinates = new Coordinates(
@@ -56,7 +86,7 @@ export class PrayerService {
         return qiyamStart.toDate();
     }
 
-    getNextPrayer(prayerTimes) {
+    getNextPrayer(prayerTimes, location = null) {
         const now = new Date();
         const prayers = [
             { name: "Fajr", time: prayerTimes.fajr, icon: "🌅" },
@@ -77,16 +107,58 @@ export class PrayerService {
             }
         }
 
-        // If no prayer today, return tomorrow's Fajr
-        const tomorrowFajr = moment(prayerTimes.fajr).add(1, "day").toDate();
-        return {
-            name: "Fajr",
-            time: tomorrowFajr,
-            timeString: moment(tomorrowFajr).format("h:mm A"),
-            timestamp: tomorrowFajr,
-            icon: "🌅",
-            isTomorrow: true,
-        };
+        // If no prayer today, calculate tomorrow's prayer times and return Fajr
+        if (location) {
+            try {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const tomorrowPrayerTimes = this.calculatePrayerTimes(
+                    location,
+                    tomorrow
+                );
+
+                return {
+                    name: "Fajr",
+                    time: tomorrowPrayerTimes.fajr,
+                    timeString: moment(tomorrowPrayerTimes.fajr).format(
+                        "h:mm A"
+                    ),
+                    timestamp: tomorrowPrayerTimes.fajr,
+                    icon: "🌅",
+                    isTomorrow: true,
+                };
+            } catch (error) {
+                console.error(
+                    "Error calculating tomorrow's prayer times:",
+                    error
+                );
+                // Fallback to simple date addition
+                const tomorrowFajr = moment(prayerTimes.fajr)
+                    .add(1, "day")
+                    .toDate();
+                return {
+                    name: "Fajr",
+                    time: tomorrowFajr,
+                    timeString: moment(tomorrowFajr).format("h:mm A"),
+                    timestamp: tomorrowFajr,
+                    icon: "🌅",
+                    isTomorrow: true,
+                };
+            }
+        } else {
+            // Fallback when location is not available
+            const tomorrowFajr = moment(prayerTimes.fajr)
+                .add(1, "day")
+                .toDate();
+            return {
+                name: "Fajr",
+                time: tomorrowFajr,
+                timeString: moment(tomorrowFajr).format("h:mm A"),
+                timestamp: tomorrowFajr,
+                icon: "🌅",
+                isTomorrow: true,
+            };
+        }
     }
 
     getTimeUntilNextPrayer(nextPrayer) {
@@ -118,8 +190,35 @@ export class PrayerService {
         return Math.round((elapsedMilliseconds / totalMilliseconds) * 100);
     }
 
-    getCurrentPrayer(prayerTimes) {
+    getCurrentPrayer(prayerTimes, location = null) {
         const now = new Date();
+
+        // Check if we're past Isha - if so, we're in the period between Isha and tomorrow's Fajr
+        if (now > prayerTimes.isha) {
+            // Try to get tomorrow's Fajr time for accurate determination
+            if (location) {
+                try {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const tomorrowPrayerTimes = this.calculatePrayerTimes(
+                        location,
+                        tomorrow
+                    );
+
+                    // If current time is before tomorrow's Fajr, we're in post-Isha period
+                    if (now < tomorrowPrayerTimes.fajr) {
+                        return "Post-Isha";
+                    }
+                } catch (error) {
+                    console.error(
+                        "Error calculating tomorrow's prayer times:",
+                        error
+                    );
+                }
+            }
+            return "Post-Isha";
+        }
+
         const prayers = [
             { name: "Fajr", start: prayerTimes.fajr, end: prayerTimes.sunrise },
             { name: "Dhuhr", start: prayerTimes.dhuhr, end: prayerTimes.asr },
@@ -139,6 +238,11 @@ export class PrayerService {
             ) {
                 return prayer.name;
             }
+        }
+
+        // If before Fajr
+        if (now < prayerTimes.fajr) {
+            return "Pre-Fajr";
         }
 
         return null;

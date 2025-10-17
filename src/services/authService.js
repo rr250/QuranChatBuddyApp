@@ -197,40 +197,80 @@ export class AuthService {
             const userSnapshot = await get(userRef);
 
             if (!userSnapshot.exists()) {
+                // Create the complete user data structure according to the guide
                 const userData = {
-                    uid: user.uid,
-                    email: user.email,
-                    displayName:
-                        user.displayName ||
-                        additionalData.displayName ||
-                        "User",
-                    photoURL: user.photoURL || null,
-                    createdAt: new Date().toISOString(),
-                    lastLoginAt: new Date().toISOString(),
-                    settings: {
-                        notifications: true,
-                        prayerReminders: true,
-                        language: "en",
-                        theme: "light",
+                    profile: {
+                        userId: user.uid,
+                        createdAt: new Date().toISOString(),
+                        name:
+                            user.displayName ||
+                            additionalData.displayName ||
+                            "User",
+                        email: user.email,
+                        photoURL: user.photoURL || null,
+                        lastLoginAt: new Date().toISOString(),
+                        settings: {
+                            notifications: true,
+                            prayerReminders: true,
+                            language: "en",
+                            theme: "light",
+                        },
                     },
                     stats: {
+                        totalQuizzes: 0,
+                        totalScore: 0,
+                        totalTimeSpent: 0,
+                        averageScore: 0,
+                        averagePercentage: 0,
+                        lastUpdated: new Date().toISOString(),
+                        streak: {
+                            current: 0,
+                            longest: 0,
+                            lastDate: null,
+                        },
+                        // Legacy stats for compatibility
                         prayersCompleted: 0,
                         quranPagesRead: 0,
                         quizzesTaken: 0,
                         currentStreak: 0,
                     },
+                    quizResults: {}, // Will store daily quiz results by date
+                    dailyQuestions: {}, // Will store daily questions by date
                     ...additionalData,
                 };
 
                 await set(userRef, userData);
                 console.log(
-                    "User document created successfully in Realtime Database"
+                    "User document created successfully in Realtime Database with proper structure"
                 );
             } else {
-                // Update last login
-                await update(userRef, {
-                    lastLoginAt: new Date().toISOString(),
-                });
+                // Update last login and ensure structure is complete
+                const updates = {
+                    "profile/lastLoginAt": new Date().toISOString(),
+                };
+
+                // Check if stats structure exists, if not create it
+                const statsSnapshot = await get(
+                    ref(this.database, `users/${user.uid}/stats`)
+                );
+                if (!statsSnapshot.exists()) {
+                    updates["stats"] = {
+                        totalQuizzes: 0,
+                        totalScore: 0,
+                        totalTimeSpent: 0,
+                        averageScore: 0,
+                        averagePercentage: 0,
+                        lastUpdated: new Date().toISOString(),
+                        streak: {
+                            current: 0,
+                            longest: 0,
+                            lastDate: null,
+                        },
+                    };
+                }
+
+                await update(userRef, updates);
+                console.log("User login updated and structure verified");
             }
         } catch (error) {
             console.error("Error creating user document:", error);
@@ -274,6 +314,13 @@ export class AuthService {
                 `users/${userId}/stats/${statType}`
             );
             await set(statsRef, value);
+
+            // Also update lastUpdated timestamp
+            const lastUpdatedRef = ref(
+                this.database,
+                `users/${userId}/stats/lastUpdated`
+            );
+            await set(lastUpdatedRef, new Date().toISOString());
         } catch (error) {
             console.error("Error updating user stats:", error);
         }

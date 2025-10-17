@@ -70,7 +70,7 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <PaperProvider theme={theme}>
                 <Slot />
-                {/* <DebugPanel /> */}
+                <DebugPanel />
                 <StatusBar style="auto" />
             </PaperProvider>
         </GestureHandlerRootView>
