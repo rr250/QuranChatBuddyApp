@@ -2,17 +2,74 @@
 import OpenAI from "openai";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getIslamicSystemPrompt } from "../constants/ai";
+import { getFirebaseAuth, getFirebaseDatabase } from "./firebase";
+import {
+    ref,
+    set,
+    get,
+    push,
+    query,
+    orderByKey,
+    limitToLast,
+    serverTimestamp,
+} from "firebase/database";
+import { AuthService } from "./authService";
 
 class AIService {
     constructor() {
         this.openai = new OpenAI({
             apiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY,
         });
+        this.initialize();
     }
 
-    async sendMessage(message, userId = null) {
+    initialize() {
+        if (!this.auth) {
+            this.auth = getFirebaseAuth();
+            this.database = getFirebaseDatabase();
+        }
+    }
+
+    getCurrentUserId() {
+        AuthService.initialize(); // Ensure AuthService is initialized
+        const user = AuthService.getCurrentUser();
+        if (!user) {
+            throw new Error("User not authenticated");
+        }
+        console.log("Current User ID:", user.uid);
+        return user.uid;
+    }
+
+    // Get Firebase path for user data
+    getUserPath(path = "") {
+        const userId = this.getCurrentUserId();
+        return `users/${userId}/${path}`;
+    }
+
+    async getOnboardingData() {
         try {
-            const systemPrompt = getIslamicSystemPrompt();
+            const onboardingRef = ref(
+                this.database,
+                this.getUserPath("/profile/onboarding")
+            );
+            const snapshot = await get(onboardingRef);
+            return snapshot.exists() ? snapshot.val() : null;
+        } catch (error) {
+            console.error("Error fetching onboarding data:", error);
+            return null;
+        }
+    }
+
+    async sendMessage(message) {
+        try {
+            const userId = this.getCurrentUserId();
+
+            // Fetch onboarding data for personalized prompt
+            const onboardingData = await this.getOnboardingData();
+            console.log("Onboarding Data:", onboardingData);
+
+            const systemPrompt = getIslamicSystemPrompt({ onboardingData });
+            console.log("System Prompt:", systemPrompt);
 
             // Get conversation history for context (optional)
             const conversationHistory = await this.getConversationHistory(

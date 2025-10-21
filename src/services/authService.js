@@ -22,6 +22,7 @@ import * as Google from "expo-auth-session/providers/google";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as WebBrowser from "expo-web-browser";
 import { getFirebaseAuth, getFirebaseDatabase } from "./firebase";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -46,6 +47,7 @@ export class AuthService {
                 password
             );
             await this.updateUserPresence(userCredential.user);
+            await this.syncOnboardingData(userCredential.user);
             return userCredential.user;
         } catch (error) {
             console.error("Email sign-in error:", error);
@@ -71,6 +73,9 @@ export class AuthService {
 
             // Update presence
             await this.updateUserPresence(user);
+
+            // Sync onboarding data
+            await this.syncOnboardingData(user);
 
             return user;
         } catch (error) {
@@ -105,6 +110,7 @@ export class AuthService {
 
                 await this.createUserDocument(userCredential.user);
                 await this.updateUserPresence(userCredential.user);
+                await this.syncOnboardingData(userCredential.user);
 
                 return userCredential.user;
             }
@@ -148,6 +154,7 @@ export class AuthService {
 
             await this.createUserDocument(userCredential.user);
             await this.updateUserPresence(userCredential.user);
+            await this.syncOnboardingData(userCredential.user);
 
             return userCredential.user;
         } catch (error) {
@@ -335,6 +342,35 @@ export class AuthService {
         } catch (error) {
             console.error("Error getting user data:", error);
             return null;
+        }
+    }
+
+    static async syncOnboardingData(user) {
+        try {
+            const dataStr = await AsyncStorage.getItem("onboarding_data");
+            const locationStr = await AsyncStorage.getItem("user_location");
+            const notificationsEnabled = await AsyncStorage.getItem(
+                "notifications_enabled"
+            );
+
+            if (dataStr) {
+                const userData = JSON.parse(dataStr);
+                const onboardingRef = ref(
+                    this.database,
+                    `users/${user.uid}/profile/onboarding`
+                );
+
+                await set(onboardingRef, {
+                    ...userData,
+                    location: locationStr ? JSON.parse(locationStr) : null,
+                    notificationsEnabled: notificationsEnabled === "true",
+                    completedAt: new Date().toISOString(),
+                });
+
+                await AsyncStorage.setItem("onboarding_synced", "true");
+            }
+        } catch (error) {
+            console.error("Error syncing onboarding data:", error);
         }
     }
 

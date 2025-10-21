@@ -54,9 +54,9 @@ export default function RootLayout() {
         try {
             initializeFirebase();
             await initialize();
-            await NotificationService.initialize();
-            await LocationService.requestPermissions();
-            await PrayerNotificationService.initialize();
+            // await NotificationService.initialize();
+            // await LocationService.requestPermissions();
+            // await PrayerNotificationService.initialize();
         } catch (error) {
             console.error("App initialization error:", error);
         }

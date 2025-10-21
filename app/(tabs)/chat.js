@@ -18,9 +18,11 @@ import { useChat } from "../../src/hooks/useChat";
 import { MessageBubble } from "../../src/components/chat/MessageBubble";
 // import { LoadingSpinner } from "../../src/components/common/LoadingSpinner";
 import { colors, spacing, typography } from "../../src/constants/theme";
+import { useAuthStore } from "../../src/store/authStore";
 
 export default function ChatScreen() {
     const [inputText, setInputText] = useState("");
+    const { user } = useAuthStore();
     const {
         messages,
         sendMessage,
@@ -28,7 +30,7 @@ export default function ChatScreen() {
         error,
         clearChat,
         loadChatHistory,
-    } = useChat();
+    } = useChat(user?.uid);
     const flatListRef = useRef(null);
 
     // Load chat history when screen mounts
