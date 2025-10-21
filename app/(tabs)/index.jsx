@@ -20,6 +20,7 @@ import { IslamicQuoteCard } from "../../src/components/home/IslamicQuoteCard";
 import { QuizDashboard } from "../../src/components/quiz/QuizDashboard";
 import { NotificationService } from "../../src/services/notificationService";
 import { QuranDashboard } from "../../src/components/quran/QuranDashboard";
+import { PrayerTimesCardMini } from "../../src/components/prayer/PrayerTimesCardMini";
 
 const { width } = Dimensions.get("window");
 
@@ -137,7 +138,7 @@ export default function HomeScreen() {
                 </Card>
 
                 {/* Prayer Times Card */}
-                <PrayerTimesCard />
+                <PrayerTimesCardMini />
                 <QuizDashboard
                     onQuizPress={() => {
                         router.push("/quiz");
@@ -150,10 +151,10 @@ export default function HomeScreen() {
                 />
 
                 {/* Quick Actions */}
-                <QuickActionsGrid onAction={handleQuickAction} />
+                {/* <QuickActionsGrid onAction={handleQuickAction} /> */}
 
                 {/* Statistics */}
-                <StatisticsCard />
+                {/* <StatisticsCard /> */}
 
                 {/* Quran Verse of the Day */}
                 <QuranVerseCard />

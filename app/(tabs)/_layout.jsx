@@ -53,6 +53,19 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
+                name="chat"
+                options={{
+                    title: "Chat",
+                    tabBarIcon: ({ color, size }) => (
+                        <MaterialCommunityIcons
+                            name="robot"
+                            size={size}
+                            color={color}
+                        />
+                    ),
+                }}
+            />
+            <Tabs.Screen
                 name="quran"
                 options={{
                     title: "Quran",
@@ -72,19 +85,6 @@ export default function TabLayout() {
                     tabBarIcon: ({ color, size }) => (
                         <MaterialCommunityIcons
                             name="head-question"
-                            size={size}
-                            color={color}
-                        />
-                    ),
-                }}
-            />
-            <Tabs.Screen
-                name="chat"
-                options={{
-                    title: "Chat",
-                    tabBarIcon: ({ color, size }) => (
-                        <MaterialCommunityIcons
-                            name="robot"
                             size={size}
                             color={color}
                         />
