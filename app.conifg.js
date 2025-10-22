@@ -1,0 +1,90 @@
+module.exports = {
+    expo: {
+        name: "Quran Chat Buddy",
+        slug: "quran-chat-buddy",
+        version: "2.0.0",
+        orientation: "portrait",
+        icon: "./assets/icon.png",
+        userInterfaceStyle: "light",
+        splash: {
+            image: "./assets/splash.png",
+            resizeMode: "contain",
+            backgroundColor: "#2E8B57",
+        },
+        assetBundlePatterns: ["**/*"],
+        ios: {
+            supportsTablet: true,
+            bundleIdentifier: "com.quranchatbuddy.meccatime",
+            googleServicesFile:
+                process.env.GOOGLE_SERVICES_INFO_PLIST ||
+                "./GoogleService-Info.plist",
+            infoPlist: {
+                UIBackgroundModes: [
+                    "background-fetch",
+                    "remote-notification",
+                    "fetch",
+                ],
+                ITSAppUsesNonExemptEncryption: false,
+            },
+        },
+        android: {
+            adaptiveIcon: {
+                foregroundImage: "./assets/icon.png",
+                backgroundColor: "#2E8B57",
+            },
+            package: "com.quranchatbuddy.meccatime",
+            googleServicesFile:
+                process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
+            permissions: [
+                "ACCESS_COARSE_LOCATION",
+                "ACCESS_FINE_LOCATION",
+                "RECEIVE_BOOT_COMPLETED",
+                "VIBRATE",
+                "WAKE_LOCK",
+                "android.permission.ACCESS_COARSE_LOCATION",
+                "android.permission.ACCESS_FINE_LOCATION",
+                "android.permission.ACCESS_BACKGROUND_LOCATION",
+                "android.permission.FOREGROUND_SERVICE",
+                "android.permission.FOREGROUND_SERVICE_LOCATION",
+            ],
+        },
+        web: {
+            favicon: "./assets/favicon.png",
+        },
+        plugins: [
+            "expo-router",
+            [
+                "expo-notifications",
+                {
+                    icon: "./assets/notification-icon.png",
+                    color: "#2E8B57",
+                    defaultChannel: "default",
+                },
+            ],
+            [
+                "expo-location",
+                {
+                    locationAlwaysAndWhenInUsePermission:
+                        "Calculate accurate prayer times...",
+                    locationAlwaysPermission:
+                        "Send prayer reminders in background...",
+                    locationWhenInUsePermission:
+                        "Calculate prayer times and Qibla direction...",
+                    isAndroidBackgroundLocationEnabled: true,
+                },
+            ],
+            "expo-apple-authentication",
+            "expo-secure-store",
+        ],
+        experiments: {
+            typedRoutes: false,
+        },
+        extra: {
+            router: {},
+            eas: {
+                projectId: "cab25cba-14da-478d-bb72-7d19e2fcea42",
+            },
+        },
+        owner: "rrrishabh7",
+    },
+};
