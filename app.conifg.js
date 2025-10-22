@@ -16,7 +16,7 @@ module.exports = {
             supportsTablet: true,
             bundleIdentifier: "com.quranchatbuddy.meccatime",
             googleServicesFile:
-                process.env.GOOGLE_SERVICES_INFO_PLIST ||
+                process.env.EXPO_PUBLIC_GOOGLE_SERVICES_INFO_PLIST ||
                 "./GoogleService-Info.plist",
             infoPlist: {
                 UIBackgroundModes: [
@@ -34,7 +34,8 @@ module.exports = {
             },
             package: "com.quranchatbuddy.meccatime",
             googleServicesFile:
-                process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
+                process.env.EXPO_PUBLIC_GOOGLE_SERVICES_JSON ||
+                "./google-services.json",
             permissions: [
                 "ACCESS_COARSE_LOCATION",
                 "ACCESS_FINE_LOCATION",

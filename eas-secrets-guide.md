@@ -2,8 +2,8 @@
 # This approach uses EAS Build's built-in secrets management
 
 # 1. Upload your config files to EAS:
-# eas secret:create --scope project --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json
-# eas secret:create --scope project --name GOOGLE_SERVICE_INFO_PLIST --type file --value ./GoogleService-Info.plist
+# eas secret:create --scope project --name EXPO_PUBLIC_GOOGLE_SERVICES_JSON --type file --value ./google-services.json
+# eas secret:create --scope project --name EXPO_PUBLIC_GOOGLE_SERVICES_INFO_PLIST --type file --value ./GoogleService-Info.plist
 
 # 2. Update your eas.json to use these secrets:
 {
