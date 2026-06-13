@@ -8,7 +8,8 @@ import {
     Animated,
     TouchableOpacity,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScreenShell, screenContentPadding } from "../../src/components/navigation/ScreenShell";
+import { BOTTOM_BAR_HEIGHT } from "../../src/constants/layout";
 import {
     Card,
     Text,
@@ -20,6 +21,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { PrayerService } from "../../src/services/prayerService";
 import { LocationService } from "../../src/services/locationService";
+import { PrayerNotificationService } from "../../src/services/prayerNotificationService";
 import { theme } from "../../src/constants/theme";
 import * as Location from "expo-location";
 import { Magnetometer } from "expo-sensors";
@@ -86,9 +88,11 @@ export default function PrayerScreen() {
             const times = prayerService.calculatePrayerTimes(currentLocation);
             setPrayerTimes(times);
             updatePrayerState(times);
-
-            // Calculate Qibla direction
             calculateQiblaDirection(currentLocation);
+
+            PrayerNotificationService.setupDailyPrayerNotifications().catch(
+                (err) => console.warn("Prayer notification schedule failed:", err)
+            );
         } catch (error) {
             console.error("Error loading prayer times:", error);
         } finally {
@@ -187,26 +191,24 @@ export default function PrayerScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.container}>
+            <ScreenShell title="Prayer Times" subtitle="Loading schedule...">
                 <View style={styles.loadingContainer}>
                     <MaterialCommunityIcons
                         name="clock-outline"
                         size={48}
-                        color={theme.colors.primary}
+                        color="#fff"
                     />
-                    <Text style={styles.loadingText}>
-                        Loading prayer times...
-                    </Text>
+                    <Text style={styles.loadingText}>Loading prayer times...</Text>
                 </View>
-            </SafeAreaView>
+            </ScreenShell>
         );
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <ScreenShell title="Prayer Times" subtitle="Salah schedule & Qibla">
             <ScrollView
                 style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[styles.scrollContent, screenContentPadding]}
                 showsVerticalScrollIndicator={false}
             >
                 {/* Header */}
@@ -519,7 +521,7 @@ export default function PrayerScreen() {
                     </Card>
                 )}
             </ScrollView>
-        </SafeAreaView>
+        </ScreenShell>
     );
 }
 
@@ -536,7 +538,7 @@ const styles = StyleSheet.create({
     loadingText: {
         marginTop: theme.spacing.md,
         fontSize: 16,
-        color: theme.colors.onSurfaceVariant,
+        color: "rgba(255,255,255,0.8)",
     },
     scrollView: {
         flex: 1,

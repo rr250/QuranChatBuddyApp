@@ -10,11 +10,12 @@ import {
     Animated,
     Dimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
+import { ScreenShell, screenContentPadding } from "../../../src/components/navigation/ScreenShell";
+import { GlassSurface } from "../../../src/components/ui/Glass";
 import { useQuiz } from "../../../src/hooks/useQuiz";
 import { LoadingSpinner } from "../../../src/components/common/LoadingSpinner";
-import { colors, spacing } from "../../../src/constants/theme";
+import { theme } from "../../../src/constants/theme";
+import { glass } from "../../../src/constants/glass";
 import { useRouter } from "expo-router";
 
 const { width } = Dimensions.get("window");
@@ -66,14 +67,14 @@ const QuizScreen = ({}) => {
 
     if (isLoading) {
         return (
-            <SafeAreaView style={styles.container}>
+            <ScreenShell title="Daily Quiz" subtitle="Loading questions...">
                 <View style={styles.loadingContainer}>
                     <LoadingSpinner />
                     <Text style={styles.loadingText}>
                         Loading today's quiz...
                     </Text>
                 </View>
-            </SafeAreaView>
+            </ScreenShell>
         );
     }
 
@@ -89,13 +90,13 @@ const QuizScreen = ({}) => {
 
     if (!currentQuestion) {
         return (
-            <SafeAreaView style={styles.container}>
+            <ScreenShell title="Daily Quiz" subtitle="Unavailable">
                 <View style={styles.errorContainer}>
                     <Text style={styles.errorText}>
                         No questions available. Please try again later.
                     </Text>
                 </View>
-            </SafeAreaView>
+            </ScreenShell>
         );
     }
 
@@ -123,57 +124,30 @@ const QuizScreen = ({}) => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <LinearGradient
-                colors={[
-                    colors?.primary || "#2E8B57",
-                    colors?.primaryDark || "#1F5F3F",
-                ]}
-                style={styles.header}
-            >
-                <View style={styles.headerContent}>
-                    <View style={styles.headerTop}>
-                        <TouchableOpacity
-                            onPress={() => router.back()}
-                            style={styles.backButton}
-                        >
-                            <Text style={styles.backButtonText}>← Back</Text>
-                        </TouchableOpacity>
-                        <View style={styles.streakBadge}>
-                            <Text style={styles.streakText}>
-                                🔥 {streak.current}
-                            </Text>
-                        </View>
-                    </View>
-                    <Text style={styles.headerTitle}>Daily Islamic Quiz</Text>
-                    <Text style={styles.questionCounter}>
-                        Question {currentQuestionIndex + 1} of {totalQuestions}
-                    </Text>
-                </View>
-
-                {/* Progress Bar */}
-                <View style={styles.progressBarContainer}>
-                    <Animated.View
-                        style={[
-                            styles.progressBar,
-                            {
-                                width: progressAnim.interpolate({
-                                    inputRange: [0, 100],
-                                    outputRange: ["0%", "100%"],
-                                }),
-                            },
-                        ]}
-                    />
-                </View>
-            </LinearGradient>
+        <ScreenShell
+            title="Daily Islamic Quiz"
+            subtitle={`Question ${currentQuestionIndex + 1} of ${totalQuestions} · 🔥 ${streak.current}`}
+        >
+            <View style={styles.progressBarContainer}>
+                <Animated.View
+                    style={[
+                        styles.progressBar,
+                        {
+                            width: progressAnim.interpolate({
+                                inputRange: [0, 100],
+                                outputRange: ["0%", "100%"],
+                            }),
+                        },
+                    ]}
+                />
+            </View>
 
             <ScrollView
                 style={styles.content}
+                contentContainerStyle={screenContentPadding}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Question Card */}
-                <View style={styles.questionCard}>
+                <GlassSurface style={styles.questionCard}>
                     <View style={styles.questionHeader}>
                         <View style={styles.categoryBadge}>
                             <Text style={styles.categoryText}>
@@ -191,7 +165,6 @@ const QuizScreen = ({}) => {
                         {currentQuestion.question}
                     </Text>
 
-                    {/* Options */}
                     <View style={styles.optionsContainer}>
                         {currentQuestion.options.map((option, index) => {
                             let optionStyle = styles.optionButton;
@@ -251,7 +224,6 @@ const QuizScreen = ({}) => {
                         })}
                     </View>
 
-                    {/* Explanation */}
                     {showExplanation && (
                         <View style={styles.explanationContainer}>
                             <Text style={styles.explanationTitle}>
@@ -262,10 +234,9 @@ const QuizScreen = ({}) => {
                             </Text>
                         </View>
                     )}
-                </View>
+                </GlassSurface>
             </ScrollView>
 
-            {/* Navigation Footer */}
             <View style={styles.footer}>
                 <TouchableOpacity
                     style={[
@@ -299,7 +270,7 @@ const QuizScreen = ({}) => {
                     </Text>
                 </TouchableOpacity>
             </View>
-        </SafeAreaView>
+        </ScreenShell>
     );
 };
 
@@ -322,34 +293,30 @@ const QuizResultScreen = ({ result, streak, onReturnHome }) => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <LinearGradient
-                colors={[
-                    colors?.primary || "#2E8B57",
-                    colors?.primaryDark || "#1F5F3F",
-                ]}
-                style={styles.resultHeader}
-            >
-                <Text style={styles.resultTitle}>Quiz Complete!</Text>
+        <ScreenShell
+            title="Quiz Complete!"
+            subtitle={getScoreMessage(result.percentage)}
+        >
+            <View style={styles.resultHero}>
                 <Text style={styles.resultEmoji}>
                     {getScoreEmoji(result.percentage)}
                 </Text>
-            </LinearGradient>
+            </View>
 
-            <ScrollView style={styles.resultContent}>
-                <View style={styles.resultCard}>
+            <ScrollView
+                style={styles.resultContent}
+                contentContainerStyle={screenContentPadding}
+            >
+                <GlassSurface style={styles.resultCard}>
                     <Text style={styles.scoreText}>
                         {result.score} / {result.totalQuestions}
                     </Text>
                     <Text style={styles.percentageText}>
                         {result.percentage}%
                     </Text>
-                    <Text style={styles.scoreMessage}>
-                        {getScoreMessage(result.percentage)}
-                    </Text>
-                </View>
+                </GlassSurface>
 
-                <View style={styles.statsGrid}>
+                <GlassSurface style={styles.statsGrid}>
                     <View style={styles.statItem}>
                         <Text style={styles.statValue}>{streak.current}</Text>
                         <Text style={styles.statLabel}>Current Streak</Text>
@@ -364,9 +331,9 @@ const QuizResultScreen = ({ result, streak, onReturnHome }) => {
                         </Text>
                         <Text style={styles.statLabel}>Time Spent</Text>
                     </View>
-                </View>
+                </GlassSurface>
 
-                <View style={styles.motivationCard}>
+                <GlassSurface style={styles.motivationCard}>
                     <Text style={styles.motivationTitle}>
                         🕌 Islamic Reminder
                     </Text>
@@ -375,7 +342,7 @@ const QuizResultScreen = ({ result, streak, onReturnHome }) => {
                         for him. Indeed, Allah will accomplish His purpose." -
                         Quran 65:3
                     </Text>
-                </View>
+                </GlassSurface>
             </ScrollView>
 
             <View style={styles.resultFooter}>
@@ -386,15 +353,11 @@ const QuizResultScreen = ({ result, streak, onReturnHome }) => {
                     <Text style={styles.homeButtonText}>Return to Home</Text>
                 </TouchableOpacity>
             </View>
-        </SafeAreaView>
+        </ScreenShell>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#f8f9fa",
-    },
     loadingContainer: {
         flex: 1,
         alignItems: "center",
@@ -403,7 +366,7 @@ const styles = StyleSheet.create({
     loadingText: {
         marginTop: 16,
         fontSize: 16,
-        color: "#666",
+        color: "rgba(255,255,255,0.8)",
     },
     errorContainer: {
         flex: 1,
@@ -413,81 +376,26 @@ const styles = StyleSheet.create({
     },
     errorText: {
         fontSize: 16,
-        color: "#666",
-        textAlign: "center",
-    },
-    header: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 12,
-    },
-    headerContent: {
-        marginBottom: 12,
-    },
-    headerTop: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 12,
-    },
-    backButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        backgroundColor: "rgba(255,255,255,0.2)",
-        borderRadius: 20,
-    },
-    backButtonText: {
-        color: "white",
-        fontSize: 14,
-        fontWeight: "600",
-    },
-    streakBadge: {
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        backgroundColor: "rgba(255,255,255,0.2)",
-        borderRadius: 20,
-    },
-    streakText: {
-        color: "white",
-        fontSize: 14,
-        fontWeight: "600",
-    },
-    headerTitle: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: "white",
-        textAlign: "center",
-        marginBottom: 4,
-    },
-    questionCounter: {
-        fontSize: 16,
-        color: "rgba(255,255,255,0.9)",
+        color: "rgba(255,255,255,0.8)",
         textAlign: "center",
     },
     progressBarContainer: {
         height: 4,
-        backgroundColor: "rgba(255,255,255,0.3)",
+        backgroundColor: "rgba(255,255,255,0.2)",
+        marginHorizontal: theme.spacing.md,
+        marginBottom: theme.spacing.sm,
         borderRadius: 2,
         overflow: "hidden",
     },
     progressBar: {
         height: "100%",
-        backgroundColor: "#DAA520",
+        backgroundColor: theme.colors.secondary,
         borderRadius: 2,
     },
-    content: {
-        flex: 1,
-        padding: 20,
-    },
+    content: { flex: 1 },
     questionCard: {
-        backgroundColor: "white",
-        borderRadius: 16,
-        padding: 20,
-        elevation: 3,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
+        padding: theme.spacing.lg,
+        marginHorizontal: theme.spacing.md,
     },
     questionHeader: {
         flexDirection: "row",
@@ -497,31 +405,35 @@ const styles = StyleSheet.create({
     categoryBadge: {
         paddingHorizontal: 12,
         paddingVertical: 6,
-        backgroundColor: "#E3F2FD",
+        backgroundColor: glass.backgroundStrong,
         borderRadius: 12,
+        borderWidth: 1,
+        borderColor: glass.borderSubtle,
     },
     categoryText: {
         fontSize: 12,
-        color: "#1976D2",
+        color: theme.colors.secondary,
         fontWeight: "600",
         textTransform: "capitalize",
     },
     difficultyBadge: {
         paddingHorizontal: 12,
         paddingVertical: 6,
-        backgroundColor: "#FFF3E0",
+        backgroundColor: glass.backgroundStrong,
         borderRadius: 12,
+        borderWidth: 1,
+        borderColor: glass.borderSubtle,
     },
     difficultyText: {
         fontSize: 12,
-        color: "#F57C00",
+        color: "rgba(255,255,255,0.85)",
         fontWeight: "600",
         textTransform: "capitalize",
     },
     questionText: {
         fontSize: 18,
         fontWeight: "600",
-        color: "#333",
+        color: "#fff",
         lineHeight: 26,
         marginBottom: 24,
     },
@@ -533,22 +445,22 @@ const styles = StyleSheet.create({
         alignItems: "center",
         padding: 16,
         marginBottom: 12,
-        backgroundColor: "#f8f9fa",
+        backgroundColor: glass.backgroundLight,
         borderRadius: 12,
         borderWidth: 2,
-        borderColor: "transparent",
+        borderColor: glass.borderSubtle,
     },
     selectedOption: {
-        borderColor: "#2E8B57",
-        backgroundColor: "#f0f8f0",
+        borderColor: theme.colors.primary,
+        backgroundColor: glass.tint,
     },
     correctOption: {
         borderColor: "#4CAF50",
-        backgroundColor: "#E8F5E8",
+        backgroundColor: "rgba(76, 175, 80, 0.15)",
     },
     wrongOption: {
         borderColor: "#f44336",
-        backgroundColor: "#FFEBEE",
+        backgroundColor: "rgba(244, 67, 54, 0.12)",
     },
     optionContent: {
         flexDirection: "row",
@@ -559,8 +471,8 @@ const styles = StyleSheet.create({
         width: 28,
         height: 28,
         borderRadius: 14,
-        backgroundColor: "#E0E0E0",
-        color: "#666",
+        backgroundColor: glass.backgroundStrong,
+        color: "#fff",
         fontSize: 14,
         fontWeight: "bold",
         textAlign: "center",
@@ -569,12 +481,12 @@ const styles = StyleSheet.create({
     },
     optionText: {
         fontSize: 16,
-        color: "#333",
+        color: "rgba(255,255,255,0.9)",
         flex: 1,
         lineHeight: 22,
     },
     selectedOptionText: {
-        color: "#2E8B57",
+        color: theme.colors.secondary,
         fontWeight: "600",
     },
     correctOptionText: {
@@ -588,41 +500,42 @@ const styles = StyleSheet.create({
     explanationContainer: {
         marginTop: 16,
         padding: 16,
-        backgroundColor: "#F5F5F5",
+        backgroundColor: glass.backgroundLight,
         borderRadius: 12,
         borderLeftWidth: 4,
-        borderLeftColor: "#2E8B57",
+        borderLeftColor: theme.colors.secondary,
     },
     explanationTitle: {
         fontSize: 14,
         fontWeight: "bold",
-        color: "#2E8B57",
+        color: theme.colors.secondary,
         marginBottom: 8,
     },
     explanationText: {
         fontSize: 14,
-        color: "#666",
+        color: "rgba(255,255,255,0.8)",
         lineHeight: 20,
     },
     footer: {
         flexDirection: "row",
         justifyContent: "space-between",
-        padding: 20,
-        backgroundColor: "white",
-        borderTopWidth: 1,
-        borderTopColor: "#E0E0E0",
+        padding: theme.spacing.md,
+        paddingBottom: theme.spacing.lg,
     },
     navButton: {
         flex: 1,
         paddingVertical: 14,
         paddingHorizontal: 24,
-        backgroundColor: "#f0f0f0",
+        backgroundColor: glass.backgroundStrong,
         borderRadius: 25,
         alignItems: "center",
         marginHorizontal: 8,
+        borderWidth: 1,
+        borderColor: glass.borderSubtle,
     },
     nextButton: {
-        backgroundColor: "#2E8B57",
+        backgroundColor: theme.colors.primary,
+        borderColor: theme.colors.primary,
     },
     navButtonDisabled: {
         opacity: 0.5,
@@ -630,73 +543,47 @@ const styles = StyleSheet.create({
     navButtonText: {
         fontSize: 16,
         fontWeight: "600",
-        color: "#666",
+        color: "#fff",
     },
     nextButtonText: {
-        color: "white",
+        color: "#fff",
     },
     navButtonTextDisabled: {
-        color: "#ccc",
+        color: "rgba(255,255,255,0.4)",
     },
-    // Result Screen Styles
-    resultHeader: {
-        paddingHorizontal: 20,
-        paddingVertical: 40,
+    resultHero: {
         alignItems: "center",
-    },
-    resultTitle: {
-        fontSize: 28,
-        fontWeight: "bold",
-        color: "white",
-        marginBottom: 16,
+        paddingVertical: theme.spacing.md,
     },
     resultEmoji: {
         fontSize: 64,
     },
     resultContent: {
         flex: 1,
-        padding: 20,
     },
     resultCard: {
-        backgroundColor: "white",
-        borderRadius: 16,
-        padding: 32,
+        padding: theme.spacing.xl,
         alignItems: "center",
-        marginBottom: 20,
-        elevation: 3,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
+        marginHorizontal: theme.spacing.md,
+        marginBottom: theme.spacing.md,
     },
     scoreText: {
         fontSize: 48,
         fontWeight: "bold",
-        color: "#2E8B57",
+        color: "#fff",
     },
     percentageText: {
         fontSize: 24,
         fontWeight: "600",
-        color: "#666",
-        marginBottom: 12,
-    },
-    scoreMessage: {
-        fontSize: 18,
-        color: "#333",
-        textAlign: "center",
-        fontWeight: "600",
+        color: theme.colors.secondary,
+        marginTop: 8,
     },
     statsGrid: {
         flexDirection: "row",
-        backgroundColor: "white",
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 20,
-        elevation: 3,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
+        padding: theme.spacing.lg,
+        marginHorizontal: theme.spacing.md,
+        marginBottom: theme.spacing.md,
+        justifyContent: "space-around",
     },
     statItem: {
         flex: 1,
@@ -705,46 +592,42 @@ const styles = StyleSheet.create({
     statValue: {
         fontSize: 24,
         fontWeight: "bold",
-        color: "#2E8B57",
+        color: "#fff",
         marginBottom: 4,
     },
     statLabel: {
         fontSize: 12,
-        color: "#666",
+        color: "rgba(255,255,255,0.75)",
         textAlign: "center",
     },
     motivationCard: {
-        backgroundColor: "white",
-        borderRadius: 16,
-        padding: 20,
-        elevation: 3,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
+        padding: theme.spacing.lg,
+        marginHorizontal: theme.spacing.md,
+        marginBottom: theme.spacing.md,
     },
     motivationTitle: {
         fontSize: 16,
         fontWeight: "bold",
-        color: "#333",
+        color: "#fff",
         marginBottom: 12,
         textAlign: "center",
     },
     motivationText: {
         fontSize: 14,
-        color: "#666",
+        color: "rgba(255,255,255,0.85)",
         lineHeight: 20,
         textAlign: "center",
         fontStyle: "italic",
     },
     resultFooter: {
-        padding: 20,
+        padding: theme.spacing.md,
     },
     homeButton: {
-        backgroundColor: "#2E8B57",
+        backgroundColor: theme.colors.primary,
         paddingVertical: 16,
         borderRadius: 25,
         alignItems: "center",
+        marginHorizontal: theme.spacing.md,
     },
     homeButtonText: {
         fontSize: 16,

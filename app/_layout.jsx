@@ -1,68 +1,106 @@
 import { Slot, useRouter, useSegments } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PaperProvider } from "react-native-paper";
 import { initializeFirebase } from "../src/services/firebase";
-import { useAuthStore } from "../src/store/authStore";
 import { NotificationService } from "../src/services/notificationService";
-import { LocationService } from "../src/services/locationService";
 import { PrayerNotificationService } from "../src/services/prayerNotificationService";
+import { useAuthStore } from "../src/store/authStore";
+import { useSubscriptionStore } from "../src/store/subscriptionStore";
 import { theme } from "../src/constants/theme";
 import { LoadingScreen } from "../src/components/common/LoadingScreen";
 import { DebugPanel } from "../src/components/debug/DebugPanel";
 
+const AUTH_ROUTES_ALLOWED_WHEN_SIGNED_IN = new Set([
+    "login",
+    "register",
+    "forgot-password",
+]);
+
 export default function RootLayout() {
-    const { user, loading, initialize, isOnboarded } = useAuthStore();
+    const { user, loading, initialize, isOnboarded, signInAnonymously } =
+        useAuthStore();
+    const initializeSubscription = useSubscriptionStore((s) => s.initialize);
+    const syncSubscriptionUser = useSubscriptionStore((s) => s.syncUser);
     const segments = useSegments();
     const router = useRouter();
+    const [isSigningInAnonymously, setIsSigningInAnonymously] = useState(false);
+    const hasAttemptedAnonymousSignIn = useRef(false);
 
     useEffect(() => {
         initializeApp();
     }, []);
 
     useEffect(() => {
-        if (loading) return;
+        if (user?.uid) {
+            initializeSubscription(user.uid);
+        }
+    }, [user?.uid]);
 
-        // Add a small delay to ensure the component is mounted
-        const navigationTimeout = setTimeout(() => {
+    useEffect(() => {
+        if (loading || isSigningInAnonymously) return;
+
+        const navigationTimeout = setTimeout(async () => {
             const inAuthGroup = segments[0] === "(auth)";
-            const onboardingCompleted = isOnboarded;
+            const currentAuthRoute = segments[1];
+            const isAllowedAuthRoute =
+                AUTH_ROUTES_ALLOWED_WHEN_SIGNED_IN.has(currentAuthRoute);
 
-            // Show onboarding first if not completed
-            if (!onboardingCompleted) {
+            if (!isOnboarded) {
                 router.replace("/(auth)/onboarding");
+                return;
             }
-            // If onboarding is completed but user is not authenticated, show welcome/login
-            else if (onboardingCompleted && !user && !inAuthGroup) {
-                router.replace("/(auth)/register");
+
+            if (
+                isOnboarded &&
+                !user &&
+                !hasAttemptedAnonymousSignIn.current
+            ) {
+                hasAttemptedAnonymousSignIn.current = true;
+                setIsSigningInAnonymously(true);
+                try {
+                    const anonymousUser = await signInAnonymously();
+                    setIsSigningInAnonymously(false);
+                    await syncSubscriptionUser(anonymousUser?.uid);
+                    router.replace("/(tabs)");
+                    return;
+                } catch (error) {
+                    console.error("Anonymous sign-in error:", error);
+                    setIsSigningInAnonymously(false);
+                    hasAttemptedAnonymousSignIn.current = false;
+                    if (!inAuthGroup) {
+                        router.replace("/(auth)/register");
+                    }
+                    return;
+                }
             }
-            // // If user is authenticated and onboarding is completed, show main app
-            // else if (user && onboardingCompleted && !inAuthGroup) {
-            //     router.replace("/(tabs)");
-            // }
-            // If user is authenticated but in auth group, redirect to main app
-            else if (user && inAuthGroup && onboardingCompleted) {
+
+            if (
+                user &&
+                inAuthGroup &&
+                isOnboarded &&
+                !isAllowedAuthRoute
+            ) {
                 router.replace("/(tabs)");
             }
         }, 100);
 
         return () => clearTimeout(navigationTimeout);
-    }, [user, loading, segments, isOnboarded]);
+    }, [user, loading, segments, isOnboarded, isSigningInAnonymously]);
 
     const initializeApp = async () => {
         try {
             initializeFirebase();
             await initialize();
-            // await NotificationService.initialize();
-            // await LocationService.requestPermissions();
-            // await PrayerNotificationService.initialize();
+            await NotificationService.initialize();
+            await PrayerNotificationService.initialize();
         } catch (error) {
             console.error("App initialization error:", error);
         }
     };
 
-    if (loading) {
+    if (loading || isSigningInAnonymously) {
         return <LoadingScreen />;
     }
 
@@ -70,7 +108,7 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <PaperProvider theme={theme}>
                 <Slot />
-                <DebugPanel />
+                {__DEV__ ? <DebugPanel /> : null}
                 <StatusBar style="auto" />
             </PaperProvider>
         </GestureHandlerRootView>

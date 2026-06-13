@@ -87,26 +87,10 @@ export const useSurah = (surahNumber) => {
             const surahData = await quranService.getSurah(surahNumber);
             setSurah(surahData);
 
-            // Load user's read status for verses
-            const readStatus = new Set();
-            const favoriteStatus = new Set();
-
-            for (const verse of surahData.verses) {
-                const isRead = await quranService.isVerseRead(
-                    surahNumber,
-                    verse.numberInSurah
-                );
-                const isFavorited = await quranService.isVerseFavorited(
-                    surahNumber,
-                    verse.numberInSurah
-                );
-
-                if (isRead) readStatus.add(verse.numberInSurah);
-                if (isFavorited) favoriteStatus.add(verse.numberInSurah);
-            }
-
-            setReadVerses(readStatus);
-            setFavoriteVerses(favoriteStatus);
+            const { read, favorited } =
+                await quranService.getSurahVerseStatus(surahNumber);
+            setReadVerses(read);
+            setFavoriteVerses(favorited);
         } catch (error) {
             console.error("Error loading Surah:", error);
             setError("Failed to load Surah. Please check your connection.");
@@ -218,16 +202,7 @@ export const useQuranStats = () => {
     const [favorites, setFavorites] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [user, setUser] = useState(null);
-
-    // Monitor authentication state
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-            setUser(currentUser);
-        });
-
-        return () => unsubscribe();
-    }, []);
+    const { user } = useAuthStore();
 
     const loadStats = useCallback(async () => {
         if (!user) {

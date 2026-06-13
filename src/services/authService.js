@@ -8,16 +8,12 @@ import {
     GoogleAuthProvider,
     signInWithCredential,
     OAuthProvider,
+    signInAnonymously,
+    linkWithCredential,
+    EmailAuthProvider,
 } from "firebase/auth";
-import {
-    ref,
-    set,
-    get,
-    update,
-    onDisconnect,
-    push,
-    child,
-} from "firebase/database";
+import { ref, set, get, onDisconnect } from "firebase/database";
+import { userSyncService } from "./userSyncService";
 import * as Google from "expo-auth-session/providers/google";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as WebBrowser from "expo-web-browser";
@@ -44,10 +40,11 @@ export class AuthService {
             const userCredential = await signInWithEmailAndPassword(
                 this.auth,
                 email,
-                password
+                password,
             );
             await this.updateUserPresence(userCredential.user);
             await this.syncOnboardingData(userCredential.user);
+            await this.mergeUserData(userCredential.user);
             return userCredential.user;
         } catch (error) {
             console.error("Email sign-in error:", error);
@@ -61,7 +58,7 @@ export class AuthService {
             const userCredential = await createUserWithEmailAndPassword(
                 this.auth,
                 email,
-                password
+                password,
             );
             const user = userCredential.user;
 
@@ -69,7 +66,7 @@ export class AuthService {
             await updateProfile(user, { displayName });
 
             // Create user document in Realtime Database
-            await this.createUserDocument(user, { displayName });
+            await this.createUserDocument(user);
 
             // Update presence
             await this.updateUserPresence(user);
@@ -87,7 +84,7 @@ export class AuthService {
     // Google Authentication Hook - to be used in React components
     static useGoogleAuth() {
         const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-            clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+            clientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
             androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
             iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
         });
@@ -105,7 +102,7 @@ export class AuthService {
                 const credential = GoogleAuthProvider.credential(id_token);
                 const userCredential = await signInWithCredential(
                     this.auth,
-                    credential
+                    credential,
                 );
 
                 await this.createUserDocument(userCredential.user);
@@ -142,13 +139,13 @@ export class AuthService {
 
             const userCredential = await signInWithCredential(
                 this.auth,
-                credential
+                credential,
             );
 
             // Update profile with Apple name if available
             if (fullName?.givenName) {
                 const displayName =
-                    `\${fullName.givenName} \${fullName.familyName || ''}`.trim();
+                    `${fullName.givenName} ${fullName.familyName ?? ""}`.trim();
                 await updateProfile(userCredential.user, { displayName });
             }
 
@@ -159,6 +156,161 @@ export class AuthService {
             return userCredential.user;
         } catch (error) {
             console.error("Apple sign-in error:", error);
+            throw error;
+        }
+    }
+
+    // Anonymous Authentication
+    static async signInAnonymously() {
+        try {
+            this.initialize();
+            const userCredential = await signInAnonymously(this.auth);
+
+            // Create a basic user document for anonymous users
+            await this.createUserDocument(userCredential.user);
+
+            await this.updateUserPresence(userCredential.user);
+
+            return userCredential.user;
+        } catch (error) {
+            console.error("Anonymous sign-in error:", error);
+            throw this.handleAuthError(error);
+        }
+    }
+
+    // Link Anonymous Account with Email/Password
+    static async linkWithEmailPassword(email, password, displayName) {
+        try {
+            this.initialize();
+            const currentUser = this.auth.currentUser;
+
+            if (!currentUser) {
+                throw new Error("No user is currently signed in");
+            }
+
+            if (!currentUser.isAnonymous) {
+                throw new Error("Current user is not an anonymous account");
+            }
+
+            // Create email credential
+            const credential = EmailAuthProvider.credential(email, password);
+
+            // Link the credential to the anonymous account
+            const userCredential = await linkWithCredential(
+                currentUser,
+                credential,
+            );
+
+            // Update user profile with display name
+            if (displayName) {
+                await updateProfile(userCredential.user, { displayName });
+            }
+
+            await this.syncOnboardingData(userCredential.user);
+            await this.mergeUserData(userCredential.user);
+
+            return userCredential.user;
+        } catch (error) {
+            console.error("Error linking with email/password:", error);
+            throw this.handleAuthError(error);
+        }
+    }
+
+    // Link Anonymous Account with Google
+    static async linkWithGoogle(idToken) {
+        try {
+            this.initialize();
+            const currentUser = this.auth.currentUser;
+
+            if (!currentUser) {
+                throw new Error("No user is currently signed in");
+            }
+
+            if (!currentUser.isAnonymous) {
+                throw new Error("Current user is not an anonymous account");
+            }
+
+            // Create Google credential
+            const credential = GoogleAuthProvider.credential(idToken);
+
+            // Link the credential to the anonymous account
+            const userCredential = await linkWithCredential(
+                currentUser,
+                credential,
+            );
+
+            await this.syncOnboardingData(userCredential.user);
+            await this.mergeUserData(userCredential.user);
+
+            return userCredential.user;
+        } catch (error) {
+            console.error("Error linking with Google:", error);
+            throw this.handleAuthError(error);
+        }
+    }
+
+    // Link Anonymous Account with Apple
+    static async linkWithApple() {
+        try {
+            this.initialize();
+            const currentUser = this.auth.currentUser;
+
+            if (!currentUser) {
+                throw new Error("No user is currently signed in");
+            }
+
+            if (!currentUser.isAnonymous) {
+                throw new Error("Current user is not an anonymous account");
+            }
+
+            // Get Apple credentials
+            const appleCredential = await AppleAuthentication.signInAsync({
+                requestedScopes: [
+                    AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                    AppleAuthentication.AppleAuthenticationScope.EMAIL,
+                ],
+            });
+
+            const { identityToken, fullName } = appleCredential;
+            const provider = new OAuthProvider("apple.com");
+            const credential = provider.credential({
+                idToken: identityToken,
+            });
+
+            // Link the credential to the anonymous account
+            const userCredential = await linkWithCredential(
+                currentUser,
+                credential,
+            );
+
+            // Update profile with Apple name if available
+            if (fullName?.givenName) {
+                const displayName =
+                    `${fullName.givenName} ${fullName.familyName ?? ""}`.trim();
+                await updateProfile(userCredential.user, { displayName });
+            }
+
+            await this.syncOnboardingData(userCredential.user);
+            await this.mergeUserData(userCredential.user);
+
+            return userCredential.user;
+        } catch (error) {
+            console.error("Error linking with Apple:", error);
+            throw this.handleAuthError(error);
+        }
+    }
+
+    // Process Google Sign-in Response for Linking
+    static async processGoogleLinking(response) {
+        try {
+            if (response?.type === "success") {
+                const { id_token } = response.params;
+                return await this.linkWithGoogle(id_token);
+            }
+
+            throw new Error("Google sign-in was cancelled");
+        } catch (error) {
+            console.error("Google linking error:", error);
             throw error;
         }
     }
@@ -197,90 +349,17 @@ export class AuthService {
         return onAuthStateChanged(this.auth, callback);
     }
 
-    // User Document Management - Realtime Database
-    static async createUserDocument(user, additionalData = {}) {
+    static async mergeUserData(user) {
+        if (!user?.uid) return;
+        await userSyncService.mergeOnLogin(user.uid);
+    }
+
+    // Ensures local data is merged with compact cloud sync blob only
+    static async createUserDocument(user) {
         try {
-            const userRef = ref(this.database, `users/${user.uid}`);
-            const userSnapshot = await get(userRef);
-
-            if (!userSnapshot.exists()) {
-                // Create the complete user data structure according to the guide
-                const userData = {
-                    profile: {
-                        userId: user.uid,
-                        createdAt: new Date().toISOString(),
-                        name:
-                            user.displayName ||
-                            additionalData.displayName ||
-                            "User",
-                        email: user.email,
-                        photoURL: user.photoURL || null,
-                        lastLoginAt: new Date().toISOString(),
-                        settings: {
-                            notifications: true,
-                            prayerReminders: true,
-                            language: "en",
-                            theme: "light",
-                        },
-                    },
-                    stats: {
-                        totalQuizzes: 0,
-                        totalScore: 0,
-                        totalTimeSpent: 0,
-                        averageScore: 0,
-                        averagePercentage: 0,
-                        lastUpdated: new Date().toISOString(),
-                        streak: {
-                            current: 0,
-                            longest: 0,
-                            lastDate: null,
-                        },
-                        // Legacy stats for compatibility
-                        prayersCompleted: 0,
-                        quranPagesRead: 0,
-                        quizzesTaken: 0,
-                        currentStreak: 0,
-                    },
-                    quizResults: {}, // Will store daily quiz results by date
-                    dailyQuestions: {}, // Will store daily questions by date
-                    ...additionalData,
-                };
-
-                await set(userRef, userData);
-                console.log(
-                    "User document created successfully in Realtime Database with proper structure"
-                );
-            } else {
-                // Update last login and ensure structure is complete
-                const updates = {
-                    "profile/lastLoginAt": new Date().toISOString(),
-                };
-
-                // Check if stats structure exists, if not create it
-                const statsSnapshot = await get(
-                    ref(this.database, `users/${user.uid}/stats`)
-                );
-                if (!statsSnapshot.exists()) {
-                    updates["stats"] = {
-                        totalQuizzes: 0,
-                        totalScore: 0,
-                        totalTimeSpent: 0,
-                        averageScore: 0,
-                        averagePercentage: 0,
-                        lastUpdated: new Date().toISOString(),
-                        streak: {
-                            current: 0,
-                            longest: 0,
-                            lastDate: null,
-                        },
-                    };
-                }
-
-                await update(userRef, updates);
-                console.log("User login updated and structure verified");
-            }
+            await this.mergeUserData(user);
         } catch (error) {
-            console.error("Error creating user document:", error);
+            console.error("Error syncing user data:", error);
         }
     }
 
@@ -318,14 +397,14 @@ export class AuthService {
         try {
             const statsRef = ref(
                 this.database,
-                `users/${userId}/stats/${statType}`
+                `users/${userId}/stats/${statType}`,
             );
             await set(statsRef, value);
 
             // Also update lastUpdated timestamp
             const lastUpdatedRef = ref(
                 this.database,
-                `users/${userId}/stats/lastUpdated`
+                `users/${userId}/stats/lastUpdated`,
             );
             await set(lastUpdatedRef, new Date().toISOString());
         } catch (error) {
@@ -350,14 +429,14 @@ export class AuthService {
             const dataStr = await AsyncStorage.getItem("onboarding_data");
             const locationStr = await AsyncStorage.getItem("user_location");
             const notificationsEnabled = await AsyncStorage.getItem(
-                "notifications_enabled"
+                "notifications_enabled",
             );
 
             if (dataStr) {
                 const userData = JSON.parse(dataStr);
                 const onboardingRef = ref(
                     this.database,
-                    `users/${user.uid}/profile/onboarding`
+                    `users/${user.uid}/profile/onboarding`,
                 );
 
                 await set(onboardingRef, {

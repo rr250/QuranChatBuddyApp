@@ -1,580 +1,318 @@
-// src/services/quranService.js - Complete Quran service with Firebase tracking
+import { QuranApi } from "./quranApi";
 import { AuthService } from "./authService";
-import { getFirebaseAuth, getFirebaseDatabase } from "./firebase";
-import {
-    ref,
-    set,
-    get,
-    push,
-    update,
-    serverTimestamp,
-} from "firebase/database";
+import { localDataStore } from "../storage/localDataStore";
+import { userSyncService } from "./userSyncService";
+import { getTodayDateString, sortByDateDesc } from "../utils/date";
+import { calculateConsecutiveDayStreak } from "../utils/streak";
+
+const TOTAL_QURAN_VERSES = 6236;
+
+const DEFAULT_READING_STATS = {
+    totalVersesRead: 0,
+    totalSurahsCompleted: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    averageVersesPerDay: 0,
+    daysActive: 0,
+    completionPercentage: 0,
+};
+
+const createInitialProfile = () => ({
+    currentSurah: 1,
+    currentVerse: 1,
+    totalVersesRead: 0,
+    totalSurahsRead: 0,
+    readingStreak: { current: 0, longest: 0, lastReadDate: null },
+    lastUpdated: null,
+});
 
 class QuranService {
-    constructor() {
-        this.baseApiUrl = "https://api.alquran.cloud/v1";
-        this.currentUserId = null;
-        this.initialize();
-    }
-
-    initialize() {
-        if (!this.auth) {
-            this.auth = getFirebaseAuth();
-            this.database = getFirebaseDatabase();
-        }
-    }
-
-    // Get current user ID
-    getCurrentUserId() {
-        AuthService.initialize(); // Ensure AuthService is initialized
+    getUserId() {
+        AuthService.initialize();
         const user = AuthService.getCurrentUser();
-        if (!user) {
-            throw new Error("User not authenticated");
-        }
-        console.log("Current User ID:", user.uid);
+        if (!user) throw new Error("User not authenticated");
         return user.uid;
     }
 
-    // Get Firebase path for user Quran data
-    getUserQuranPath(path = "") {
-        const userId = this.getCurrentUserId();
-        return `users/${userId}/quranProgress/${path}`;
-    }
-
-    // Get all Surahs list with metadata
-    async getAllSurahs() {
-        try {
-            console.log(
-                "Fetching all Surahs from API",
-                `${this.baseApiUrl}/surah`
-            );
-            const response = await fetch(`${this.baseApiUrl}/surah`);
-            const data = await response.json();
-
-            if (data.code === 200) {
-                return data.data.map((surah) => ({
-                    number: surah.number,
-                    name: surah.name,
-                    englishName: surah.englishName,
-                    englishNameTranslation: surah.englishNameTranslation,
-                    numberOfAyahs: surah.numberOfAyahs,
-                    revelationType: surah.revelationType,
-                }));
-            }
-            throw new Error("Failed to fetch Surahs");
-        } catch (error) {
-            console.error("Error fetching Surahs:", error);
-            throw error;
+    async ensureQuranData(userId) {
+        const existing = await localDataStore.get(userId, "quran");
+        if (!existing) {
+            await localDataStore.set(userId, "quran", userSyncService.defaultQuranLocal());
         }
     }
 
-    // Get specific Surah with Arabic and English
-    async getSurah(surahNumber, edition = "quran-uthmani") {
-        try {
-            // Get Arabic text
-            const arabicResponse = await fetch(
-                `${this.baseApiUrl}/surah/${surahNumber}/${edition}`
-            );
-            const arabicData = await arabicResponse.json();
-
-            // Get English translation
-            const englishResponse = await fetch(
-                `${this.baseApiUrl}/surah/${surahNumber}/en.asad`
-            );
-            const englishData = await englishResponse.json();
-
-            if (arabicData.code === 200 && englishData.code === 200) {
-                const surah = arabicData.data;
-                const englishSurah = englishData.data;
-
-                // Combine Arabic and English verses
-                const verses = surah.ayahs.map((ayah, index) => ({
-                    number: ayah.number,
-                    numberInSurah: ayah.numberInSurah,
-                    text: ayah.text, // Arabic text
-                    translation: englishSurah.ayahs[index]?.text || "", // English translation
-                    juz: ayah.juz,
-                    page: ayah.page,
-                    hizbQuarter: ayah.hizbQuarter,
-                }));
-
-                return {
-                    number: surah.number,
-                    name: surah.name,
-                    englishName: surah.englishName,
-                    englishNameTranslation: surah.englishNameTranslation,
-                    numberOfAyahs: surah.numberOfAyahs,
-                    revelationType: surah.revelationType,
-                    verses: verses,
-                };
-            }
-            throw new Error("Failed to fetch Surah data");
-        } catch (error) {
-            console.error("Error fetching Surah:", error);
-            throw error;
-        }
+    getAllSurahs() {
+        return QuranApi.getAllSurahs();
     }
 
-    // Get specific verse with multiple translations
-    async getVerse(surahNumber, verseNumber) {
-        try {
-            const response = await fetch(
-                `${this.baseApiUrl}/ayah/${surahNumber}:${verseNumber}/editions/quran-uthmani,en.asad,en.pickthall`
-            );
-            const data = await response.json();
-
-            if (data.code === 200) {
-                const [arabic, asad, pickthall] = data.data;
-                return {
-                    number: arabic.number,
-                    numberInSurah: arabic.numberInSurah,
-                    surah: {
-                        number: arabic.surah.number,
-                        name: arabic.surah.name,
-                        englishName: arabic.surah.englishName,
-                    },
-                    text: arabic.text,
-                    translations: {
-                        asad: asad.text,
-                        pickthall: pickthall.text,
-                    },
-                    juz: arabic.juz,
-                    page: arabic.page,
-                };
-            }
-            throw new Error("Failed to fetch verse");
-        } catch (error) {
-            console.error("Error fetching verse:", error);
-            throw error;
-        }
+    getSurah(surahNumber, edition) {
+        return QuranApi.getSurah(surahNumber, edition);
     }
 
-    // Search verses
-    async searchVerses(query, language = "en") {
-        try {
-            const edition = language === "ar" ? "quran-uthmani" : "en.asad";
-            const response = await fetch(
-                `${this.baseApiUrl}/search/${encodeURIComponent(
-                    query
-                )}/${edition}`
-            );
-            const data = await response.json();
-
-            if (data.code === 200) {
-                return {
-                    count: data.data.count,
-                    matches: data.data.matches.map((match) => ({
-                        number: match.number,
-                        numberInSurah: match.numberInSurah,
-                        text: match.text,
-                        surah: {
-                            number: match.surah.number,
-                            name: match.surah.name,
-                            englishName: match.surah.englishName,
-                        },
-                    })),
-                };
-            }
-            throw new Error("Search failed");
-        } catch (error) {
-            console.error("Error searching verses:", error);
-            throw error;
-        }
+    getVerse(surahNumber, verseNumber) {
+        return QuranApi.getVerse(surahNumber, verseNumber);
     }
 
-    // Firebase Progress Tracking
+    searchVerses(searchQuery, language) {
+        return QuranApi.searchVerses(searchQuery, language);
+    }
 
-    // Initialize user Quran progress
     async initializeUserProgress() {
         try {
-            const userId = this.getCurrentUserId();
-            const progressRef = ref(
-                this.database,
-                this.getUserQuranPath("profile")
-            );
-
-            const snapshot = await get(progressRef);
-            if (!snapshot.exists()) {
-                const initialProgress = {
-                    userId: userId,
-                    createdAt: serverTimestamp(),
-                    totalSurahsRead: 0,
-                    totalVersesRead: 0,
-                    favoriteVerses: [],
-                    readingSessions: [],
-                    currentSurah: 1,
-                    currentVerse: 1,
-                    completedSurahs: [],
-                    readingStreak: {
-                        current: 0,
-                        longest: 0,
-                        lastReadDate: null,
-                    },
-                };
-
-                await set(progressRef, initialProgress);
-                console.log("User Quran progress initialized");
-            }
+            const userId = this.getUserId();
+            await this.ensureQuranData(userId);
         } catch (error) {
             console.error("Error initializing user progress:", error);
         }
     }
 
-    // Track verse read
     async markVerseAsRead(surahNumber, verseNumber) {
         try {
-            const timestamp = serverTimestamp();
+            const userId = this.getUserId();
             const verseKey = `${surahNumber}:${verseNumber}`;
 
-            // Record individual verse read
-            const verseReadRef = ref(
-                this.database,
-                this.getUserQuranPath(`versesRead/${verseKey}`)
-            );
-            await set(verseReadRef, {
+            await localDataStore.setNested(userId, "quran", `versesRead/${verseKey}`, {
                 surahNumber,
                 verseNumber,
-                readAt: timestamp,
-                readCount: 1, // Can be incremented for re-reads
+                readAt: new Date().toISOString(),
             });
 
-            // Update daily reading session
-            await this.updateDailySession(surahNumber, verseNumber);
-
-            // Update overall progress
-            await this.updateUserProgress();
+            await this.updateDailySession(userId, surahNumber, verseNumber);
+            await this.updateUserProgress(userId);
+            userSyncService.scheduleSync(userId);
         } catch (error) {
             console.error("Error marking verse as read:", error);
         }
     }
 
-    // Mark entire Surah as completed
     async markSurahAsCompleted(surahNumber) {
         try {
-            const timestamp = serverTimestamp();
-
-            // Record Surah completion
-            const surahCompletionRef = ref(
-                this.database,
-                this.getUserQuranPath(`completedSurahs/${surahNumber}`)
+            const userId = this.getUserId();
+            await localDataStore.setNested(
+                userId,
+                "quran",
+                `completedSurahs/${surahNumber}`,
+                {
+                    surahNumber,
+                    completedAt: new Date().toISOString(),
+                },
             );
-            await set(surahCompletionRef, {
-                surahNumber,
-                completedAt: timestamp,
-                readingTime: 0, // Can be calculated from session data
-            });
-
-            // Update progress summary
-            await this.updateUserProgress();
+            await this.updateUserProgress(userId);
+            userSyncService.scheduleSync(userId);
         } catch (error) {
             console.error("Error marking Surah as completed:", error);
         }
     }
 
-    // Update daily reading session
-    async updateDailySession(surahNumber, verseNumber) {
-        try {
-            const today = new Date().toDateString();
-            const sessionRef = ref(
-                this.database,
-                this.getUserQuranPath(`dailySessions/${today}`)
-            );
+    async updateDailySession(userId, surahNumber, verseNumber) {
+        const today = getTodayDateString();
+        const verseKey = `${surahNumber}:${verseNumber}`;
+        const session =
+            (await localDataStore.getNested(userId, "quran", `dailySessions/${today}`)) ?? {
+                date: today,
+                startTime: new Date().toISOString(),
+                versesRead: [],
+                totalTime: 0,
+            };
 
-            const snapshot = await get(sessionRef);
-            let session = snapshot.exists()
-                ? snapshot.val()
-                : {
-                      date: today,
-                      startTime: serverTimestamp(),
-                      versesRead: [],
-                      totalTime: 0,
-                  };
+        if (session.versesRead.includes(verseKey)) return;
 
-            // Add verse to session
-            const verseKey = `${surahNumber}:${verseNumber}`;
-            if (!session.versesRead.includes(verseKey)) {
-                session.versesRead.push(verseKey);
-                session.lastReadTime = serverTimestamp();
-
-                await set(sessionRef, session);
-            }
-        } catch (error) {
-            console.error("Error updating daily session:", error);
-        }
+        await localDataStore.setNested(userId, "quran", `dailySessions/${today}`, {
+            ...session,
+            versesRead: [...session.versesRead, verseKey],
+            lastReadTime: new Date().toISOString(),
+        });
     }
 
-    // Update overall user progress
-    async updateUserProgress() {
-        try {
-            // Get all user data
-            const [versesSnapshot, surahsSnapshot, sessionsSnapshot] =
-                await Promise.all([
-                    get(
-                        ref(this.database, this.getUserQuranPath("versesRead"))
-                    ),
-                    get(
-                        ref(
-                            this.database,
-                            this.getUserQuranPath("completedSurahs")
-                        )
-                    ),
-                    get(
-                        ref(
-                            this.database,
-                            this.getUserQuranPath("dailySessions")
-                        )
-                    ),
-                ]);
+    async updateUserProgress(userId) {
+        const versesRead =
+            (await localDataStore.getNested(userId, "quran", "versesRead")) ?? {};
+        const completedSurahs =
+            (await localDataStore.getNested(userId, "quran", "completedSurahs")) ?? {};
+        const sessions =
+            (await localDataStore.getNested(userId, "quran", "dailySessions")) ?? {};
 
-            const totalVersesRead = versesSnapshot.exists()
-                ? Object.keys(versesSnapshot.val()).length
-                : 0;
-            const totalSurahsCompleted = surahsSnapshot.exists()
-                ? Object.keys(surahsSnapshot.val()).length
-                : 0;
-            const totalSessions = sessionsSnapshot.exists()
-                ? Object.keys(sessionsSnapshot.val()).length
-                : 0;
+        const totalVersesRead = Object.keys(versesRead).length;
+        const totalSurahsCompleted = Object.keys(completedSurahs).length;
+        const sessionDates = Object.keys(sessions);
+        const readingStreak = calculateConsecutiveDayStreak(sessionDates);
 
-            // Calculate reading streak
-            const readingStreak = await this.calculateReadingStreak(
-                sessionsSnapshot.val()
-            );
+        const profile =
+            (await localDataStore.getNested(userId, "quran", "profile")) ??
+            createInitialProfile();
 
-            // Update progress summary
-            const progressRef = ref(
-                this.database,
-                this.getUserQuranPath("profile")
-            );
-            await update(progressRef, {
-                totalVersesRead,
-                totalSurahsRead: totalSurahsCompleted,
-                totalReadingSessions: totalSessions,
-                readingStreak,
-                lastUpdated: serverTimestamp(),
-            });
-        } catch (error) {
-            console.error("Error updating user progress:", error);
-        }
+        await localDataStore.setNested(userId, "quran", "profile", {
+            ...profile,
+            totalVersesRead,
+            totalSurahsRead: totalSurahsCompleted,
+            totalReadingSessions: sessionDates.length,
+            readingStreak,
+            lastUpdated: new Date().toISOString(),
+        });
     }
 
-    // Calculate reading streak
-    async calculateReadingStreak(sessions) {
-        if (!sessions) return { current: 0, longest: 0, lastReadDate: null };
-
-        const dates = Object.keys(sessions).sort();
-        if (dates.length === 0)
-            return { current: 0, longest: 0, lastReadDate: null };
-
-        let currentStreak = 0;
-        let longestStreak = 0;
-        let tempStreak = 0;
-
-        const today = new Date().toDateString();
-        const yesterday = new Date(Date.now() - 86400000).toDateString();
-
-        // Calculate streaks
-        for (let i = dates.length - 1; i >= 0; i--) {
-            const currentDate = dates[i];
-            const previousDate = i > 0 ? dates[i - 1] : null;
-
-            if (i === dates.length - 1) {
-                // Start with the most recent date
-                tempStreak = 1;
-                if (currentDate === today || currentDate === yesterday) {
-                    currentStreak = 1;
-                }
-            } else {
-                // Check if dates are consecutive
-                const current = new Date(currentDate);
-                const previous = new Date(previousDate);
-                const diffTime = Math.abs(previous - current);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                if (diffDays === 1) {
-                    tempStreak++;
-                    if (currentStreak > 0) currentStreak++;
-                } else {
-                    longestStreak = Math.max(longestStreak, tempStreak);
-                    tempStreak = 1;
-                    currentStreak = 0;
-                }
-            }
-        }
-
-        longestStreak = Math.max(longestStreak, tempStreak, currentStreak);
-
-        return {
-            current: currentStreak,
-            longest: longestStreak,
-            lastReadDate: dates[dates.length - 1],
-        };
-    }
-
-    // Get user's reading progress
     async getUserProgress() {
         try {
-            const progressRef = ref(
-                this.database,
-                this.getUserQuranPath("profile")
-            );
-            const snapshot = await get(progressRef);
-
-            if (snapshot.exists()) {
-                return snapshot.val();
-            } else {
-                await this.initializeUserProgress();
-                return await this.getUserProgress();
-            }
+            const userId = this.getUserId();
+            await this.ensureQuranData(userId);
+            const progress = await localDataStore.getNested(userId, "quran", "profile");
+            return progress ?? createInitialProfile();
         } catch (error) {
             console.error("Error getting user progress:", error);
             return null;
         }
     }
 
-    // Get reading history
     async getReadingHistory(limit = 10) {
         try {
-            const sessionsRef = ref(
-                this.database,
-                this.getUserQuranPath("dailySessions")
-            );
-            const snapshot = await get(sessionsRef);
-
-            if (snapshot.exists()) {
-                const sessions = snapshot.val();
-                return Object.values(sessions)
-                    .sort((a, b) => new Date(b.date) - new Date(a.date))
-                    .slice(0, limit);
-            }
-            return [];
+            const userId = this.getUserId();
+            const sessions =
+                (await localDataStore.getNested(userId, "quran", "dailySessions")) ?? {};
+            return sortByDateDesc(Object.values(sessions)).slice(0, limit);
         } catch (error) {
             console.error("Error getting reading history:", error);
             return [];
         }
     }
 
-    // Bookmark/Favorite a verse
     async addToFavorites(surahNumber, verseNumber, text, translation) {
         try {
-            const favoriteRef = ref(
-                this.database,
-                this.getUserQuranPath(`favorites/${surahNumber}_${verseNumber}`)
+            const userId = this.getUserId();
+            await localDataStore.setNested(
+                userId,
+                "quran",
+                `favorites/${surahNumber}_${verseNumber}`,
+                {
+                    surahNumber,
+                    verseNumber,
+                    text,
+                    translation,
+                    addedAt: new Date().toISOString(),
+                },
             );
-            await set(favoriteRef, {
-                surahNumber,
-                verseNumber,
-                text,
-                translation,
-                addedAt: serverTimestamp(),
-            });
         } catch (error) {
             console.error("Error adding to favorites:", error);
         }
     }
 
-    // Remove from favorites
     async removeFromFavorites(surahNumber, verseNumber) {
         try {
-            const favoriteRef = ref(
-                this.database,
-                this.getUserQuranPath(`favorites/${surahNumber}_${verseNumber}`)
+            const userId = this.getUserId();
+            await localDataStore.deleteNested(
+                userId,
+                "quran",
+                `favorites/${surahNumber}_${verseNumber}`,
             );
-            await set(favoriteRef, null);
         } catch (error) {
             console.error("Error removing from favorites:", error);
         }
     }
 
-    // Get favorite verses
     async getFavoriteVerses() {
         try {
-            const favoritesRef = ref(
-                this.database,
-                this.getUserQuranPath("favorites")
-            );
-            const snapshot = await get(favoritesRef);
-
-            if (snapshot.exists()) {
-                return Object.values(snapshot.val()).sort(
-                    (a, b) => new Date(b.addedAt) - new Date(a.addedAt)
-                );
-            }
-            return [];
+            const userId = this.getUserId();
+            const favorites =
+                (await localDataStore.getNested(userId, "quran", "favorites")) ?? {};
+            return sortByDateDesc(Object.values(favorites), "addedAt");
         } catch (error) {
             console.error("Error getting favorite verses:", error);
             return [];
         }
     }
 
-    // Get reading statistics
     async getReadingStats() {
         try {
-            const progress = await this.getUserProgress();
-            const history = await this.getReadingHistory(30);
+            const userId = this.getUserId();
+            const [progress, history] = await Promise.all([
+                this.getUserProgress(),
+                this.getReadingHistory(30),
+            ]);
+
+            const totalVersesRead = progress?.totalVersesRead ?? 0;
+            const versesPerSession = history.map(
+                (session) => session.versesRead?.length ?? 0,
+            );
 
             return {
-                totalVersesRead: progress?.totalVersesRead || 0,
-                totalSurahsCompleted: progress?.totalSurahsRead || 0,
-                currentStreak: progress?.readingStreak?.current || 0,
-                longestStreak: progress?.readingStreak?.longest || 0,
+                totalVersesRead,
+                totalSurahsCompleted: progress?.totalSurahsRead ?? 0,
+                currentStreak: progress?.readingStreak?.current ?? 0,
+                longestStreak: progress?.readingStreak?.longest ?? 0,
                 averageVersesPerDay:
                     history.length > 0
                         ? Math.round(
-                              history.reduce(
-                                  (sum, session) =>
-                                      sum + (session.versesRead?.length || 0),
-                                  0
-                              ) / history.length
+                              versesPerSession.reduce((sum, count) => sum + count, 0) /
+                                  history.length,
                           )
                         : 0,
                 daysActive: history.length,
                 completionPercentage: Math.round(
-                    ((progress?.totalVersesRead || 0) / 6236) * 100
-                ), // Total verses in Quran: 6236
+                    (totalVersesRead / TOTAL_QURAN_VERSES) * 100,
+                ),
             };
         } catch (error) {
             console.error("Error getting reading stats:", error);
-            return {
-                totalVersesRead: 0,
-                totalSurahsCompleted: 0,
-                currentStreak: 0,
-                longestStreak: 0,
-                averageVersesPerDay: 0,
-                daysActive: 0,
-                completionPercentage: 0,
-            };
+            return { ...DEFAULT_READING_STATS };
         }
     }
 
-    // Check if verse is already read
     async isVerseRead(surahNumber, verseNumber) {
         try {
+            const userId = this.getUserId();
             const verseKey = `${surahNumber}:${verseNumber}`;
-            const verseRef = ref(
-                this.database,
-                this.getUserQuranPath(`versesRead/${verseKey}`)
+            const data = await localDataStore.getNested(
+                userId,
+                "quran",
+                `versesRead/${verseKey}`,
             );
-            const snapshot = await get(verseRef);
-            return snapshot.exists();
-        } catch (error) {
-            console.error("Error checking if verse is read:", error);
+            return Boolean(data);
+        } catch {
             return false;
         }
     }
 
-    // Check if verse is favorited
     async isVerseFavorited(surahNumber, verseNumber) {
         try {
-            const favoriteRef = ref(
-                this.database,
-                this.getUserQuranPath(`favorites/${surahNumber}_${verseNumber}`)
+            const userId = this.getUserId();
+            const data = await localDataStore.getNested(
+                userId,
+                "quran",
+                `favorites/${surahNumber}_${verseNumber}`,
             );
-            const snapshot = await get(favoriteRef);
-            return snapshot.exists();
-        } catch (error) {
-            console.error("Error checking if verse is favorited:", error);
+            return Boolean(data);
+        } catch {
             return false;
+        }
+    }
+
+    async getSurahVerseStatus(surahNumber) {
+        try {
+            const userId = this.getUserId();
+            const [versesRead, favorites] = await Promise.all([
+                localDataStore.getNested(userId, "quran", "versesRead"),
+                localDataStore.getNested(userId, "quran", "favorites"),
+            ]);
+
+            const read = new Set();
+            const favorited = new Set();
+            const prefix = `${surahNumber}:`;
+
+            Object.keys(versesRead ?? {}).forEach((key) => {
+                if (key.startsWith(prefix)) {
+                    read.add(Number(key.split(":")[1]));
+                }
+            });
+
+            Object.keys(favorites ?? {}).forEach((key) => {
+                if (key.startsWith(`${surahNumber}_`)) {
+                    favorited.add(Number(key.split("_")[1]));
+                }
+            });
+
+            return { read, favorited };
+        } catch (error) {
+            console.error("Error loading surah verse status:", error);
+            return { read: new Set(), favorited: new Set() };
         }
     }
 }

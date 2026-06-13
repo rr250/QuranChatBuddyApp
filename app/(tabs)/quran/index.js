@@ -10,10 +10,10 @@ import {
     ActivityIndicator,
     Alert,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
+import { ScreenShell, screenContentPadding } from "../../../src/components/navigation/ScreenShell";
+import { glass } from "../../../src/constants/glass";
+import { theme } from "../../../src/constants/theme";
 import { useQuran } from "../../../src/hooks/useQuran";
-import { colors } from "../../../src/constants/theme";
 import { useRouter } from "expo-router";
 
 const QuranListScreen = () => {
@@ -105,189 +105,75 @@ const QuranListScreen = () => {
         );
     };
 
-    const renderHeader = () => (
-        <LinearGradient
-            colors={[
-                colors?.primary || "#2E8B57",
-                colors?.primaryDark || "#1F5F3F",
-            ]}
-            style={styles.header}
-        >
-            <View style={styles.headerContent}>
-                <TouchableOpacity
-                    onPress={() => router.back()}
-                    style={styles.backButton}
-                >
-                    <Text style={styles.backButtonText}>← Back</Text>
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Holy Quran</Text>
-                <TouchableOpacity
-                    onPress={() => router.push("/(tabs)/quran/stats")}
-                    style={styles.statsButton}
-                >
-                    <Text style={styles.statsButtonText}>📊</Text>
-                </TouchableOpacity>
-            </View>
-
-            {progress && (
-                <View style={styles.progressSection}>
-                    <Text style={styles.progressText}>
-                        {progress.totalVersesRead || 0} verses read •{" "}
-                        {progress.readingStreak?.current || 0} day streak
-                    </Text>
-                    <View style={styles.progressBar}>
-                        <View
-                            style={[
-                                styles.progressFill,
-                                {
-                                    width: `${Math.min(
-                                        ((progress.totalVersesRead || 0) /
-                                            6236) *
-                                            100,
-                                        100
-                                    )}%`,
-                                },
-                            ]}
-                        />
-                    </View>
-                </View>
-            )}
-        </LinearGradient>
-    );
+    const progressSubtitle = progress
+        ? `${progress.totalVersesRead ?? 0} verses read · ${progress.readingStreak?.current ?? 0} day streak`
+        : "114 surahs · instant offline reading";
 
     const renderSearchBar = () => (
         <View style={styles.searchContainer}>
             <TextInput
                 style={styles.searchInput}
-                placeholder="Search Surahs by name or number..."
+                placeholder="Search surahs..."
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholderTextColor="#999"
+                placeholderTextColor="rgba(255,255,255,0.5)"
             />
         </View>
     );
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.container}>
-                {renderHeader()}
+            <ScreenShell title="Holy Quran" subtitle="Loading surahs...">
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator
-                        size="large"
-                        color={colors?.primary || "#2E8B57"}
-                    />
+                    <ActivityIndicator size="large" color="#fff" />
                     <Text style={styles.loadingText}>Loading Surahs...</Text>
                 </View>
-            </SafeAreaView>
+            </ScreenShell>
         );
     }
 
     if (error) {
         return (
-            <SafeAreaView style={styles.container}>
-                {renderHeader()}
+            <ScreenShell title="Holy Quran" subtitle="Something went wrong">
                 <View style={styles.errorContainer}>
                     <Text style={styles.errorText}>{error}</Text>
-                    <TouchableOpacity
-                        style={styles.retryButton}
-                        onPress={refreshSurahs}
-                    >
+                    <TouchableOpacity style={styles.retryButton} onPress={refreshSurahs}>
                         <Text style={styles.retryButtonText}>Retry</Text>
                     </TouchableOpacity>
                 </View>
-            </SafeAreaView>
+            </ScreenShell>
         );
     }
 
     return (
-        <SafeAreaView style={styles.container}>
-            {renderHeader()}
+        <ScreenShell title="Holy Quran" subtitle={progressSubtitle}>
             {renderSearchBar()}
-
             <FlatList
                 data={filteredSurahs}
                 renderItem={renderSurahItem}
                 keyExtractor={(item) => item.number.toString()}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[styles.listContent, screenContentPadding]}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
             />
-        </SafeAreaView>
+        </ScreenShell>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#f8f9fa",
-    },
-    header: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 16,
-    },
-    headerContent: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 16,
-    },
-    backButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        backgroundColor: "rgba(255,255,255,0.2)",
-        borderRadius: 20,
-    },
-    backButtonText: {
-        color: "white",
-        fontSize: 14,
-        fontWeight: "600",
-    },
-    headerTitle: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: "white",
-    },
-    statsButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        backgroundColor: "rgba(255,255,255,0.2)",
-        borderRadius: 20,
-    },
-    statsButtonText: {
-        fontSize: 16,
-    },
-    progressSection: {
-        marginTop: 8,
-    },
-    progressText: {
-        color: "rgba(255,255,255,0.9)",
-        fontSize: 14,
-        marginBottom: 8,
-        textAlign: "center",
-    },
-    progressBar: {
-        height: 4,
-        backgroundColor: "rgba(255,255,255,0.3)",
-        borderRadius: 2,
-    },
-    progressFill: {
-        height: "100%",
-        backgroundColor: "#DAA520",
-        borderRadius: 2,
-    },
     searchContainer: {
-        padding: 16,
-        backgroundColor: "white",
-        borderBottomWidth: 1,
-        borderBottomColor: "#e0e0e0",
+        paddingHorizontal: theme.spacing.md,
+        paddingBottom: theme.spacing.sm,
     },
     searchInput: {
-        backgroundColor: "#f0f0f0",
-        paddingHorizontal: 16,
+        backgroundColor: glass.backgroundStrong,
+        borderWidth: 1,
+        borderColor: glass.border,
+        paddingHorizontal: theme.spacing.md,
         paddingVertical: 12,
-        borderRadius: 25,
+        borderRadius: 22,
         fontSize: 16,
+        color: "#fff",
     },
     loadingContainer: {
         flex: 1,
@@ -297,7 +183,7 @@ const styles = StyleSheet.create({
     loadingText: {
         marginTop: 16,
         fontSize: 16,
-        color: "#666",
+        color: "rgba(255,255,255,0.8)",
     },
     errorContainer: {
         flex: 1,
@@ -307,38 +193,33 @@ const styles = StyleSheet.create({
     },
     errorText: {
         fontSize: 16,
-        color: "#666",
+        color: "rgba(255,255,255,0.8)",
         textAlign: "center",
         marginBottom: 20,
     },
     retryButton: {
-        backgroundColor: colors?.primary || "#2E8B57",
+        backgroundColor: theme.colors.primary,
         paddingHorizontal: 24,
         paddingVertical: 12,
-        borderRadius: 25,
+        borderRadius: 20,
     },
     retryButtonText: {
-        color: "white",
-        fontSize: 16,
+        color: "#fff",
         fontWeight: "600",
     },
     listContent: {
-        padding: 16,
+        paddingHorizontal: theme.spacing.md,
     },
+    separator: { height: 10 },
     surahCard: {
-        backgroundColor: "white",
-        borderRadius: 12,
+        backgroundColor: "#2E8B57",
+        borderRadius: 16,
         padding: 16,
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        borderWidth: 1,
+        borderColor: glass.cardBorder,
     },
     completedSurah: {
-        backgroundColor: "#f0f8f0",
-        borderLeftWidth: 4,
-        borderLeftColor: "#4CAF50",
+        borderColor: theme.colors.secondary,
     },
     surahHeader: {
         flexDirection: "row",
@@ -348,59 +229,52 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: colors?.primary || "#2E8B57",
+        backgroundColor: theme.colors.primary,
         alignItems: "center",
         justifyContent: "center",
         marginRight: 16,
     },
     surahNumberText: {
-        color: "white",
+        color: "#fff",
         fontSize: 16,
         fontWeight: "bold",
     },
-    surahInfo: {
-        flex: 1,
-    },
+    surahInfo: { flex: 1 },
     surahName: {
         fontSize: 18,
         fontWeight: "bold",
-        color: "#333",
+        color: "#fff",
         marginBottom: 4,
     },
     surahTranslation: {
         fontSize: 14,
-        color: "#666",
+        color: "rgba(255,255,255,0.75)",
         marginBottom: 4,
     },
     surahMeta: {
         fontSize: 12,
-        color: "#888",
+        color: "rgba(255,255,255,0.55)",
     },
-    surahActions: {
-        alignItems: "flex-end",
-    },
+    surahActions: { alignItems: "flex-end" },
     completedBadge: {
         width: 24,
         height: 24,
         borderRadius: 12,
-        backgroundColor: "#4CAF50",
+        backgroundColor: theme.colors.secondary,
         alignItems: "center",
         justifyContent: "center",
         marginBottom: 8,
     },
     completedText: {
-        color: "white",
+        color: "#fff",
         fontSize: 12,
         fontWeight: "bold",
     },
     arabicName: {
         fontSize: 16,
-        color: "#333",
+        color: "rgba(255,255,255,0.9)",
         textAlign: "right",
         fontWeight: "600",
-    },
-    separator: {
-        height: 12,
     },
 });
 

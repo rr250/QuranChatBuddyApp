@@ -1,243 +1,125 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Share } from 'react-native';
-import { Card, Text, Button, IconButton } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { theme } from '../../constants/theme';
+import React, { useMemo } from "react";
+import { View, StyleSheet, Share } from "react-native";
+import { Text, Button, IconButton } from "react-native-paper";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { theme } from "../../constants/theme";
+import { GlassSurface } from "../ui/Glass";
+import { getLocalChapter } from "../../data/quranLocal";
+
+const DAILY_VERSES = [
+    { surah: 2, ayah: 255 },
+    { surah: 112, ayah: 1 },
+    { surah: 1, ayah: 2 },
+    { surah: 24, ayah: 35 },
+    { surah: 55, ayah: 13 },
+    { surah: 94, ayah: 5 },
+];
+
+const buildVerse = (surahNumber, ayahNumber) => {
+    const chapter = getLocalChapter(surahNumber);
+    const verse = chapter?.verses.find((item) => item.id === ayahNumber);
+    if (!verse) return null;
+
+    return {
+        arabicText: verse.text,
+        translation: verse.translation,
+        reference: `Quran ${surahNumber}:${ayahNumber} (${chapter.transliteration})`,
+    };
+};
 
 export const QuranVerseCard = () => {
-  const [verse, setVerse] = useState(null);
-  const [loading, setLoading] = useState(true);
+    const verse = useMemo(() => {
+        const dayIndex = new Date().getDate() % DAILY_VERSES.length;
+        const pick = DAILY_VERSES[dayIndex];
+        return buildVerse(pick.surah, pick.ayah);
+    }, []);
 
-  // Sample verses for demonstration
-  const sampleVerses = [
-    {
-      id: 1,
-      surah: 'Al-Baqarah',
-      ayah: 255,
-      arabicText: 'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ',
-      translation: 'Allah - there is no deity except Him, the Ever-Living, the Sustainer of existence. Neither drowsiness overtakes Him nor sleep.',
-      reference: 'Quran 2:255 (Ayat al-Kursi)'
-    },
-    {
-      id: 2,
-      surah: 'Al-Ikhlas',
-      ayah: 1,
-      arabicText: 'قُلْ هُوَ اللَّهُ أَحَدٌ',
-      translation: 'Say, "He is Allah, [who is] One,"',
-      reference: 'Quran 112:1'
-    },
-    {
-      id: 3,
-      surah: 'Al-Fatiha',
-      ayah: 2,
-      arabicText: 'الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ',
-      translation: '[All] praise is [due] to Allah, Lord of the worlds',
-      reference: 'Quran 1:2'
-    },
-    {
-      id: 4,
-      surah: 'An-Nur',
-      ayah: 35,
-      arabicText: 'اللَّهُ نُورُ السَّمَاوَاتِ وَالْأَرْضِ',
-      translation: 'Allah is the light of the heavens and the earth.',
-      reference: 'Quran 24:35'
-    }
-  ];
+    const loadNewVerse = () => {
+        const pick = DAILY_VERSES[Math.floor(Math.random() * DAILY_VERSES.length)];
+        return buildVerse(pick.surah, pick.ayah);
+    };
 
-  useEffect(() => {
-    loadVerseOfTheDay();
-  }, []);
+    const [currentVerse, setCurrentVerse] = React.useState(verse);
 
-  const loadVerseOfTheDay = () => {
-    setLoading(true);
-    // Simulate loading
-    setTimeout(() => {
-      // Get a random verse for demonstration
-      const randomVerse = sampleVerses[Math.floor(Math.random() * sampleVerses.length)];
-      setVerse(randomVerse);
-      setLoading(false);
-    }, 500);
-  };
+    const handleShare = async () => {
+        if (!currentVerse) return;
 
-  const handleShare = async () => {
-    if (!verse) return;
+        try {
+            await Share.share({
+                message: `${currentVerse.arabicText}\n\n"${currentVerse.translation}"\n\n— ${currentVerse.reference}`,
+                title: "Verse from Quran",
+            });
+        } catch (error) {
+            console.error("Error sharing verse:", error);
+        }
+    };
 
-    try {
-      await Share.share({
-        message: `${verse.arabicText}\n\n"${verse.translation}"\n\n— ${verse.reference}\n\nShared from Quran Chat Buddy`,
-        title: 'Verse from Quran',
-      });
-    } catch (error) {
-      console.error('Error sharing verse:', error);
-    }
-  };
+    if (!currentVerse) return null;
 
-  if (loading) {
     return (
-      <Card style={styles.card}>
-        <Card.Content style={styles.loadingContent}>
-          <MaterialCommunityIcons 
-            name="book-open-page-variant" 
-            size={32} 
-            color={theme.colors.primary} 
-          />
-          <Text style={styles.loadingText}>Loading verse...</Text>
-        </Card.Content>
-      </Card>
+        <GlassSurface style={styles.card}>
+            <View style={styles.content}>
+                <View style={styles.header}>
+                    <View style={styles.headerLeft}>
+                        <MaterialCommunityIcons
+                            name="book-open-page-variant"
+                            size={22}
+                            color="#fff"
+                        />
+                        <Text style={styles.title}>Verse of the Day</Text>
+                    </View>
+                    <IconButton
+                        icon="refresh"
+                        iconColor="#fff"
+                        size={20}
+                        onPress={() => setCurrentVerse(loadNewVerse())}
+                    />
+                </View>
+
+                <Text style={styles.arabicText}>{currentVerse.arabicText}</Text>
+                <Text style={styles.translation}>&quot;{currentVerse.translation}&quot;</Text>
+                <Text style={styles.reference}>— {currentVerse.reference}</Text>
+
+                <View style={styles.actions}>
+                    <Button mode="outlined" onPress={handleShare} textColor="#fff" icon="share">
+                        Share
+                    </Button>
+                </View>
+            </View>
+        </GlassSurface>
     );
-  }
-
-  if (!verse) {
-    return (
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text style={styles.errorText}>Unable to load verse</Text>
-          <Button onPress={loadVerseOfTheDay}>Retry</Button>
-        </Card.Content>
-      </Card>
-    );
-  }
-
-  return (
-    <Card style={styles.card}>
-      <Card.Content>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <MaterialCommunityIcons 
-              name="book-open-page-variant" 
-              size={24} 
-              color={theme.colors.primary} 
-            />
-            <Text style={styles.title}>Verse of the Day</Text>
-          </View>
-          <IconButton
-            icon="refresh"
-            size={20}
-            onPress={loadVerseOfTheDay}
-          />
-        </View>
-
-        {/* Arabic Text */}
-        <View style={styles.verseContainer}>
-          <Text style={styles.arabicText}>{verse.arabicText}</Text>
-        </View>
-
-        {/* Translation */}
-        <View style={styles.translationContainer}>
-          <Text style={styles.translation}>"{verse.translation}"</Text>
-        </View>
-
-        {/* Reference */}
-        <View style={styles.referenceContainer}>
-          <Text style={styles.reference}>— {verse.reference}</Text>
-        </View>
-
-        {/* Actions */}
-        <View style={styles.actions}>
-          <Button
-            mode="outlined"
-            onPress={handleShare}
-            style={styles.shareButton}
-            icon="share"
-            compact
-          >
-            Share
-          </Button>
-          <Button
-            mode="contained"
-            onPress={loadVerseOfTheDay}
-            style={styles.newVerseButton}
-            icon="refresh"
-            compact
-          >
-            New Verse
-          </Button>
-        </View>
-      </Card.Content>
-    </Card>
-  );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    marginBottom: theme.spacing.md,
-    elevation: 2,
-  },
-  loadingContent: {
-    alignItems: 'center',
-    paddingVertical: theme.spacing.xl,
-  },
-  loadingText: {
-    marginTop: theme.spacing.sm,
-    color: theme.colors.onSurfaceVariant,
-  },
-  errorText: {
-    textAlign: 'center',
-    color: theme.colors.error,
-    marginBottom: theme.spacing.md,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: theme.spacing.sm,
-    color: theme.colors.onSurface,
-  },
-  verseContainer: {
-    backgroundColor: theme.colors.primary + '10',
-    padding: theme.spacing.lg,
-    borderRadius: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    alignItems: 'center',
-  },
-  arabicText: {
-    fontSize: 20,
-    lineHeight: 32,
-    textAlign: 'center',
-    color: theme.colors.primary,
-    fontWeight: 'bold',
-  },
-  translationContainer: {
-    paddingHorizontal: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  translation: {
-    fontSize: 16,
-    lineHeight: 24,
-    textAlign: 'center',
-    color: theme.colors.onSurface,
-    fontStyle: 'italic',
-  },
-  referenceContainer: {
-    alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  reference: {
-    fontSize: 14,
-    color: theme.colors.secondary,
-    fontWeight: '600',
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: theme.spacing.md,
-  },
-  shareButton: {
-    flex: 1,
-    marginRight: theme.spacing.sm,
-  },
-  newVerseButton: {
-    flex: 1,
-    marginLeft: theme.spacing.sm,
-  },
+    card: { marginBottom: theme.spacing.md },
+    content: { padding: theme.spacing.lg },
+    header: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: theme.spacing.md,
+    },
+    headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+    title: { fontSize: 17, fontWeight: "700", color: "#fff" },
+    arabicText: {
+        fontSize: 20,
+        lineHeight: 32,
+        textAlign: "center",
+        color: "#fff",
+        marginBottom: theme.spacing.md,
+    },
+    translation: {
+        fontSize: 15,
+        lineHeight: 22,
+        textAlign: "center",
+        color: "rgba(255,255,255,0.85)",
+        fontStyle: "italic",
+        marginBottom: theme.spacing.sm,
+    },
+    reference: {
+        textAlign: "center",
+        color: "rgba(255,255,255,0.65)",
+        marginBottom: theme.spacing.md,
+    },
+    actions: { alignItems: "center" },
 });

@@ -8,27 +8,26 @@ import {
     TouchableOpacity,
     FlatList,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
+import { ScreenShell, screenContentPadding } from "../../../src/components/navigation/ScreenShell";
+import { GlassSection } from "../../../src/components/ui/GlassDashboardCard";
 import { useQuizStats } from "../../../src/hooks/useQuizStats";
 import { LoadingSpinner } from "../../../src/components/common/LoadingSpinner";
-import { colors } from "../../../src/constants/theme";
-import { useRouter } from "expo-router";
+import { theme } from "../../../src/constants/theme";
+import { glass } from "../../../src/constants/glass";
 
 const QuizStatsScreen = ({}) => {
-    const router = useRouter();
     const { stats, history, loading, refreshStats } = useQuizStats();
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.container}>
+            <ScreenShell title="Quiz Stats" subtitle="Loading your progress...">
                 <View style={styles.loadingContainer}>
                     <LoadingSpinner />
                     <Text style={styles.loadingText}>
                         Loading your stats...
                     </Text>
                 </View>
-            </SafeAreaView>
+            </ScreenShell>
         );
     }
 
@@ -86,17 +85,12 @@ const QuizStatsScreen = ({}) => {
     );
 
     return (
-        <SafeAreaView style={styles.container}>
+        <ScreenShell title="Quiz Stats" subtitle="Your learning journey">
             <ScrollView
-                style={styles.content}
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={screenContentPadding}
             >
-                {/* Overall Stats */}
-                <View style={styles.overallStatsContainer}>
-                    <Text style={styles.sectionTitle}>
-                        📊 Overall Statistics
-                    </Text>
-
+                <GlassSection title="📊 Overall Statistics">
                     <View style={styles.statsGrid}>
                         <View style={styles.statCard}>
                             <Text style={styles.statValue}>
@@ -171,12 +165,9 @@ const QuizStatsScreen = ({}) => {
                             )}
                         </View>
                     </View>
-                </View>
+                </GlassSection>
 
-                {/* Recent History */}
-                <View style={styles.historyContainer}>
-                    <Text style={styles.sectionTitle}>📅 Recent History</Text>
-
+                <GlassSection title="📅 Recent History">
                     {history.length > 0 ? (
                         <FlatList
                             data={history}
@@ -197,11 +188,9 @@ const QuizStatsScreen = ({}) => {
                             </Text>
                         </View>
                     )}
-                </View>
+                </GlassSection>
 
-                {/* Motivational Section */}
-                <View style={styles.motivationContainer}>
-                    <Text style={styles.motivationTitle}>🕌 Keep Learning</Text>
+                <GlassSection title="🕌 Keep Learning">
                     <Text style={styles.motivationText}>
                         "And say: My Lord, increase me in knowledge." - Quran
                         20:114
@@ -210,17 +199,13 @@ const QuizStatsScreen = ({}) => {
                         Stay consistent with your daily learning to strengthen
                         your Islamic knowledge and build lasting habits.
                     </Text>
-                </View>
+                </GlassSection>
             </ScrollView>
-        </SafeAreaView>
+        </ScreenShell>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#f8f9fa",
-    },
     loadingContainer: {
         flex: 1,
         alignItems: "center",
@@ -229,105 +214,44 @@ const styles = StyleSheet.create({
     loadingText: {
         marginTop: 16,
         fontSize: 16,
-        color: "#666",
-    },
-    header: {
-        paddingHorizontal: 20,
-        paddingVertical: 20,
-    },
-    headerContent: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-    },
-    backButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        backgroundColor: "rgba(255,255,255,0.2)",
-        borderRadius: 20,
-    },
-    backButtonText: {
-        color: "white",
-        fontSize: 14,
-        fontWeight: "600",
-    },
-    headerTitle: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: "white",
-    },
-    refreshButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        backgroundColor: "rgba(255,255,255,0.2)",
-        borderRadius: 20,
-    },
-    refreshButtonText: {
-        color: "white",
-        fontSize: 16,
-        fontWeight: "600",
-    },
-    content: {
-        flex: 1,
-        padding: 20,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: "bold",
-        color: "#333",
-        marginBottom: 16,
-    },
-    overallStatsContainer: {
-        marginBottom: 24,
+        color: "rgba(255,255,255,0.8)",
     },
     statsGrid: {
         flexDirection: "row",
         flexWrap: "wrap",
         justifyContent: "space-between",
-        marginBottom: 20,
+        marginBottom: theme.spacing.md,
     },
     statCard: {
-        backgroundColor: "white",
+        backgroundColor: glass.backgroundLight,
         borderRadius: 12,
         padding: 16,
         alignItems: "center",
         width: "48%",
         marginBottom: 12,
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        borderWidth: 1,
+        borderColor: glass.borderSubtle,
     },
     statValue: {
         fontSize: 24,
         fontWeight: "bold",
-        color: "#2E8B57",
+        color: "#fff",
         marginBottom: 4,
     },
     statLabel: {
         fontSize: 12,
-        color: "#666",
+        color: "rgba(255,255,255,0.75)",
         textAlign: "center",
         marginBottom: 8,
     },
-    statIcon: {
-        fontSize: 20,
-    },
+    statIcon: { fontSize: 20 },
     achievementsContainer: {
-        backgroundColor: "white",
-        borderRadius: 12,
-        padding: 16,
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        marginTop: theme.spacing.sm,
     },
     achievementsTitle: {
         fontSize: 16,
         fontWeight: "bold",
-        color: "#333",
+        color: "#fff",
         marginBottom: 12,
     },
     badgeGrid: {
@@ -337,12 +261,14 @@ const styles = StyleSheet.create({
     badge: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#f0f8f0",
+        backgroundColor: glass.backgroundStrong,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 16,
         marginRight: 8,
         marginBottom: 8,
+        borderWidth: 1,
+        borderColor: glass.borderSubtle,
     },
     badgeIcon: {
         fontSize: 16,
@@ -350,22 +276,16 @@ const styles = StyleSheet.create({
     },
     badgeText: {
         fontSize: 12,
-        color: "#2E8B57",
+        color: theme.colors.secondary,
         fontWeight: "600",
     },
-    historyContainer: {
-        marginBottom: 24,
-    },
     historyItem: {
-        backgroundColor: "white",
+        backgroundColor: glass.backgroundLight,
         borderRadius: 12,
         padding: 16,
         marginBottom: 12,
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        borderWidth: 1,
+        borderColor: glass.borderSubtle,
     },
     historyHeader: {
         flexDirection: "row",
@@ -376,7 +296,7 @@ const styles = StyleSheet.create({
     historyDate: {
         fontSize: 14,
         fontWeight: "600",
-        color: "#333",
+        color: "#fff",
     },
     historyScore: {
         fontSize: 16,
@@ -389,15 +309,15 @@ const styles = StyleSheet.create({
     },
     historyPercentage: {
         fontSize: 12,
-        color: "#666",
+        color: "rgba(255,255,255,0.75)",
     },
     historyTime: {
         fontSize: 12,
-        color: "#666",
+        color: "rgba(255,255,255,0.75)",
     },
     progressBar: {
         height: 4,
-        backgroundColor: "#f0f0f0",
+        backgroundColor: "rgba(255,255,255,0.2)",
         borderRadius: 2,
         overflow: "hidden",
     },
@@ -406,15 +326,8 @@ const styles = StyleSheet.create({
         borderRadius: 2,
     },
     noHistoryContainer: {
-        backgroundColor: "white",
-        borderRadius: 12,
-        padding: 32,
         alignItems: "center",
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        paddingVertical: theme.spacing.lg,
     },
     noHistoryIcon: {
         fontSize: 48,
@@ -423,35 +336,18 @@ const styles = StyleSheet.create({
     noHistoryText: {
         fontSize: 16,
         fontWeight: "600",
-        color: "#333",
+        color: "#fff",
         marginBottom: 8,
     },
     noHistorySubtext: {
         fontSize: 14,
-        color: "#666",
+        color: "rgba(255,255,255,0.75)",
         textAlign: "center",
         lineHeight: 20,
     },
-    motivationContainer: {
-        backgroundColor: "white",
-        borderRadius: 12,
-        padding: 20,
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-    },
-    motivationTitle: {
-        fontSize: 16,
-        fontWeight: "bold",
-        color: "#333",
-        marginBottom: 12,
-        textAlign: "center",
-    },
     motivationText: {
         fontSize: 14,
-        color: "#2E8B57",
+        color: theme.colors.secondary,
         fontStyle: "italic",
         textAlign: "center",
         marginBottom: 12,
@@ -459,7 +355,7 @@ const styles = StyleSheet.create({
     },
     motivationSubtext: {
         fontSize: 12,
-        color: "#666",
+        color: "rgba(255,255,255,0.75)",
         textAlign: "center",
         lineHeight: 18,
     },

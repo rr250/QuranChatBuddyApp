@@ -18,14 +18,14 @@ export class PrayerNotificationService {
 
     static async setupDailyPrayerNotifications() {
         try {
-            // Get user's notification preferences
             const notificationsEnabled = await this.areNotificationsEnabled();
             if (!notificationsEnabled) {
                 console.log("Prayer notifications are disabled");
                 return;
             }
 
-            // Get user's location
+            await NotificationService.cancelPrayerNotifications();
+
             const location = await LocationService.getCurrentLocation();
             if (!location) {
                 console.log("Location not available for prayer notifications");
@@ -177,13 +177,17 @@ export class PrayerNotificationService {
 
     static async areNotificationsEnabled() {
         try {
-            const enabled = await AsyncStorage.getItem(
-                "prayerNotificationsEnabled"
-            );
-            return enabled !== "false"; // Default to true if not set
+            const [onboardingPref, prayerPref] = await Promise.all([
+                AsyncStorage.getItem("notifications_enabled"),
+                AsyncStorage.getItem("prayerNotificationsEnabled"),
+            ]);
+            if (onboardingPref === "false" || prayerPref === "false") {
+                return false;
+            }
+            return onboardingPref === "true" || prayerPref === "true";
         } catch (error) {
             console.error("Error checking notification settings:", error);
-            return true;
+            return false;
         }
     }
 

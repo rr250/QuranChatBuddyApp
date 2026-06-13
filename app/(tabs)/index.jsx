@@ -1,49 +1,39 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
     View,
     StyleSheet,
     ScrollView,
     RefreshControl,
-    Dimensions,
+    TouchableOpacity,
 } from "react-native";
-import { Text, Card, FAB, Avatar } from "react-native-paper";
-import { LinearGradient } from "expo-linear-gradient";
+import { Text, Avatar } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuthStore } from "../../src/store/authStore";
 import { theme } from "../../src/constants/theme";
-import { PrayerTimesCard } from "../../src/components/prayer/PrayerTimesCard";
-import { QuranVerseCard } from "../../src/components/quran/QuranVerseCard";
-import { QuickActionsGrid } from "../../src/components/home/QuickActionsGrid";
-import { StatisticsCard } from "../../src/components/home/StatisticsCard";
-import { IslamicQuoteCard } from "../../src/components/home/IslamicQuoteCard";
-import { QuizDashboard } from "../../src/components/quiz/QuizDashboard";
-import { NotificationService } from "../../src/services/notificationService";
-import { QuranDashboard } from "../../src/components/quran/QuranDashboard";
 import { PrayerTimesCardMini } from "../../src/components/prayer/PrayerTimesCardMini";
-
-const { width } = Dimensions.get("window");
+import { QuizDashboard } from "../../src/components/quiz/QuizDashboard";
+import { QuranDashboard } from "../../src/components/quran/QuranDashboard";
+import { QuranVerseCard } from "../../src/components/quran/QuranVerseCard";
+import { IslamicQuoteCard } from "../../src/components/home/IslamicQuoteCard";
+import { AppBackground, GlassSurface } from "../../src/components/ui/Glass";
+import { ScreenHeader } from "../../src/components/navigation/ScreenHeader";
 
 export default function HomeScreen() {
-    const { user } = useAuthStore();
+    const { user, isAnonymous } = useAuthStore();
     const [refreshing, setRefreshing] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
 
     useEffect(() => {
-        const timer = setInterval(() => {
-            setCurrentTime(new Date());
-        }, 60000); // Update every minute
-
+        const timer = setInterval(() => setCurrentTime(new Date()), 60_000);
         return () => clearInterval(timer);
     }, []);
 
-    const onRefresh = React.useCallback(async () => {
+    const onRefresh = useCallback(async () => {
         setRefreshing(true);
         try {
-            // Refresh data here
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-        } catch (error) {
-            console.error("Refresh error:", error);
+            await new Promise((resolve) => setTimeout(resolve, 400));
         } finally {
             setRefreshing(false);
         }
@@ -51,220 +41,128 @@ export default function HomeScreen() {
 
     const getGreeting = () => {
         const hour = currentTime.getHours();
-        if (hour < 12) return "Assalamu Alaikum - Blessed Morning";
-        if (hour < 17) return "Assalamu Alaikum - Peaceful Afternoon";
-        if (hour < 20) return "Assalamu Alaikum - Blessed Evening";
-        return "Assalamu Alaikum - Peaceful Night";
-    };
-
-    const handleQuickAction = (action) => {
-        switch (action) {
-            case "prayer":
-                router.push("/(tabs)/prayer");
-                break;
-            case "quran":
-                router.push("/(tabs)/quran");
-                break;
-            case "quiz":
-                router.push("/(tabs)/quiz");
-                break;
-            case "chat":
-                router.push("/(tabs)/chat");
-                break;
-            default:
-                break;
-        }
+        if (hour < 12) return "Blessed Morning";
+        if (hour < 17) return "Peaceful Afternoon";
+        if (hour < 20) return "Blessed Evening";
+        return "Peaceful Night";
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <LinearGradient
-                colors={[theme.colors.primary, theme.colors.secondary]}
-                style={styles.header}
-            >
-                <View style={styles.headerContent}>
-                    <View style={styles.userInfo}>
-                        <Avatar.Text
-                            size={50}
-                            label={user?.displayName?.charAt(0) || "U"}
-                            style={styles.avatar}
-                        />
-                        <View style={styles.greetingContainer}>
-                            <Text style={styles.greeting}>{getGreeting()}</Text>
-                            <Text style={styles.userName}>
-                                {user?.displayName || "User"}
+        <AppBackground>
+            <SafeAreaView style={styles.container} edges={["top"]}>
+                <ScreenHeader
+                    title="Quran Chat Buddy"
+                    subtitle={`Assalamu Alaikum — ${getGreeting()}`}
+                    showHome={false}
+                    rightAction={
+                        <TouchableOpacity
+                            onPress={() => router.push("/(tabs)/profile")}
+                        >
+                            <Avatar.Text
+                                size={42}
+                                label={(user?.displayName?.charAt(0) ?? "G").toUpperCase()}
+                                style={styles.avatar}
+                            />
+                        </TouchableOpacity>
+                    }
+                />
+
+                <ScrollView
+                    style={styles.content}
+                    contentContainerStyle={{ paddingBottom: theme.spacing.lg }}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                    }
+                    showsVerticalScrollIndicator={false}
+                >
+                    <GlassSurface style={styles.heroCard}>
+                        <View style={styles.heroContent}>
+                            <Text style={styles.heroEmoji}>🕌</Text>
+                            <Text style={styles.heroTitle}>
+                                {user?.displayName ?? (isAnonymous ? "Guest" : "Friend")}
+                            </Text>
+                            <Text style={styles.heroSubtitle}>
+                                Ask anything below — prayer, Quran, or daily guidance.
+                            </Text>
+                            <Text style={styles.heroTime}>
+                                {currentTime.toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                })}{" "}
+                                · {currentTime.toLocaleDateString()}
                             </Text>
                         </View>
-                    </View>
+                    </GlassSurface>
 
-                    <View style={styles.timeContainer}>
-                        <Text style={styles.currentTime}>
-                            {currentTime.toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                            })}
-                        </Text>
-                        <Text style={styles.currentDate}>
-                            {currentTime.toLocaleDateString()}
-                        </Text>
-                    </View>
-                </View>
-            </LinearGradient>
-
-            <ScrollView
-                style={styles.content}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                    />
-                }
-                showsVerticalScrollIndicator={false}
-            >
-                {/* Islamic Greeting Card */}
-                <Card style={styles.greetingCard}>
-                    <Card.Content style={styles.greetingContent}>
-                        <Text style={styles.arabicGreeting}>
-                            السَّلاَمُ عَلَيْكُمْ وَرَحْمَةُ اللهِ وَبَرَكَاتُهُ
-                        </Text>
-                        <Text style={styles.greetingTranslation}>
-                            Peace be upon you and Allah's mercy and blessings
-                        </Text>
-                        <View style={styles.islamicPattern}>
-                            <Text style={styles.pattern}>✦ ◈ ✧ ◈ ✦</Text>
+                    <GlassSurface style={styles.sectionCard}>
+                        <View style={styles.sectionContent}>
+                            <Text style={styles.arabicGreeting}>
+                                السَّلاَمُ عَلَيْكُمْ وَرَحْمَةُ اللهِ وَبَرَكَاتُهُ
+                            </Text>
+                            <Text style={styles.greetingTranslation}>
+                                Peace be upon you and Allah&apos;s mercy and blessings
+                            </Text>
                         </View>
-                    </Card.Content>
-                </Card>
+                    </GlassSurface>
 
-                {/* Prayer Times Card */}
-                <PrayerTimesCardMini />
-                <QuizDashboard
-                    onQuizPress={() => {
-                        router.push("/quiz");
-                    }}
-                />
-                <QuranDashboard
-                    onQuranPress={() => {
-                        router.push("/(tabs)/quran");
-                    }}
-                />
-
-                {/* Quick Actions */}
-                {/* <QuickActionsGrid onAction={handleQuickAction} /> */}
-
-                {/* Statistics */}
-                {/* <StatisticsCard /> */}
-
-                {/* Quran Verse of the Day */}
-                <QuranVerseCard />
-
-                {/* Islamic Quote */}
-                <IslamicQuoteCard />
-
-                <View style={styles.bottomSpacing} />
-            </ScrollView>
-
-            {/* Floating Action Button */}
-            <FAB
-                icon="plus"
-                style={styles.fab}
-                onPress={() => {
-                    // Show quick actions menu
-                }}
-            />
-        </SafeAreaView>
+                    <PrayerTimesCardMini />
+                    <QuizDashboard onQuizPress={() => router.push("/(tabs)/quiz")} />
+                    <QuranDashboard onQuranPress={() => router.push("/(tabs)/quran")} />
+                    <QuranVerseCard />
+                    <IslamicQuoteCard />
+                </ScrollView>
+            </SafeAreaView>
+        </AppBackground>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: theme.colors.background,
-    },
-    header: {
-        paddingVertical: theme.spacing.lg,
-        paddingHorizontal: theme.spacing.md,
-    },
-    headerContent: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-    },
-    userInfo: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    avatar: {
-        backgroundColor: "rgba(255,255,255,0.2)",
-    },
-    greetingContainer: {
-        marginLeft: theme.spacing.md,
-    },
-    greeting: {
-        fontSize: 14,
-        color: "rgba(255,255,255,0.9)",
-        marginBottom: 2,
-    },
-    userName: {
-        fontSize: 18,
-        fontWeight: "bold",
-        color: "white",
-    },
-    timeContainer: {
-        alignItems: "flex-end",
-    },
-    currentTime: {
-        fontSize: 20,
-        fontWeight: "bold",
-        color: "white",
-    },
-    currentDate: {
-        fontSize: 12,
-        color: "rgba(255,255,255,0.8)",
-    },
+    container: { flex: 1 },
+    avatar: { backgroundColor: "rgba(255,255,255,0.2)" },
     content: {
         flex: 1,
-        padding: theme.spacing.md,
+        paddingHorizontal: theme.spacing.md,
     },
-    greetingCard: {
-        marginBottom: theme.spacing.md,
-        elevation: 2,
-    },
-    greetingContent: {
+    heroCard: { marginBottom: theme.spacing.md },
+    heroContent: {
+        padding: theme.spacing.lg,
         alignItems: "center",
-        paddingVertical: theme.spacing.lg,
+    },
+    heroEmoji: { fontSize: 42, marginBottom: theme.spacing.sm },
+    heroTitle: {
+        fontSize: 24,
+        fontWeight: "700",
+        color: "#fff",
+        marginBottom: theme.spacing.xs,
+    },
+    heroSubtitle: {
+        fontSize: 14,
+        color: "rgba(255,255,255,0.8)",
+        textAlign: "center",
+        lineHeight: 20,
+    },
+    heroTime: {
+        marginTop: theme.spacing.md,
+        fontSize: 13,
+        color: "rgba(255,255,255,0.65)",
+    },
+    sectionCard: { marginBottom: theme.spacing.md },
+    sectionContent: {
+        padding: theme.spacing.lg,
+        alignItems: "center",
     },
     arabicGreeting: {
         fontSize: 18,
-        fontWeight: "bold",
-        color: theme.colors.primary,
+        fontWeight: "700",
+        color: "#fff",
         textAlign: "center",
-        marginBottom: theme.spacing.md,
+        marginBottom: theme.spacing.sm,
         lineHeight: 28,
     },
     greetingTranslation: {
         fontSize: 14,
-        color: theme.colors.onSurfaceVariant,
+        color: "rgba(255,255,255,0.75)",
         textAlign: "center",
         fontStyle: "italic",
-        marginBottom: theme.spacing.md,
-    },
-    islamicPattern: {
-        paddingVertical: theme.spacing.sm,
-    },
-    pattern: {
-        fontSize: 16,
-        color: theme.colors.secondary,
-        letterSpacing: 6,
-    },
-    bottomSpacing: {
-        height: 80,
-    },
-    fab: {
-        position: "absolute",
-        right: theme.spacing.md,
-        bottom: theme.spacing.xl,
-        backgroundColor: theme.colors.primary,
     },
 });

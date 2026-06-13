@@ -2,44 +2,25 @@
   "rules": {
     ".read": false,
     ".write": false,
+
     "users": {
       "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid",
-        ".validate": "auth != null"
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
       }
     },
+
     "chat_sessions": {
       "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
       }
     },
-    "quiz_results": {
-      "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid",
-        "$quiz_id": {
-          ".validate": "newData.hasChildren(['score', 'totalQuestions', 'completedAt'])"
-        }
-      }
-    },
-    "prayer_tracking": {
-      "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
-      }
-    },
-    "dhikr_counters": {
-      "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
-      }
-    },
+
     "presence": {
       "$uid": {
         ".read": true,
-        ".write": "$uid === auth.uid"
+        ".write": "auth != null && auth.uid == $uid"
       }
     }
   }

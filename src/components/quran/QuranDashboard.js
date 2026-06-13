@@ -1,35 +1,34 @@
 // src/components/quran/QuranDashboard.js - Home page Quran widget
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
     View,
     Text,
     StyleSheet,
     TouchableOpacity,
     ActivityIndicator,
-    Alert,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { GlassDashboardCard } from "../ui/GlassDashboardCard";
 import { useFocusEffect } from "@react-navigation/native";
 import { quranService } from "../../services/quranService";
-import { colors, spacing } from "../../constants/theme";
+import { theme } from "../../constants/theme";
+import { glass } from "../../constants/glass";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../store/authStore";
 
 export const QuranDashboard = ({ onQuranPress }) => {
     const router = useRouter();
-    const [progress, setProgress] = useState(null);
-    const [currentSurah, setCurrentSurah] = useState(null);
     const [nextSurah, setNextSurah] = useState(null);
     const [readingStats, setReadingStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const { user } = useAuthStore();
 
-    // Refresh data when screen comes into focus
     useFocusEffect(
         React.useCallback(() => {
             if (user) {
                 loadQuranData();
+            } else {
+                setLoading(false);
             }
         }, [user])
     );
@@ -44,53 +43,36 @@ export const QuranDashboard = ({ onQuranPress }) => {
             setLoading(true);
             setError(null);
 
-            // Initialize user progress if needed
             await quranService.initializeUserProgress();
 
-            // Load user progress and stats
             const [userProgress, stats] = await Promise.all([
                 quranService.getUserProgress(),
                 quranService.getReadingStats(),
             ]);
-            console.log("User Quran progress:", userProgress, stats);
 
-            setProgress(userProgress);
             setReadingStats(stats);
-
-            // Determine current and next Surah
-            await determineCurrentSurah(userProgress);
-        } catch (error) {
-            console.error("Error loading Quran data:", error);
+            await determineNextSurah(userProgress);
+        } catch (err) {
+            console.error("Error loading Quran data:", err);
             setError("Failed to load Quran progress. Please try again.");
         } finally {
             setLoading(false);
         }
     };
 
-    const determineCurrentSurah = async (userProgress) => {
+    const determineNextSurah = async (userProgress) => {
         try {
-            // Get the current Surah user is reading (from progress or default to 1)
             const currentSurahNumber = userProgress?.currentSurah || 1;
-
-            // Get current Surah info
-            const current = await quranService.getSurah(currentSurahNumber);
-            setCurrentSurah(current);
-
-            // Determine next Surah to read
+            const completedSurahs = userProgress?.completedSurahs || [];
             let nextSurahNumber = currentSurahNumber;
 
-            // Check if current Surah is completed
-            const completedSurahs = userProgress?.completedSurahs || [];
             if (completedSurahs.includes(currentSurahNumber)) {
-                // Find next incomplete Surah
                 for (let i = currentSurahNumber + 1; i <= 114; i++) {
                     if (!completedSurahs.includes(i)) {
                         nextSurahNumber = i;
                         break;
                     }
                 }
-
-                // If all Surahs completed, restart from 1
                 if (
                     nextSurahNumber === currentSurahNumber &&
                     completedSurahs.length === 114
@@ -101,8 +83,8 @@ export const QuranDashboard = ({ onQuranPress }) => {
 
             const next = await quranService.getSurah(nextSurahNumber);
             setNextSurah(next);
-        } catch (error) {
-            console.error("Error determining current Surah:", error);
+        } catch (err) {
+            console.error("Error determining next Surah:", err);
         }
     };
 
@@ -111,7 +93,6 @@ export const QuranDashboard = ({ onQuranPress }) => {
             loadQuranData();
             return;
         }
-
         if (onQuranPress) {
             onQuranPress();
         } else {
@@ -119,7 +100,8 @@ export const QuranDashboard = ({ onQuranPress }) => {
         }
     };
 
-    const handleContinueReading = () => {
+    const handleContinueReading = (e) => {
+        e?.stopPropagation?.();
         if (!user || !nextSurah) {
             handleQuranPress();
             return;
@@ -141,337 +123,240 @@ export const QuranDashboard = ({ onQuranPress }) => {
 
         if (currentStreak >= 7) {
             return `Amazing! ${currentStreak} day streak! 🔥`;
-        } else if (currentStreak >= 3) {
-            return `Great progress! ${currentStreak} days strong! 💪`;
-        } else if (totalVersesRead > 100) {
-            return `${totalVersesRead} verses read! Keep going! 📖`;
-        } else if (completionPercentage > 0) {
-            return `${completionPercentage}% complete! Excellent! ⭐`;
-        } else {
-            return "Begin your blessed journey 🕌";
         }
+        if (currentStreak >= 3) {
+            return `Great progress! ${currentStreak} days strong! 💪`;
+        }
+        if (totalVersesRead > 100) {
+            return `${totalVersesRead} verses read! Keep going! 📖`;
+        }
+        if (completionPercentage > 0) {
+            return `${completionPercentage}% complete! Excellent! ⭐`;
+        }
+        return "Begin your blessed journey 🕌";
     };
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator
-                    size="small"
-                    color={colors?.primary || "#2E8B57"}
-                />
-                <Text style={styles.loadingText}>Loading Quran...</Text>
-            </View>
+            <GlassDashboardCard disabled>
+                <View style={styles.loadingRow}>
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text style={styles.loadingText}>Loading Quran...</Text>
+                </View>
+            </GlassDashboardCard>
         );
     }
 
-    // Show error state with retry option
-    if (error) {
+    if (!user) {
         return (
-            <TouchableOpacity onPress={loadQuranData} activeOpacity={0.8}>
-                <LinearGradient
-                    colors={["#FF6B6B", "#E85A4F"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.container}
-                >
-                    <View style={styles.content}>
-                        <View style={styles.header}>
-                            <View style={styles.iconContainer}>
-                                <Text style={styles.icon}>⚠️</Text>
-                            </View>
-                            <View style={styles.headerText}>
-                                <Text style={styles.title}>Holy Quran</Text>
-                                <Text style={styles.subtitle}>
-                                    Failed to load
-                                </Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.errorPrompt}>
-                            <Text style={styles.errorText}>{error}</Text>
-                        </View>
-
-                        <View style={styles.footer}>
-                            <Text style={styles.actionText}>
-                                Tap to retry →
-                            </Text>
-                        </View>
-                    </View>
-                </LinearGradient>
-            </TouchableOpacity>
-        );
-    }
-
-    // Show normal Quran dashboard
-    return (
-        <TouchableOpacity onPress={handleQuranPress} activeOpacity={0.8}>
-            <LinearGradient
-                colors={[
-                    colors?.primary || "#2E8B57",
-                    colors?.primaryDark || "#1F5F3F",
-                ]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.container}
-            >
-                <View style={styles.content}>
-                    <View style={styles.header}>
-                        <View style={styles.iconContainer}>
-                            <Text style={styles.icon}>📖</Text>
-                        </View>
-                        <View style={styles.headerText}>
-                            <Text style={styles.title}>Holy Quran</Text>
-                            <Text style={styles.subtitle}>
-                                {getMotivationalMessage()}
-                            </Text>
-                        </View>
-                        <View style={styles.streakContainer}>
-                            <Text style={styles.streakIcon}>🔥</Text>
-                            <Text style={styles.streakText}>
-                                {readingStats?.currentStreak || 0}
-                            </Text>
-                        </View>
-                    </View>
-
-                    <View style={styles.progressSection}>
-                        <View style={styles.progressStats}>
-                            <View style={styles.statItem}>
-                                <Text style={styles.statValue}>
-                                    {readingStats?.totalVersesRead || 0}
-                                </Text>
-                                <Text style={styles.statLabel}>Verses</Text>
-                            </View>
-                            <View style={styles.statItem}>
-                                <Text style={styles.statValue}>
-                                    {readingStats?.totalSurahsCompleted || 0}
-                                    /114
-                                </Text>
-                                <Text style={styles.statLabel}>Surahs</Text>
-                            </View>
-                            <View style={styles.statItem}>
-                                <Text style={styles.statValue}>
-                                    {readingStats?.completionPercentage || 0}%
-                                </Text>
-                                <Text style={styles.statLabel}>Complete</Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.progressBarContainer}>
-                            <View style={styles.progressBar}>
-                                <View
-                                    style={[
-                                        styles.progressFill,
-                                        {
-                                            width: `${Math.min(
-                                                readingStats?.completionPercentage ||
-                                                    0,
-                                                100
-                                            )}%`,
-                                        },
-                                    ]}
-                                />
-                            </View>
-                        </View>
-                    </View>
-
-                    {nextSurah && (
-                        <View style={styles.nextSurahSection}>
-                            <Text style={styles.nextSurahLabel}>
-                                Continue Reading:
-                            </Text>
-                            <TouchableOpacity
-                                style={styles.nextSurahButton}
-                                onPress={handleContinueReading}
-                                activeOpacity={0.8}
-                            >
-                                <View style={styles.nextSurahContent}>
-                                    <Text style={styles.nextSurahName}>
-                                        {nextSurah.englishName}
-                                    </Text>
-                                    <Text style={styles.nextSurahDetails}>
-                                        {nextSurah.name} •{" "}
-                                        {nextSurah.numberOfAyahs} verses
-                                    </Text>
-                                </View>
-                                <Text style={styles.nextSurahArrow}>→</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-
-                    <View style={styles.footer}>
-                        <Text style={styles.actionText}>View all Surahs →</Text>
+            <GlassDashboardCard onPress={handleQuranPress}>
+                <View style={styles.header}>
+                    <Text style={styles.icon}>🔒</Text>
+                    <View style={styles.headerText}>
+                        <Text style={styles.title}>Holy Quran</Text>
+                        <Text style={styles.subtitle}>Sign in to track progress</Text>
                     </View>
                 </View>
-            </LinearGradient>
-        </TouchableOpacity>
+                <Text style={styles.bodyText}>
+                    Read all 114 surahs offline and track your reading streak.
+                </Text>
+                <Text style={styles.actionText}>Tap to explore →</Text>
+            </GlassDashboardCard>
+        );
+    }
+
+    if (error) {
+        return (
+            <GlassDashboardCard onPress={loadQuranData}>
+                <View style={styles.header}>
+                    <Text style={styles.icon}>⚠️</Text>
+                    <View style={styles.headerText}>
+                        <Text style={styles.title}>Holy Quran</Text>
+                        <Text style={styles.subtitle}>Failed to load</Text>
+                    </View>
+                </View>
+                <Text style={styles.bodyText}>{error}</Text>
+                <Text style={styles.actionText}>Tap to retry →</Text>
+            </GlassDashboardCard>
+        );
+    }
+
+    return (
+        <GlassDashboardCard onPress={handleQuranPress}>
+            <View style={styles.header}>
+                <Text style={styles.icon}>📖</Text>
+                <View style={styles.headerText}>
+                    <Text style={styles.title}>Holy Quran</Text>
+                    <Text style={styles.subtitle}>{getMotivationalMessage()}</Text>
+                </View>
+                <View style={styles.streakContainer}>
+                    <Text style={styles.streakIcon}>🔥</Text>
+                    <Text style={styles.streakText}>
+                        {readingStats?.currentStreak || 0}
+                    </Text>
+                </View>
+            </View>
+
+            <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                    <Text style={styles.statValue}>
+                        {readingStats?.totalVersesRead || 0}
+                    </Text>
+                    <Text style={styles.statLabel}>Verses</Text>
+                </View>
+                <View style={styles.statItem}>
+                    <Text style={styles.statValue}>
+                        {readingStats?.totalSurahsCompleted || 0}/114
+                    </Text>
+                    <Text style={styles.statLabel}>Surahs</Text>
+                </View>
+                <View style={styles.statItem}>
+                    <Text style={styles.statValue}>
+                        {readingStats?.completionPercentage || 0}%
+                    </Text>
+                    <Text style={styles.statLabel}>Complete</Text>
+                </View>
+            </View>
+
+            <View style={styles.progressBar}>
+                <View
+                    style={[
+                        styles.progressFill,
+                        {
+                            width: `${Math.min(
+                                readingStats?.completionPercentage || 0,
+                                100
+                            )}%`,
+                        },
+                    ]}
+                />
+            </View>
+
+            {nextSurah ? (
+                <TouchableOpacity
+                    style={styles.continueButton}
+                    onPress={handleContinueReading}
+                    activeOpacity={0.8}
+                >
+                    <View style={styles.continueContent}>
+                        <Text style={styles.continueLabel}>Continue reading</Text>
+                        <Text style={styles.continueName}>{nextSurah.englishName}</Text>
+                        <Text style={styles.continueMeta}>
+                            {nextSurah.name} · {nextSurah.numberOfAyahs} verses
+                        </Text>
+                    </View>
+                    <Text style={styles.continueArrow}>→</Text>
+                </TouchableOpacity>
+            ) : null}
+
+            <Text style={styles.actionText}>View all surahs →</Text>
+        </GlassDashboardCard>
     );
 };
 
 const styles = StyleSheet.create({
-    loadingContainer: {
-        height: 160,
+    loadingRow: {
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#f0f0f0",
-        borderRadius: 16,
-        marginHorizontal: 16,
-        marginVertical: 8,
+        gap: 12,
     },
     loadingText: {
-        marginLeft: 12,
         fontSize: 14,
-        color: "#666",
-    },
-    container: {
-        borderRadius: 16,
-        marginHorizontal: 16,
-        marginVertical: 8,
-        elevation: 4,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-    },
-    content: {
-        padding: 20,
+        color: "rgba(255,255,255,0.8)",
     },
     header: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 16,
+        marginBottom: theme.spacing.md,
+        gap: theme.spacing.md,
     },
-    iconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: "rgba(255,255,255,0.2)",
-        alignItems: "center",
-        justifyContent: "center",
-        marginRight: 16,
-    },
-    icon: {
-        fontSize: 24,
-    },
-    headerText: {
-        flex: 1,
-    },
+    icon: { fontSize: 28 },
+    headerText: { flex: 1 },
     title: {
         fontSize: 18,
-        fontWeight: "bold",
-        color: "white",
+        fontWeight: "700",
+        color: "#fff",
         marginBottom: 4,
     },
     subtitle: {
         fontSize: 14,
-        color: "rgba(255,255,255,0.9)",
+        color: "rgba(255,255,255,0.85)",
     },
-    streakContainer: {
-        alignItems: "center",
-    },
-    streakIcon: {
-        fontSize: 20,
-    },
+    streakContainer: { alignItems: "center" },
+    streakIcon: { fontSize: 20 },
     streakText: {
         fontSize: 16,
-        fontWeight: "bold",
-        color: "white",
-        marginTop: 2,
+        fontWeight: "700",
+        color: "#fff",
     },
-    progressSection: {
-        marginBottom: 16,
-    },
-    progressStats: {
+    statsRow: {
         flexDirection: "row",
         justifyContent: "space-around",
-        marginBottom: 12,
+        marginBottom: theme.spacing.sm,
     },
-    statItem: {
-        alignItems: "center",
-    },
+    statItem: { alignItems: "center" },
     statValue: {
         fontSize: 18,
-        fontWeight: "bold",
-        color: "white",
+        fontWeight: "700",
+        color: "#fff",
     },
     statLabel: {
         fontSize: 12,
-        color: "rgba(255,255,255,0.8)",
+        color: "rgba(255,255,255,0.75)",
         marginTop: 2,
-    },
-    progressBarContainer: {
-        marginTop: 8,
     },
     progressBar: {
         height: 6,
-        backgroundColor: "rgba(255,255,255,0.3)",
+        backgroundColor: "rgba(255,255,255,0.2)",
         borderRadius: 3,
+        marginBottom: theme.spacing.md,
+        overflow: "hidden",
     },
     progressFill: {
         height: "100%",
-        backgroundColor: "#DAA520",
+        backgroundColor: theme.colors.secondary,
         borderRadius: 3,
     },
-    nextSurahSection: {
-        marginBottom: 12,
-    },
-    nextSurahLabel: {
-        fontSize: 14,
-        color: "rgba(255,255,255,0.9)",
-        marginBottom: 8,
-        fontWeight: "600",
-    },
-    nextSurahButton: {
+    continueButton: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "rgba(255,255,255,0.15)",
+        backgroundColor: "rgba(0,0,0,0.2)",
         borderRadius: 12,
         padding: 12,
+        marginBottom: theme.spacing.sm,
+        borderWidth: 1,
+        borderColor: glass.cardBorder,
     },
-    nextSurahContent: {
-        flex: 1,
-    },
-    nextSurahName: {
-        fontSize: 16,
-        fontWeight: "bold",
-        color: "white",
+    continueContent: { flex: 1 },
+    continueLabel: {
+        fontSize: 12,
+        color: "rgba(255,255,255,0.75)",
         marginBottom: 2,
     },
-    nextSurahDetails: {
+    continueName: {
+        fontSize: 16,
+        fontWeight: "700",
+        color: "#fff",
+    },
+    continueMeta: {
         fontSize: 12,
-        color: "rgba(255,255,255,0.8)",
+        color: "rgba(255,255,255,0.75)",
+        marginTop: 2,
     },
-    nextSurahArrow: {
+    continueArrow: {
         fontSize: 18,
-        color: "white",
-        fontWeight: "bold",
+        color: "#fff",
+        fontWeight: "700",
     },
-    signInPrompt: {
-        alignItems: "center",
-        marginBottom: 12,
-    },
-    signInText: {
-        fontSize: 14,
-        color: "rgba(255,255,255,0.9)",
-        textAlign: "center",
-        lineHeight: 20,
-    },
-    errorPrompt: {
-        alignItems: "center",
-        marginBottom: 12,
-    },
-    errorText: {
-        fontSize: 14,
-        color: "rgba(255,255,255,0.9)",
-        textAlign: "center",
-        lineHeight: 20,
-    },
-    footer: {
-        alignItems: "flex-end",
+    bodyText: {
+        fontSize: 15,
+        color: "#fff",
+        marginBottom: theme.spacing.sm,
     },
     actionText: {
         fontSize: 14,
-        color: "rgba(255,255,255,0.9)",
+        color: theme.colors.secondary,
         fontWeight: "600",
+        textAlign: "right",
     },
 });

@@ -5,7 +5,6 @@ import {
     Text,
     TouchableOpacity,
     StyleSheet,
-    Image,
     TextInput,
     ScrollView,
     KeyboardAvoidingView,
@@ -147,71 +146,62 @@ export default function Onboarding() {
         {
             title: "Welcome to Quran Chat Buddy",
             description: "Your AI companion for Quranic study and reflection",
-            image: require("../../assets/splash.png"),
+            emoji: "🕌",
         },
         {
             title: "Explore the Quran",
-            description:
-                "Read verses with translations and track your progress",
-            image: require("../../assets/splash.png"),
+            description: "Read verses with translations and track your progress",
+            emoji: "📖",
         },
         {
             title: "Ask Questions",
             description: "Chat with AI about Islamic teachings and wisdom",
-            image: require("../../assets/splash.png"),
+            emoji: "💬",
         },
         {
             title: "Track Your Progress",
             description: "Daily quiz, prayer times, and reading streaks",
-            image: require("../../assets/splash.png"),
+            emoji: "✨",
         },
     ];
 
-    // Audio setup - plays throughout onboarding
-    useEffect(() => {
-        let isMounted = true;
+    const saveTimeoutRef = useRef(null);
 
-        const setupAudio = async () => {
-            try {
-                await Audio.setAudioModeAsync({
-                    allowsRecordingIOS: false,
-                    playsInSilentModeIOS: true,
-                    staysActiveInBackground: false,
-                    shouldDuckAndroid: true,
-                });
+    // Audio loads only when user opts in (keeps onboarding fast)
+    const ensureAudio = async () => {
+        if (soundRef.current) return soundRef.current;
 
-                const { sound } = await Audio.Sound.createAsync(
-                    require("../../assets/music/onboarding-bg.mp3"),
-                    {
-                        shouldPlay: true,
-                        isLooping: true,
-                        volume: 0.3,
-                    }
-                );
+        await Audio.setAudioModeAsync({
+            allowsRecordingIOS: false,
+            playsInSilentModeIOS: true,
+            staysActiveInBackground: false,
+            shouldDuckAndroid: true,
+        });
 
-                if (isMounted) {
-                    soundRef.current = sound;
-                    setMusicLoaded(true);
-                    setIsMusicPlaying(true);
-                }
-            } catch (error) {
-                console.log("Error setting up audio:", error);
-            }
-        };
+        const { sound } = await Audio.Sound.createAsync(
+            require("../../assets/music/onboarding-bg.mp3"),
+            { shouldPlay: true, isLooping: true, volume: 0.25 },
+        );
+        soundRef.current = sound;
+        setMusicLoaded(true);
+        setIsMusicPlaying(true);
+        return sound;
+    };
 
-        setupAudio();
+    useEffect(
+        () => () => {
+            soundRef.current?.unloadAsync();
+        },
+        [],
+    );
 
-        return () => {
-            isMounted = false;
-            // Don't unload here - keep playing
-        };
-    }, []);
-
-    // Toggle music
     const toggleMusic = async () => {
-        if (!soundRef.current) return;
-
         try {
+            if (!soundRef.current) {
+                await ensureAudio();
+                return;
+            }
+
             if (isMusicPlaying) {
                 await soundRef.current.pauseAsync();
                 setIsMusicPlaying(false);
@@ -233,27 +223,21 @@ export default function Onboarding() {
         }
     }, [messages]);
 
-    // Start chat phase
     const startChat = () => {
         setPhase("chat");
+        setCurrentQuestionIndex(0);
+        setMessages([]);
     };
 
-    // Show next question
     const showNextQuestion = () => {
         if (currentQuestionIndex >= ONBOARDING_QUESTIONS.length) {
-            // Move to permissions phase
             setPhase("permissions");
             return;
         }
-        console.log(
-            12345,
-            currentQuestionIndex,
-            ONBOARDING_QUESTIONS[currentQuestionIndex],
-            messages
-        );
-        const question = ONBOARDING_QUESTIONS[currentQuestionIndex];
 
+        const question = ONBOARDING_QUESTIONS[currentQuestionIndex];
         setIsTyping(true);
+
         setTimeout(() => {
             setIsTyping(false);
             setMessages((prev) => [
@@ -261,17 +245,18 @@ export default function Onboarding() {
                 {
                     type: "ai",
                     content: question.message,
-                    question: question,
+                    question,
                     timestamp: new Date(),
                 },
             ]);
 
+            fadeAnim.setValue(0);
             Animated.timing(fadeAnim, {
                 toValue: 1,
-                duration: 300,
+                duration: 200,
                 useNativeDriver: true,
             }).start();
-        }, 1000);
+        }, 180);
     };
 
     // Handle text input submit
@@ -353,21 +338,24 @@ export default function Onboarding() {
     };
 
     useEffect(() => {
-        const timer = setTimeout(showNextQuestion, 100);
+        if (phase !== "chat") return undefined;
+        const timer = setTimeout(showNextQuestion, 60);
         return () => clearTimeout(timer);
-    }, [currentQuestionIndex]);
+    }, [currentQuestionIndex, phase]);
 
-    // Save data to AsyncStorage
-    const saveToStorage = async (data) => {
-        try {
-            await AsyncStorage.setItem("onboarding_data", JSON.stringify(data));
-            await AsyncStorage.setItem(
-                "onboarding_timestamp",
-                new Date().toISOString()
-            );
-        } catch (error) {
-            console.error("Error saving data:", error);
-        }
+    const saveToStorage = (data) => {
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(async () => {
+            try {
+                await AsyncStorage.setItem("onboarding_data", JSON.stringify(data));
+                await AsyncStorage.setItem(
+                    "onboarding_timestamp",
+                    new Date().toISOString(),
+                );
+            } catch (error) {
+                console.error("Error saving data:", error);
+            }
+        }, 300);
     };
 
     // Request location permission
@@ -404,6 +392,11 @@ export default function Onboarding() {
             if (status === "granted") {
                 setNotificationStatus("granted");
                 await AsyncStorage.setItem("notifications_enabled", "true");
+                await AsyncStorage.setItem("prayerNotificationsEnabled", "true");
+                const { PrayerNotificationService } = await import(
+                    "../../src/services/prayerNotificationService"
+                );
+                await PrayerNotificationService.setupDailyPrayerNotifications();
             } else {
                 setNotificationStatus("denied");
             }
@@ -603,11 +596,9 @@ export default function Onboarding() {
                 </View>
 
                 <View style={styles.contentContainer}>
-                    <Image
-                        source={welcomeSteps[currentStep].image}
-                        style={styles.image}
-                        resizeMode="contain"
-                    />
+                    <Text style={styles.welcomeEmoji}>
+                        {welcomeSteps[currentStep].emoji}
+                    </Text>
                     <Text style={styles.title}>
                         {welcomeSteps[currentStep].title}
                     </Text>
@@ -900,6 +891,10 @@ const styles = StyleSheet.create({
         width: 280,
         height: 280,
         marginBottom: 30,
+    },
+    welcomeEmoji: {
+        fontSize: 88,
+        marginBottom: 24,
     },
     title: {
         fontSize: 28,

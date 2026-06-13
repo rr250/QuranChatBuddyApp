@@ -4,6 +4,7 @@ import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getFirebaseDatabase } from "./firebase";
 import { ref, update } from "firebase/database";
+import { AuthService } from "./authService";
 
 // Configure notifications with updated API
 Notifications.setNotificationHandler({
@@ -112,8 +113,8 @@ export class NotificationService {
             // Save to local storage
             await AsyncStorage.setItem("pushToken", token);
 
-            // Save to Realtime Database (if user is logged in)
-            const userId = await AsyncStorage.getItem("userId");
+            AuthService.initialize();
+            const userId = AuthService.getCurrentUser()?.uid;
             if (userId) {
                 const database = getFirebaseDatabase();
                 const userRef = ref(database, `users/${userId}`);
@@ -178,8 +179,14 @@ export class NotificationService {
         body
     ) {
         try {
+            const when = new Date(prayerTime);
+            if (when <= new Date()) return null;
+
+            const identifier = `prayer-${prayerName}-${when.toISOString().slice(0, 16)}`;
+
             const notificationId =
                 await Notifications.scheduleNotificationAsync({
+                    identifier,
                     content: {
                         title,
                         body,
@@ -192,16 +199,18 @@ export class NotificationService {
                         },
                     },
                     trigger: {
-                        date: new Date(prayerTime),
+                        type: "date",
+                        date: when,
                     },
                 });
 
             console.log(
-                `✅ Scheduled local notification for \${prayerName} at \${prayerTime}`
+                `✅ Scheduled local notification for ${prayerName} at ${when.toLocaleString()}`
             );
             return notificationId;
         } catch (error) {
             console.error("Error scheduling local notification:", error);
+            return null;
         }
     }
 
@@ -243,6 +252,42 @@ export class NotificationService {
             console.log("All notifications cancelled");
         } catch (error) {
             console.error("Error cancelling notifications:", error);
+        }
+    }
+
+    static async getPendingNotifications() {
+        try {
+            return await Notifications.getAllScheduledNotificationsAsync();
+        } catch (error) {
+            console.error("Error getting pending notifications:", error);
+            return [];
+        }
+    }
+
+    static async cancelNotification(identifier) {
+        try {
+            await Notifications.cancelScheduledNotificationAsync(identifier);
+        } catch (error) {
+            console.error("Error cancelling notification:", error);
+        }
+    }
+
+    static async cancelPrayerNotifications() {
+        try {
+            const pending = await this.getPendingNotifications();
+            const prayerIds = pending
+                .filter(
+                    (n) =>
+                        n.identifier?.startsWith("prayer-") ||
+                        n.content?.data?.type === "prayer"
+                )
+                .map((n) => n.identifier);
+
+            await Promise.all(
+                prayerIds.map((id) => this.cancelNotification(id))
+            );
+        } catch (error) {
+            console.error("Error cancelling prayer notifications:", error);
         }
     }
 

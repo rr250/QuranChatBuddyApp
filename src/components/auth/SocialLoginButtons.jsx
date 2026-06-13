@@ -6,13 +6,17 @@ import { AuthService } from "../../services/authService";
 import { useAuthStore } from "../../store/authStore";
 import { theme } from "../../constants/theme";
 
-export const SocialLoginButtons = () => {
-    const { setUser, setLoading, setError } = useAuthStore();
+export const SocialLoginButtons = ({ mode = "signIn" }) => {
+    const {
+        setUser,
+        setLoading,
+        setError,
+        processGoogleLinking,
+    } = useAuthStore();
 
-    // Get Google auth hook
+    const isLinkMode = mode === "link";
     const { request, response, promptAsync } = AuthService.useGoogleAuth();
 
-    // Handle Google auth response
     useEffect(() => {
         if (response?.type === "success") {
             handleGoogleResponse(response);
@@ -21,14 +25,18 @@ export const SocialLoginButtons = () => {
         }
     }, [response]);
 
-    const handleGoogleResponse = async (response) => {
+    const navigateHome = () => router.replace("/(tabs)");
+
+    const handleGoogleResponse = async (googleResponse) => {
         try {
             setLoading(true);
-            const user = await AuthService.processGoogleSignIn(response);
+            const user = isLinkMode
+                ? await processGoogleLinking(googleResponse)
+                : await AuthService.processGoogleSignIn(googleResponse);
             setUser(user);
-            router.replace("/(tabs)");
+            navigateHome();
         } catch (error) {
-            console.error("Google sign-in processing error:", error);
+            console.error("Google auth error:", error);
             setError(error.message);
         } finally {
             setLoading(false);
@@ -40,7 +48,7 @@ export const SocialLoginButtons = () => {
             if (!request) {
                 Alert.alert(
                     "Error",
-                    "Google sign-in is not ready yet. Please try again."
+                    "Google sign-in is not ready yet. Please try again.",
                 );
                 return;
             }
@@ -48,20 +56,6 @@ export const SocialLoginButtons = () => {
         } catch (error) {
             console.error("Google sign-in initiation error:", error);
             Alert.alert("Error", "Failed to start Google sign-in");
-        }
-    };
-
-    const handleAppleLogin = async () => {
-        try {
-            setLoading(true);
-            const user = await AuthService.signInWithApple();
-            setUser(user);
-            router.replace("/(tabs)");
-        } catch (error) {
-            console.error("Apple sign-in error:", error);
-            Alert.alert("Login Failed", error.message);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -78,33 +72,18 @@ export const SocialLoginButtons = () => {
             >
                 Continue with Google
             </Button>
-
-            <Button
-                mode="outlined"
-                onPress={handleAppleLogin}
-                style={styles.socialButton}
-                contentStyle={styles.buttonContent}
-                labelStyle={styles.buttonLabel}
-                icon="apple"
-            >
-                Continue with Apple
-            </Button>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        gap: theme.spacing.md,
-    },
+    container: { gap: theme.spacing.md },
     socialButton: {
         borderColor: "white",
         borderWidth: 1,
         borderRadius: theme.spacing.md,
     },
-    buttonContent: {
-        paddingVertical: theme.spacing.sm,
-    },
+    buttonContent: { paddingVertical: theme.spacing.sm },
     buttonLabel: {
         color: "white",
         fontSize: 14,
