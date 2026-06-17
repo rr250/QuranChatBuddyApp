@@ -102,7 +102,7 @@ export default function ProfileScreen() {
                     style: "destructive",
                     onPress: async () => {
                         await signOut();
-                        router.replace("/(auth)/onboarding");
+                        router.replace("/(auth)/login");
                     },
                 },
             ],
@@ -346,7 +346,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     scroll: {
         flex: 1,
-        paddingHorizontal: theme.spacing.md,
     },
     profileHero: { marginBottom: theme.spacing.md },
     profileContent: {

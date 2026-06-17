@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     },
     separator: { height: 10 },
     surahCard: {
-        backgroundColor: "#2E8B57",
+        backgroundColor: theme.colors.primary,
         borderRadius: 16,
         padding: 16,
         borderWidth: 1,

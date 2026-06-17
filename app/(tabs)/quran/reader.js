@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
     },
     readIcon: {
         fontSize: 16,
-        color: "#4CAF50",
+        color: theme.colors.primary,
     },
     verseContent: {
         marginBottom: 12,

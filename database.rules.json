@@ -19,7 +19,7 @@
 
     "presence": {
       "$uid": {
-        ".read": true,
+        ".read": "auth != null && auth.uid == $uid",
         ".write": "auth != null && auth.uid == $uid"
       }
     }

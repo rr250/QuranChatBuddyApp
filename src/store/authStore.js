@@ -4,17 +4,21 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthService } from "../services/authService";
 import { userSyncService } from "../services/userSyncService";
 
+let authUnsubscribe = null;
+
 export const useAuthStore = create(
     persist(
         (set, get) => ({
-            // State
             user: null,
             loading: true,
             error: null,
             isOnboarded: false,
             isAnonymous: false,
+            skipAnonymousSignIn: false,
+            _hasHydrated: false,
 
-            // Actions
+            setHasHydrated: (hasHydrated) => set({ _hasHydrated: hasHydrated }),
+
             setUser: (user) =>
                 set({
                     user,
@@ -31,16 +35,70 @@ export const useAuthStore = create(
 
             setOnboarded: (isOnboarded) => set({ isOnboarded }),
 
-            // Initialize auth state
+            syncOnboardingFlag: async () => {
+                const completed = await AsyncStorage.getItem(
+                    "onboarding_completed",
+                );
+                if (completed !== "true" && get().isOnboarded) {
+                    set({ isOnboarded: false });
+                }
+            },
+
+            resetForFreshStart: async () => {
+                try {
+                    if (authUnsubscribe) {
+                        authUnsubscribe();
+                        authUnsubscribe = null;
+                    }
+                    await AuthService.signOut().catch(() => {});
+                    await AsyncStorage.clear();
+                    set({
+                        user: null,
+                        loading: false,
+                        error: null,
+                        isOnboarded: false,
+                        isAnonymous: false,
+                        skipAnonymousSignIn: false,
+                    });
+                    await get().initialize();
+                } catch (error) {
+                    console.error("Reset for fresh start error:", error);
+                    throw error;
+                }
+            },
+
             initialize: async () => {
                 try {
                     set({ loading: true, error: null });
 
+                    if (authUnsubscribe) {
+                        authUnsubscribe();
+                    }
+
                     const user = await new Promise((resolve) => {
-                        const unsubscribe = AuthService.onAuthStateChanged(
-                            (authUser) => {
-                                unsubscribe();
-                                resolve(authUser);
+                        let resolved = false;
+                        authUnsubscribe = AuthService.onAuthStateChanged(
+                            async (authUser) => {
+                                if (!resolved) {
+                                    resolved = true;
+                                    resolve(authUser);
+                                    return;
+                                }
+
+                                if (authUser?.uid) {
+                                    await userSyncService
+                                        .mergeOnLogin(authUser.uid)
+                                        .catch(() => {});
+                                }
+
+                                set({
+                                    user: authUser,
+                                    loading: false,
+                                    isAnonymous: authUser?.isAnonymous ?? false,
+                                    ...(authUser
+                                        ? { skipAnonymousSignIn: false }
+                                        : {}),
+                                });
                             },
                         );
                     });
@@ -48,6 +106,8 @@ export const useAuthStore = create(
                     if (user?.uid) {
                         await userSyncService.mergeOnLogin(user.uid);
                     }
+
+                    await get().syncOnboardingFlag();
 
                     set({
                         user,
@@ -67,10 +127,9 @@ export const useAuthStore = create(
                 }
             },
 
-            // Sign in with email
             signInWithEmail: async (email, password) => {
                 try {
-                    set({ loading: true, error: null });
+                    set({ loading: true, error: null, skipAnonymousSignIn: false });
                     const user = await AuthService.signInWithEmail(
                         email,
                         password,
@@ -83,10 +142,9 @@ export const useAuthStore = create(
                 }
             },
 
-            // Sign up with email
             signUpWithEmail: async (email, password, displayName) => {
                 try {
-                    set({ loading: true, error: null });
+                    set({ loading: true, error: null, skipAnonymousSignIn: false });
                     const user = await AuthService.signUpWithEmail(
                         email,
                         password,
@@ -100,10 +158,9 @@ export const useAuthStore = create(
                 }
             },
 
-            // Sign in anonymously
             signInAnonymously: async () => {
                 try {
-                    set({ loading: true, error: null });
+                    set({ loading: true, error: null, skipAnonymousSignIn: false });
                     const user = await AuthService.signInAnonymously();
                     set({ user, loading: false, isAnonymous: true });
                     return user;
@@ -113,10 +170,9 @@ export const useAuthStore = create(
                 }
             },
 
-            // Link anonymous account with email/password
             linkWithEmailPassword: async (email, password, displayName) => {
                 try {
-                    set({ loading: true, error: null });
+                    set({ loading: true, error: null, skipAnonymousSignIn: false });
                     const user = await AuthService.linkWithEmailPassword(
                         email,
                         password,
@@ -130,10 +186,9 @@ export const useAuthStore = create(
                 }
             },
 
-            // Link anonymous account with Google
             linkWithGoogle: async (idToken) => {
                 try {
-                    set({ loading: true, error: null });
+                    set({ loading: true, error: null, skipAnonymousSignIn: false });
                     const user = await AuthService.linkWithGoogle(idToken);
                     set({ user, loading: false, isAnonymous: false });
                     return user;
@@ -143,10 +198,9 @@ export const useAuthStore = create(
                 }
             },
 
-            // Link anonymous account with Apple
             linkWithApple: async () => {
                 try {
-                    set({ loading: true, error: null });
+                    set({ loading: true, error: null, skipAnonymousSignIn: false });
                     const user = await AuthService.linkWithApple();
                     set({ user, loading: false, isAnonymous: false });
                     return user;
@@ -156,10 +210,9 @@ export const useAuthStore = create(
                 }
             },
 
-            // Process Google linking response
             processGoogleLinking: async (response) => {
                 try {
-                    set({ loading: true, error: null });
+                    set({ loading: true, error: null, skipAnonymousSignIn: false });
                     const user =
                         await AuthService.processGoogleLinking(response);
                     set({ user, loading: false, isAnonymous: false });
@@ -170,7 +223,6 @@ export const useAuthStore = create(
                 }
             },
 
-            // Reset password
             resetPassword: async (email) => {
                 try {
                     set({ loading: true, error: null });
@@ -182,12 +234,20 @@ export const useAuthStore = create(
                 }
             },
 
-            // Sign out
             signOut: async () => {
                 try {
                     set({ loading: true, error: null });
+                    const { useSubscriptionStore } = await import(
+                        "./subscriptionStore"
+                    );
+                    await useSubscriptionStore.getState().reset();
                     await AuthService.signOut();
-                    set({ user: null, loading: false, isAnonymous: false });
+                    set({
+                        user: null,
+                        loading: false,
+                        isAnonymous: false,
+                        skipAnonymousSignIn: true,
+                    });
                 } catch (error) {
                     set({ error: error.message, loading: false });
                     throw error;
@@ -201,6 +261,9 @@ export const useAuthStore = create(
                 isOnboarded: state.isOnboarded,
                 isAnonymous: state.isAnonymous,
             }),
+            onRehydrateStorage: () => (state) => {
+                state?.setHasHydrated(true);
+            },
         },
     ),
 );

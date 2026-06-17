@@ -47,10 +47,10 @@ const QuizStatsScreen = ({}) => {
                         {
                             color:
                                 item.percentage >= 70
-                                    ? "#4CAF50"
+                                    ? theme.colors.primary
                                     : item.percentage >= 50
-                                    ? "#FF9800"
-                                    : "#f44336",
+                                    ? theme.colors.secondary
+                                    : theme.colors.error,
                         },
                     ]}
                 >
@@ -73,10 +73,10 @@ const QuizStatsScreen = ({}) => {
                             width: `${item.percentage}%`,
                             backgroundColor:
                                 item.percentage >= 70
-                                    ? "#4CAF50"
+                                    ? theme.colors.primary
                                     : item.percentage >= 50
-                                    ? "#FF9800"
-                                    : "#f44336",
+                                    ? theme.colors.secondary
+                                    : theme.colors.error,
                         },
                     ]}
                 />

@@ -27,6 +27,7 @@ export const ScreenShell = ({
 );
 
 export const screenContentPadding = {
+    paddingHorizontal: theme.spacing.md,
     paddingBottom: theme.spacing.lg,
 };
 

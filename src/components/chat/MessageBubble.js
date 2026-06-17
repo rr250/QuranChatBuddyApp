@@ -112,14 +112,14 @@ const styles = StyleSheet.create({
         borderBottomRightRadius: 8,
     },
     aiContent: {
-        backgroundColor: "white",
+        backgroundColor: "rgba(255,255,255,0.12)",
         borderWidth: 1,
-        borderColor: "#e0e0e0",
+        borderColor: "rgba(255,255,255,0.2)",
         borderBottomLeftRadius: 8,
     },
     errorContent: {
-        backgroundColor: "#ffebee",
-        borderColor: "#ffcdd2",
+        backgroundColor: "rgba(255,205,210,0.2)",
+        borderColor: "rgba(255,205,210,0.4)",
     },
     messageText: {
         fontSize: 16,
@@ -130,10 +130,10 @@ const styles = StyleSheet.create({
         color: "white",
     },
     aiText: {
-        color: "#333",
+        color: "#fff",
     },
     errorText: {
-        color: "#d32f2f",
+        color: "#ffcdd2",
     },
     timestamp: {
         fontSize: 11,
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
         textAlign: "right",
     },
     aiTimestamp: {
-        color: "#666",
+        color: "rgba(255,255,255,0.65)",
         textAlign: "left",
     },
 });

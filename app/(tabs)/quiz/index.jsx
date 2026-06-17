@@ -455,8 +455,8 @@ const styles = StyleSheet.create({
         backgroundColor: glass.tint,
     },
     correctOption: {
-        borderColor: "#4CAF50",
-        backgroundColor: "rgba(76, 175, 80, 0.15)",
+        borderColor: theme.colors.primary,
+        backgroundColor: "rgba(46, 139, 87, 0.15)",
     },
     wrongOption: {
         borderColor: "#f44336",
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
         fontWeight: "600",
     },
     correctOptionText: {
-        color: "#4CAF50",
+        color: theme.colors.primary,
         fontWeight: "600",
     },
     wrongOptionText: {

@@ -1,4 +1,5 @@
 import { Stack } from "expo-router";
+import { theme } from "../../../src/constants/theme";
 
 export default function QuizLayout() {
     return (
@@ -6,7 +7,7 @@ export default function QuizLayout() {
             screenOptions={{
                 headerShown: true,
                 headerStyle: {
-                    backgroundColor: "#2E8B57",
+                    backgroundColor: theme.colors.primary,
                 },
                 headerTintColor: "#fff",
                 headerTitleStyle: {

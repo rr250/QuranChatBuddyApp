@@ -34,14 +34,16 @@ export default function ChatScreen() {
         clearChat,
         loadChatHistory,
     } = useChat(user?.uid);
-    const userMessageCount = messages.filter((m) => m.role === "user").length;
+    const userMessageCount = messages.filter((m) => m.isUser).length;
     const { isPremium, canAccess, remainingFree } = usePremiumGate(userMessageCount);
     const flatListRef = useRef(null);
     const processingRef = useRef(false);
 
     useEffect(() => {
-        loadChatHistory();
-    }, []);
+        if (user?.uid) {
+            loadChatHistory();
+        }
+    }, [user?.uid, loadChatHistory]);
 
     useEffect(() => {
         if (messages.length > 0) {

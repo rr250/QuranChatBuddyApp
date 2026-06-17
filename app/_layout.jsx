@@ -22,8 +22,15 @@ const AUTH_ROUTES_ALLOWED_WHEN_SIGNED_IN = new Set([
 ]);
 
 export default function RootLayout() {
-    const { user, loading, initialize, isOnboarded, signInAnonymously } =
-        useAuthStore();
+    const {
+        user,
+        loading,
+        initialize,
+        isOnboarded,
+        signInAnonymously,
+        skipAnonymousSignIn,
+        _hasHydrated,
+    } = useAuthStore();
     const initializeSubscription = useSubscriptionStore((s) => s.initialize);
     const syncSubscriptionUser = useSubscriptionStore((s) => s.syncUser);
     const segments = useSegments();
@@ -33,6 +40,15 @@ export default function RootLayout() {
 
     useEffect(() => {
         initializeApp();
+    }, []);
+
+    useEffect(() => {
+        if (useAuthStore.persist.hasHydrated()) {
+            useAuthStore.getState().setHasHydrated(true);
+        }
+        return useAuthStore.persist.onFinishHydration(() => {
+            useAuthStore.getState().setHasHydrated(true);
+        });
     }, []);
 
     useEffect(() => {
@@ -63,7 +79,11 @@ export default function RootLayout() {
     }, [user?.uid, isOnboarded, loading, isSigningInAnonymously]);
 
     useEffect(() => {
-        if (loading || isSigningInAnonymously) return;
+        if (loading || isSigningInAnonymously || !_hasHydrated) return;
+
+        if (!isOnboarded) {
+            hasAttemptedAnonymousSignIn.current = false;
+        }
 
         const navigationTimeout = setTimeout(async () => {
             const inAuthGroup = segments[0] === "(auth)";
@@ -76,9 +96,15 @@ export default function RootLayout() {
                 return;
             }
 
+            if (isOnboarded && !user && skipAnonymousSignIn && !inAuthGroup) {
+                router.replace("/(auth)/login");
+                return;
+            }
+
             if (
                 isOnboarded &&
                 !user &&
+                !skipAnonymousSignIn &&
                 !hasAttemptedAnonymousSignIn.current
             ) {
                 hasAttemptedAnonymousSignIn.current = true;
@@ -112,7 +138,15 @@ export default function RootLayout() {
         }, 100);
 
         return () => clearTimeout(navigationTimeout);
-    }, [user, loading, segments, isOnboarded, isSigningInAnonymously]);
+    }, [
+        user,
+        loading,
+        segments,
+        isOnboarded,
+        isSigningInAnonymously,
+        skipAnonymousSignIn,
+        _hasHydrated,
+    ]);
 
     const initializeApp = async () => {
         try {
@@ -128,7 +162,7 @@ export default function RootLayout() {
         }
     };
 
-    if (loading || isSigningInAnonymously) {
+    if (loading || isSigningInAnonymously || !_hasHydrated) {
         return <LoadingScreen />;
     }
 

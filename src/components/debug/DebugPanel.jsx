@@ -5,13 +5,15 @@ import { useAuthStore } from "../../store/authStore";
 
 export const DebugPanel = () => {
     const [isVisible, setIsVisible] = useState(false);
+    const resetForFreshStart = useAuthStore((s) => s.resetForFreshStart);
 
     const clearAsyncStorage = async () => {
         try {
-            await AsyncStorage.clear();
-            Alert.alert("Success", "AsyncStorage cleared");
-            // Reload the app state
-            window.location.reload();
+            await resetForFreshStart();
+            Alert.alert(
+                "Success",
+                "Storage cleared. Onboarding will show on next navigation.",
+            );
         } catch (error) {
             Alert.alert("Error", "Failed to clear AsyncStorage");
             console.error(error);
@@ -34,7 +36,7 @@ export const DebugPanel = () => {
     };
 
     if (!__DEV__) {
-        return null; // Only show in development mode
+        return null;
     }
 
     return (
@@ -104,12 +106,6 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         marginBottom: 10,
         textAlign: "center",
-    },
-    status: {
-        fontSize: 12,
-        marginBottom: 15,
-        textAlign: "center",
-        color: "#666",
     },
     button: {
         backgroundColor: "#007AFF",

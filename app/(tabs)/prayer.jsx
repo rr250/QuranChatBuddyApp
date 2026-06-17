@@ -185,7 +185,7 @@ export default function PrayerScreen() {
         >
             <ScrollView
                 style={styles.scrollView}
-                contentContainerStyle={[styles.scrollContent, screenContentPadding]}
+                contentContainerStyle={screenContentPadding}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl
@@ -523,10 +523,6 @@ const styles = StyleSheet.create({
     },
     scrollView: {
         flex: 1,
-    },
-    scrollContent: {
-        padding: theme.spacing.md,
-        paddingBottom: theme.spacing.xl,
     },
     header: {
         flexDirection: "row",

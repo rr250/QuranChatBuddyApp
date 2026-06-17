@@ -139,9 +139,9 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     settingsButton: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: glass.backgroundStrong,
