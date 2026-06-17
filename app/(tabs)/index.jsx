@@ -6,11 +6,10 @@ import {
     RefreshControl,
     TouchableOpacity,
 } from "react-native";
-import { Text, Avatar } from "react-native-paper";
+import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useAuthStore } from "../../src/store/authStore";
 import { theme } from "../../src/constants/theme";
 import { PrayerTimesCardMini } from "../../src/components/prayer/PrayerTimesCardMini";
 import { QuizDashboard } from "../../src/components/quiz/QuizDashboard";
@@ -19,9 +18,12 @@ import { QuranVerseCard } from "../../src/components/quran/QuranVerseCard";
 import { IslamicQuoteCard } from "../../src/components/home/IslamicQuoteCard";
 import { AppBackground, GlassSurface } from "../../src/components/ui/Glass";
 import { ScreenHeader } from "../../src/components/navigation/ScreenHeader";
+import { glass } from "../../src/constants/glass";
+import { usePaywallAction } from "../../src/hooks/usePaywallAction";
+import { PAYWALL_PLACEMENTS } from "../../src/constants/paywallConfig";
 
 export default function HomeScreen() {
-    const { user, isAnonymous } = useAuthStore();
+    const { withPaywallCheck } = usePaywallAction();
     const [refreshing, setRefreshing] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -54,14 +56,29 @@ export default function HomeScreen() {
                     title="Quran Chat Buddy"
                     subtitle={`Assalamu Alaikum — ${getGreeting()}`}
                     showHome={false}
+                    leftAction={
+                        <TouchableOpacity
+                            style={styles.quranButton}
+                            onPress={() => router.push("/(tabs)/quran")}
+                            accessibilityLabel="Open Quran"
+                        >
+                            <MaterialCommunityIcons
+                                name="book-open-page-variant"
+                                size={22}
+                                color="#fff"
+                            />
+                        </TouchableOpacity>
+                    }
                     rightAction={
                         <TouchableOpacity
+                            style={styles.settingsButton}
                             onPress={() => router.push("/(tabs)/profile")}
+                            accessibilityLabel="Open profile and settings"
                         >
-                            <Avatar.Text
-                                size={42}
-                                label={(user?.displayName?.charAt(0) ?? "G").toUpperCase()}
-                                style={styles.avatar}
+                            <MaterialCommunityIcons
+                                name="account-cog-outline"
+                                size={22}
+                                color="#fff"
                             />
                         </TouchableOpacity>
                     }
@@ -75,7 +92,7 @@ export default function HomeScreen() {
                     }
                     showsVerticalScrollIndicator={false}
                 >
-                    <GlassSurface style={styles.heroCard}>
+                    {/* <GlassSurface style={styles.heroCard}>
                         <View style={styles.heroContent}>
                             <Text style={styles.heroEmoji}>🕌</Text>
                             <Text style={styles.heroTitle}>
@@ -92,8 +109,7 @@ export default function HomeScreen() {
                                 · {currentTime.toLocaleDateString()}
                             </Text>
                         </View>
-                    </GlassSurface>
-
+                    </GlassSurface> */}
                     <GlassSurface style={styles.sectionCard}>
                         <View style={styles.sectionContent}>
                             <Text style={styles.arabicGreeting}>
@@ -104,12 +120,16 @@ export default function HomeScreen() {
                             </Text>
                         </View>
                     </GlassSurface>
-
                     <PrayerTimesCardMini />
-                    <QuizDashboard onQuizPress={() => router.push("/(tabs)/quiz")} />
+                    <QuranVerseCard placement={PAYWALL_PLACEMENTS.DAILY_VERSE_CLICK} />
+                    <QuizDashboard
+                        onQuizPress={withPaywallCheck(
+                            () => router.push("/(tabs)/quiz"),
+                            { placement: PAYWALL_PLACEMENTS.QUIZ_START },
+                        )}
+                    />
                     <QuranDashboard onQuranPress={() => router.push("/(tabs)/quran")} />
-                    <QuranVerseCard />
-                    <IslamicQuoteCard />
+                    <IslamicQuoteCard placement={PAYWALL_PLACEMENTS.TODAYS_TOPIC_CLICK} />
                 </ScrollView>
             </SafeAreaView>
         </AppBackground>
@@ -118,7 +138,26 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    avatar: { backgroundColor: "rgba(255,255,255,0.2)" },
+    settingsButton: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: glass.backgroundStrong,
+        borderWidth: 1,
+        borderColor: glass.border,
+    },
+    quranButton: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: glass.backgroundStrong,
+        borderWidth: 1,
+        borderColor: glass.border,
+    },
     content: {
         flex: 1,
         paddingHorizontal: theme.spacing.md,

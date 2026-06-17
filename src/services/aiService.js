@@ -93,6 +93,33 @@ class AIService extends BaseService {
             console.error("Error clearing conversation history:", error);
         }
     }
+
+    async getVerseCategory(translation, reference) {
+        try {
+            const completion = await this.openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [
+                    {
+                        role: "system",
+                        content:
+                            "Categorize Quran verses with a short Islamic theme label (2-4 words). Examples: Trust in Allah, Patience, Gratitude, Mercy. Reply with only the label, no quotes or punctuation.",
+                    },
+                    {
+                        role: "user",
+                        content: `Verse translation: ${translation}\nReference: ${reference}`,
+                    },
+                ],
+                max_tokens: 24,
+                temperature: 0.3,
+            });
+
+            const label = completion.choices[0]?.message?.content?.trim();
+            return label || "Quranic Wisdom";
+        } catch (error) {
+            console.error("Verse category error:", error);
+            return "Quranic Wisdom";
+        }
+    }
 }
 
 export const aiService = new AIService();

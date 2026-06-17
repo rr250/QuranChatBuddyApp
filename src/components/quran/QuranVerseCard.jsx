@@ -1,92 +1,76 @@
-import React, { useMemo } from "react";
-import { View, StyleSheet, Share } from "react-native";
-import { Text, Button, IconButton } from "react-native-paper";
+import React, { useMemo, useRef, useState } from "react";
+import { View, StyleSheet } from "react-native";
+import { Text, Button } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { theme } from "../../constants/theme";
 import { GlassSurface } from "../ui/Glass";
-import { getLocalChapter } from "../../data/quranLocal";
+import { getDailyVerse } from "../../utils/dailyQuran";
+import { usePaywallAction } from "../../hooks/usePaywallAction";
+import { VerseShareCard } from "./VerseShareCard";
+import { shareVerse } from "../../utils/shareVerse";
 
-const DAILY_VERSES = [
-    { surah: 2, ayah: 255 },
-    { surah: 112, ayah: 1 },
-    { surah: 1, ayah: 2 },
-    { surah: 24, ayah: 35 },
-    { surah: 55, ayah: 13 },
-    { surah: 94, ayah: 5 },
-];
+export const QuranVerseCard = ({ placement = null }) => {
+    const { withPaywallCheck } = usePaywallAction();
+    const paywallOpts = placement ? { placement } : {};
+    const shareRef = useRef(null);
+    const [sharing, setSharing] = useState(false);
 
-const buildVerse = (surahNumber, ayahNumber) => {
-    const chapter = getLocalChapter(surahNumber);
-    const verse = chapter?.verses.find((item) => item.id === ayahNumber);
-    if (!verse) return null;
-
-    return {
-        arabicText: verse.text,
-        translation: verse.translation,
-        reference: `Quran ${surahNumber}:${ayahNumber} (${chapter.transliteration})`,
-    };
-};
-
-export const QuranVerseCard = () => {
-    const verse = useMemo(() => {
-        const dayIndex = new Date().getDate() % DAILY_VERSES.length;
-        const pick = DAILY_VERSES[dayIndex];
-        return buildVerse(pick.surah, pick.ayah);
-    }, []);
-
-    const loadNewVerse = () => {
-        const pick = DAILY_VERSES[Math.floor(Math.random() * DAILY_VERSES.length)];
-        return buildVerse(pick.surah, pick.ayah);
-    };
-
-    const [currentVerse, setCurrentVerse] = React.useState(verse);
+    const currentVerse = useMemo(() => getDailyVerse(0), []);
 
     const handleShare = async () => {
-        if (!currentVerse) return;
+        if (!currentVerse || sharing) return;
 
         try {
-            await Share.share({
-                message: `${currentVerse.arabicText}\n\n"${currentVerse.translation}"\n\n— ${currentVerse.reference}`,
-                title: "Verse from Quran",
-            });
+            setSharing(true);
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+            await shareVerse(shareRef, currentVerse);
         } catch (error) {
             console.error("Error sharing verse:", error);
+        } finally {
+            setSharing(false);
         }
     };
 
     if (!currentVerse) return null;
 
     return (
-        <GlassSurface style={styles.card}>
-            <View style={styles.content}>
-                <View style={styles.header}>
-                    <View style={styles.headerLeft}>
-                        <MaterialCommunityIcons
-                            name="book-open-page-variant"
-                            size={22}
-                            color="#fff"
-                        />
-                        <Text style={styles.title}>Verse of the Day</Text>
+        <>
+            <VerseShareCard ref={shareRef} verse={currentVerse} />
+
+            <GlassSurface style={styles.card}>
+                <View style={styles.content}>
+                    <View style={styles.header}>
+                        <View style={styles.headerLeft}>
+                            <MaterialCommunityIcons
+                                name="book-open-page-variant"
+                                size={22}
+                                color="#fff"
+                            />
+                            <Text style={styles.title}>Verse of the Day</Text>
+                        </View>
                     </View>
-                    <IconButton
-                        icon="refresh"
-                        iconColor="#fff"
-                        size={20}
-                        onPress={() => setCurrentVerse(loadNewVerse())}
-                    />
-                </View>
 
-                <Text style={styles.arabicText}>{currentVerse.arabicText}</Text>
-                <Text style={styles.translation}>&quot;{currentVerse.translation}&quot;</Text>
-                <Text style={styles.reference}>— {currentVerse.reference}</Text>
+                    <Text style={styles.arabicText}>{currentVerse.arabicText}</Text>
+                    <Text style={styles.translation}>
+                        &quot;{currentVerse.translation}&quot;
+                    </Text>
+                    <Text style={styles.reference}>— {currentVerse.reference}</Text>
 
-                <View style={styles.actions}>
-                    <Button mode="outlined" onPress={handleShare} textColor="#fff" icon="share">
-                        Share
-                    </Button>
+                    <View style={styles.actions}>
+                        <Button
+                            mode="outlined"
+                            onPress={withPaywallCheck(handleShare, paywallOpts)}
+                            textColor="#fff"
+                            icon="share"
+                            loading={sharing}
+                            disabled={sharing}
+                        >
+                            Share
+                        </Button>
+                    </View>
                 </View>
-            </View>
-        </GlassSurface>
+            </GlassSurface>
+        </>
     );
 };
 

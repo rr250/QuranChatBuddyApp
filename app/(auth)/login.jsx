@@ -39,7 +39,11 @@ export default function LoginScreen() {
 
     return (
         <>
-            <AuthScreenLayout title="Welcome Back" subtitle="Sign in to your account">
+            <AuthScreenLayout
+                title="Welcome Back"
+                subtitle="Sign in to your account"
+                showHomeButton
+            >
                 <TextInput
                     label="Email"
                     value={email}

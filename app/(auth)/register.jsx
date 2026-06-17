@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View } from "react-native";
+import { View, Linking } from "react-native";
 import { router } from "expo-router";
 import {
     Button,
@@ -20,6 +20,7 @@ import {
     validateStrongPassword,
     validateConfirmPassword,
 } from "../../src/utils/validation";
+import { APP_LINKS } from "../../src/constants/appLinks";
 
 export default function RegisterScreen() {
     const [formData, setFormData] = useState({
@@ -92,6 +93,7 @@ export default function RegisterScreen() {
                         : "Join our Islamic community"
                 }
                 compactHeader
+                showHomeButton
             >
                 <TextInput
                     label="Full Name"
@@ -176,7 +178,20 @@ export default function RegisterScreen() {
                         color="white"
                     />
                     <Text style={styles.linkText}>
-                        I accept the Terms & Conditions and Privacy Policy
+                        I accept the{" "}
+                        <Text
+                            style={styles.linkInline}
+                            onPress={() => Linking.openURL(APP_LINKS.terms)}
+                        >
+                            Terms & Conditions
+                        </Text>{" "}
+                        and{" "}
+                        <Text
+                            style={styles.linkInline}
+                            onPress={() => Linking.openURL(APP_LINKS.privacy)}
+                        >
+                            Privacy Policy
+                        </Text>
                     </Text>
                 </View>
                 <HelperText type="error" visible={!!errors.terms}>

@@ -1,13 +1,43 @@
-import React, { useEffect } from "react";
-import { View, StyleSheet, Modal, ScrollView } from "react-native";
-import { Text, Button, Card, IconButton, ActivityIndicator } from "react-native-paper";
+import React, { useEffect, useMemo } from "react";
+import {
+    View,
+    StyleSheet,
+    Modal,
+    ImageBackground,
+    Linking,
+    BackHandler,
+} from "react-native";
+import { Text, Button, ActivityIndicator } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSubscriptionStore } from "../../store/subscriptionStore";
-import { PREMIUM_FEATURES } from "../../constants/subscription";
 import { theme } from "../../constants/theme";
+import { APP_LINKS } from "../../constants/appLinks";
 
-export const PaywallModal = ({ visible, onClose, onSuccess }) => {
+const PAYWALL_QUOTE = {
+    text: "The best among you are those who learn the Quran and teach it.",
+    source: "Bukhari 5027",
+};
+
+const pickYearlyPackage = (packages) => {
+    if (!packages?.length) return null;
+    return (
+        packages.find(
+            (pkg) =>
+                pkg.packageType === "ANNUAL" ||
+                pkg.identifier?.toLowerCase().includes("year") ||
+                pkg.product?.identifier?.toLowerCase().includes("year"),
+        ) ?? packages[0]
+    );
+};
+
+export const PaywallModal = ({
+    visible,
+    onClose,
+    onSuccess,
+    allowClose = false,
+    paywallId = "default",
+}) => {
     const {
         packages,
         loading,
@@ -18,17 +48,33 @@ export const PaywallModal = ({ visible, onClose, onSuccess }) => {
         isConfigured,
     } = useSubscriptionStore();
 
-    useEffect(() => {
-        if (visible) refresh();
-    }, [visible]);
+    const selectedPackage = useMemo(
+        () => pickYearlyPackage(packages),
+        [packages],
+    );
 
-    const handlePurchase = async (pkg) => {
+    useEffect(() => {
+        if (visible) refresh(paywallId);
+    }, [visible, paywallId]);
+
+    useEffect(() => {
+        if (!visible || allowClose) return undefined;
+
+        const subscription = BackHandler.addEventListener(
+            "hardwareBackPress",
+            () => true,
+        );
+        return () => subscription.remove();
+    }, [visible, allowClose]);
+
+    const handlePurchase = async () => {
+        if (!selectedPackage) return;
         try {
-            const success = await purchase(pkg);
+            const success = await purchase(selectedPackage);
             if (success) onSuccess?.();
-        } catch (error) {
-            if (!error.userCancelled) {
-                console.error("Purchase failed:", error);
+        } catch (purchaseError) {
+            if (!purchaseError.userCancelled) {
+                console.error("Purchase failed:", purchaseError);
             }
         }
     };
@@ -37,149 +83,238 @@ export const PaywallModal = ({ visible, onClose, onSuccess }) => {
         try {
             const success = await restore();
             if (success) onSuccess?.();
-        } catch (error) {
-            console.error("Restore failed:", error);
+        } catch (restoreError) {
+            console.error("Restore failed:", restoreError);
         }
     };
 
+    const monthlyEstimate = selectedPackage?.product?.price
+        ? (selectedPackage.product.price / 12).toFixed(2)
+        : null;
+
     return (
-        <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-            <View style={styles.overlay}>
+        <Modal
+            visible={visible}
+            animationType="fade"
+            transparent={false}
+            presentationStyle="fullScreen"
+            onRequestClose={allowClose ? onClose : undefined}
+        >
+            <ImageBackground
+                source={require("../../../assets/splash.png")}
+                style={styles.background}
+                resizeMode="cover"
+            >
                 <LinearGradient
-                    colors={[theme.colors.primary, theme.colors.secondary]}
-                    style={styles.container}
+                    colors={["rgba(10,40,28,0.55)", "rgba(10,40,28,0.92)"]}
+                    style={styles.overlay}
                 >
-                    <View style={styles.header}>
-                        <Text style={styles.title}>Unlock Premium</Text>
-                        <IconButton icon="close" iconColor="white" onPress={onClose} />
-                    </View>
+                    {allowClose ? (
+                        <Button
+                            icon="close"
+                            mode="text"
+                            onPress={onClose}
+                            textColor="rgba(255,255,255,0.85)"
+                            style={styles.closeButton}
+                        >
+                            {" "}
+                        </Button>
+                    ) : null}
 
-                    <ScrollView contentContainerStyle={styles.content}>
-                        <Text style={styles.subtitle}>
-                            Deepen your Islamic journey with premium features
-                        </Text>
+                    <View style={styles.content}>
+                        <Text style={styles.brand}>Quran Chat Buddy</Text>
 
-                        {PREMIUM_FEATURES.map((feature) => (
-                            <View key={feature} style={styles.featureRow}>
+                        <View style={styles.quoteCard}>
+                            <Text style={styles.quoteText}>
+                                &ldquo;{PAYWALL_QUOTE.text}&rdquo;
+                            </Text>
+                            <Text style={styles.quoteSource}>
+                                — {PAYWALL_QUOTE.source}
+                            </Text>
+                        </View>
+
+                        <View style={styles.planCard}>
+                            <View style={styles.planHeader}>
                                 <MaterialCommunityIcons
-                                    name="check-circle"
+                                    name="crown"
                                     size={22}
-                                    color="white"
+                                    color="#f5d76e"
                                 />
-                                <Text style={styles.featureText}>{feature}</Text>
+                                <Text style={styles.planTitle}>Yearly</Text>
                             </View>
-                        ))}
 
-                        {!isConfigured ? (
-                            <Card style={styles.noticeCard}>
-                                <Card.Content>
-                                    <Text style={styles.noticeText}>
-                                        RevenueCat is not configured. Add your API keys to enable
-                                        subscriptions before Play Store release.
+                            {selectedPackage ? (
+                                <>
+                                    <Text style={styles.planPrice}>
+                                        {selectedPackage.product.priceString}
+                                        <Text style={styles.planPeriod}>/yr</Text>
                                     </Text>
-                                </Card.Content>
-                            </Card>
-                        ) : loading && packages.length === 0 ? (
-                            <ActivityIndicator color="white" style={styles.loader} />
-                        ) : (
-                            packages.map((pkg) => (
-                                <Button
-                                    key={pkg.identifier}
-                                    mode="contained"
-                                    onPress={() => handlePurchase(pkg)}
-                                    loading={loading}
-                                    disabled={loading}
-                                    style={styles.packageButton}
-                                    contentStyle={styles.packageContent}
-                                    labelStyle={styles.packageLabel}
-                                >
-                                    {pkg.product.title} — {pkg.product.priceString}
-                                </Button>
-                            ))
-                        )}
+                                    {monthlyEstimate ? (
+                                        <Text style={styles.planSubtext}>
+                                            ${monthlyEstimate}/mo
+                                        </Text>
+                                    ) : null}
+                                </>
+                            ) : loading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.planSubtext}>
+                                    {isConfigured
+                                        ? "Loading subscription options..."
+                                        : "Add RevenueCat API keys to enable purchases."}
+                                </Text>
+                            )}
+                        </View>
 
                         {error ? (
                             <Text style={styles.errorText}>{error}</Text>
                         ) : null}
 
                         <Button
-                            mode="text"
-                            onPress={handleRestore}
-                            disabled={loading || !isConfigured}
-                            labelStyle={styles.restoreLabel}
+                            mode="contained"
+                            onPress={handlePurchase}
+                            loading={loading}
+                            disabled={loading || !selectedPackage}
+                            style={styles.continueButton}
+                            contentStyle={styles.continueContent}
+                            labelStyle={styles.continueLabel}
                         >
-                            Restore Purchases
+                            Continue
                         </Button>
-                    </ScrollView>
+
+                        <View style={styles.footerLinks}>
+                            <Button
+                                mode="text"
+                                onPress={handleRestore}
+                                disabled={loading || !isConfigured}
+                                labelStyle={styles.footerLabel}
+                            >
+                                Restore Purchases
+                            </Button>
+                            <Text style={styles.footerDot}>·</Text>
+                            <Button
+                                mode="text"
+                                onPress={() => Linking.openURL(APP_LINKS.terms)}
+                                labelStyle={styles.footerLabel}
+                            >
+                                Terms
+                            </Button>
+                            <Text style={styles.footerDot}>·</Text>
+                            <Button
+                                mode="text"
+                                onPress={() => Linking.openURL(APP_LINKS.privacy)}
+                                labelStyle={styles.footerLabel}
+                            >
+                                Privacy
+                            </Button>
+                        </View>
+                    </View>
                 </LinearGradient>
-            </View>
+            </ImageBackground>
         </Modal>
     );
 };
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.5)",
-        justifyContent: "flex-end",
-    },
-    container: {
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        maxHeight: "85%",
-        paddingBottom: theme.spacing.xl,
-    },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: theme.spacing.md,
-        paddingTop: theme.spacing.md,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: "white",
-        flex: 1,
-        marginLeft: theme.spacing.sm,
+    background: { flex: 1 },
+    overlay: { flex: 1, justifyContent: "flex-end" },
+    closeButton: {
+        position: "absolute",
+        top: 48,
+        right: 8,
+        zIndex: 2,
     },
     content: {
-        padding: theme.spacing.lg,
+        paddingHorizontal: theme.spacing.lg,
+        paddingBottom: theme.spacing.xxl,
     },
-    subtitle: {
-        color: "rgba(255,255,255,0.9)",
-        fontSize: 16,
-        marginBottom: theme.spacing.lg,
+    brand: {
+        color: "white",
+        fontSize: 28,
+        fontWeight: "700",
         textAlign: "center",
+        marginBottom: theme.spacing.lg,
     },
-    featureRow: {
+    quoteCard: {
+        backgroundColor: "rgba(255,255,255,0.12)",
+        borderRadius: 16,
+        padding: theme.spacing.lg,
+        marginBottom: theme.spacing.lg,
+    },
+    quoteText: {
+        color: "white",
+        fontSize: 17,
+        lineHeight: 26,
+        textAlign: "center",
+        fontStyle: "italic",
+    },
+    quoteSource: {
+        color: "rgba(255,255,255,0.75)",
+        textAlign: "center",
+        marginTop: theme.spacing.sm,
+        fontSize: 13,
+    },
+    planCard: {
+        backgroundColor: "rgba(255,255,255,0.14)",
+        borderRadius: 18,
+        padding: theme.spacing.lg,
+        marginBottom: theme.spacing.lg,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.2)",
+    },
+    planHeader: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: theme.spacing.sm,
         gap: theme.spacing.sm,
+        marginBottom: theme.spacing.sm,
     },
-    featureText: {
+    planTitle: {
         color: "white",
+        fontSize: 18,
+        fontWeight: "600",
+    },
+    planPrice: {
+        color: "white",
+        fontSize: 32,
+        fontWeight: "700",
+    },
+    planPeriod: {
+        fontSize: 18,
+        fontWeight: "500",
+    },
+    planSubtext: {
+        color: "rgba(255,255,255,0.8)",
+        marginTop: 4,
         fontSize: 15,
-        flex: 1,
     },
-    packageButton: {
+    continueButton: {
         backgroundColor: "white",
-        marginTop: theme.spacing.md,
-        borderRadius: theme.spacing.md,
+        borderRadius: 14,
     },
-    packageContent: { paddingVertical: theme.spacing.sm },
-    packageLabel: {
+    continueContent: { paddingVertical: theme.spacing.sm },
+    continueLabel: {
         color: theme.colors.primary,
-        fontWeight: "bold",
+        fontWeight: "700",
+        fontSize: 17,
     },
-    restoreLabel: { color: "white" },
+    footerLinks: {
+        flexDirection: "row",
+        justifyContent: "center",
+        alignItems: "center",
+        flexWrap: "wrap",
+        marginTop: theme.spacing.md,
+    },
+    footerLabel: {
+        color: "rgba(255,255,255,0.75)",
+        fontSize: 12,
+    },
+    footerDot: {
+        color: "rgba(255,255,255,0.5)",
+        marginHorizontal: 4,
+    },
     errorText: {
         color: "#ffcdd2",
         textAlign: "center",
-        marginTop: theme.spacing.md,
+        marginBottom: theme.spacing.sm,
     },
-    loader: { marginVertical: theme.spacing.xl },
-    noticeCard: { marginTop: theme.spacing.lg },
-    noticeText: { color: theme.colors.onSurfaceVariant },
 });

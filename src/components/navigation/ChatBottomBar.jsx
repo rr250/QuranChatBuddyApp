@@ -15,14 +15,15 @@ import { router, usePathname } from "expo-router";
 import { glass } from "../../constants/glass";
 import { theme } from "../../constants/theme";
 import { useChatComposerStore } from "../../store/chatComposerStore";
+import { usePaywallAction } from "../../hooks/usePaywallAction";
+import { PAYWALL_PLACEMENTS } from "../../constants/paywallConfig";
 
 const MENU_ITEMS = [
-    { id: "home", label: "Home", icon: "home-variant", route: "/(tabs)" },
     { id: "chat", label: "AI Chat", icon: "message-text", route: "/(tabs)/chat" },
     { id: "prayer", label: "Prayer Times", icon: "clock-outline", route: "/(tabs)/prayer" },
     { id: "quran", label: "Quran", icon: "book-open-page-variant", route: "/(tabs)/quran" },
     { id: "quiz", label: "Daily Quiz", icon: "head-question", route: "/(tabs)/quiz" },
-    { id: "profile", label: "Profile", icon: "account-circle", route: "/(tabs)/profile" },
+    { id: "profile", label: "Profile & Settings", icon: "account-cog-outline", route: "/(tabs)/profile" },
 ];
 
 export const ChatBottomBar = () => {
@@ -30,6 +31,7 @@ export const ChatBottomBar = () => {
     const pathname = usePathname();
     const [menuVisible, setMenuVisible] = useState(false);
     const { draft, setDraft, queueMessage } = useChatComposerStore();
+    const { withPaywallCheck } = usePaywallAction();
 
     const isChatScreen = pathname?.includes("/chat");
     const bottomPad = Math.max(insets.bottom, Platform.OS === "ios" ? 8 : 6);
@@ -38,33 +40,30 @@ export const ChatBottomBar = () => {
         const message = draft.trim();
         if (!message) return;
 
-        queueMessage(message);
-        if (!isChatScreen) {
-            router.push("/(tabs)/chat");
-        }
+        const submit = () => {
+            queueMessage(message);
+            if (!isChatScreen) {
+                router.push("/(tabs)/chat");
+            }
+        };
+
+        withPaywallCheck(submit, {
+            placement:
+                pathname === "/" || pathname?.endsWith("/index")
+                    ? PAYWALL_PLACEMENTS.AMA_CLICK
+                    : undefined,
+        })();
     };
 
     const navigate = (route) => {
         setMenuVisible(false);
-        router.push(route);
+        withPaywallCheck(() => router.push(route))();
     };
 
     return (
         <>
             <View style={[styles.wrapper, { paddingBottom: bottomPad }]}>
                 <View style={styles.bar}>
-                    <TouchableOpacity
-                        style={styles.homeButton}
-                        onPress={() => router.push("/(tabs)")}
-                        accessibilityLabel="Go to home"
-                    >
-                        <MaterialCommunityIcons
-                            name="home-variant"
-                            size={22}
-                            color={theme.colors.primary}
-                        />
-                    </TouchableOpacity>
-
                     <View style={styles.inputShell}>
                         <MaterialCommunityIcons
                             name="message-text-outline"
@@ -157,14 +156,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: theme.spacing.sm,
         paddingVertical: theme.spacing.sm,
         backgroundColor: "#1A4D38",
-    },
-    homeButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "rgba(255,255,255,0.92)",
     },
     inputShell: {
         flex: 1,

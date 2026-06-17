@@ -20,6 +20,7 @@ export default function TabLayout() {
                     <Tabs.Screen name="quran" options={hiddenTab} />
                     <Tabs.Screen name="quiz" options={hiddenTab} />
                     <Tabs.Screen name="profile" options={hiddenTab} />
+                    <Tabs.Screen name="settings" options={hiddenTab} />
                 </Tabs>
             </View>
             <ChatBottomBar />

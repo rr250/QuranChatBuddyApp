@@ -70,6 +70,12 @@ export const authStyles = StyleSheet.create({
     linkText: {
         color: "rgba(255,255,255,0.8)",
         fontSize: 14,
+        flex: 1,
+    },
+    linkInline: {
+        color: "white",
+        fontWeight: "bold",
+        textDecorationLine: "underline",
     },
     linkButtonText: {
         color: "white",

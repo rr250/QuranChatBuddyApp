@@ -34,6 +34,13 @@ let database;
 let storage;
 let functions;
 
+export const getFirebaseApp = () => {
+    if (!app) {
+        initializeFirebase();
+    }
+    return app;
+};
+
 export const initializeFirebase = () => {
     if (!app) {
         // Initialize Firebase app

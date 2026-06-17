@@ -1,9 +1,10 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { View, StyleSheet, Alert } from "react-native";
 import { Button } from "react-native-paper";
 import { router } from "expo-router";
 import { AuthService } from "../../services/authService";
 import { useAuthStore } from "../../store/authStore";
+import { useGoogleAuth } from "../../hooks/useGoogleAuth";
 import { theme } from "../../constants/theme";
 
 export const SocialLoginButtons = ({ mode = "signIn" }) => {
@@ -12,16 +13,35 @@ export const SocialLoginButtons = ({ mode = "signIn" }) => {
         setLoading,
         setError,
         processGoogleLinking,
+        isAnonymous,
     } = useAuthStore();
 
-    const isLinkMode = mode === "link";
-    const { request, response, promptAsync } = AuthService.useGoogleAuth();
+    const isLinkMode = mode === "link" || isAnonymous;
+    const { request, response, promptAsync, isConfigured } = useGoogleAuth();
+    const handledResponseRef = useRef(null);
 
     useEffect(() => {
-        if (response?.type === "success") {
+        if (!response || handledResponseRef.current === response) return;
+
+        if (response.type === "success") {
+            handledResponseRef.current = response;
             handleGoogleResponse(response);
-        } else if (response?.type === "error") {
-            setError("Google sign-in failed");
+            return;
+        }
+
+        if (response.type === "error") {
+            handledResponseRef.current = response;
+            const message =
+                response.error?.message ??
+                response.params?.error_description ??
+                "Google sign-in failed";
+            setError(message);
+            Alert.alert("Google Sign-In Failed", message);
+            return;
+        }
+
+        if (response.type === "dismiss" || response.type === "cancel") {
+            handledResponseRef.current = response;
         }
     }, [response]);
 
@@ -38,20 +58,31 @@ export const SocialLoginButtons = ({ mode = "signIn" }) => {
         } catch (error) {
             console.error("Google auth error:", error);
             setError(error.message);
+            Alert.alert("Google Sign-In Failed", error.message);
         } finally {
             setLoading(false);
         }
     };
 
     const handleGoogleLogin = async () => {
+        if (!isConfigured) {
+            Alert.alert(
+                "Google Sign-In Not Configured",
+                "Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID, and EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID in your .env file.\n\n" +
+                    AuthService.getGoogleOAuthSetupHint(),
+            );
+            return;
+        }
+
+        if (!request) {
+            Alert.alert(
+                "Please Wait",
+                "Google sign-in is still initializing. Try again in a moment.",
+            );
+            return;
+        }
+
         try {
-            if (!request) {
-                Alert.alert(
-                    "Error",
-                    "Google sign-in is not ready yet. Please try again.",
-                );
-                return;
-            }
             await promptAsync();
         } catch (error) {
             console.error("Google sign-in initiation error:", error);
@@ -64,7 +95,7 @@ export const SocialLoginButtons = ({ mode = "signIn" }) => {
             <Button
                 mode="outlined"
                 onPress={handleGoogleLogin}
-                disabled={!request}
+                disabled={!request || !isConfigured}
                 style={styles.socialButton}
                 contentStyle={styles.buttonContent}
                 labelStyle={styles.buttonLabel}

@@ -1,5 +1,4 @@
-// src/hooks/useQuiz.js - UPDATED for Firebase Realtime Database
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { quizService } from "../services/quizService";
 import { useAuthStore } from "../store/authStore";
 
@@ -15,7 +14,23 @@ export const useQuiz = () => {
     const [error, setError] = useState(null);
     const { user } = useAuthStore();
 
-    // Load today's quiz when user is authenticated
+    const answersRef = useRef([]);
+    const questionsRef = useRef([]);
+    const startTimeRef = useRef(null);
+    const completingRef = useRef(false);
+
+    useEffect(() => {
+        questionsRef.current = questions;
+    }, [questions]);
+
+    useEffect(() => {
+        answersRef.current = answers;
+    }, [answers]);
+
+    useEffect(() => {
+        startTimeRef.current = startTime;
+    }, [startTime]);
+
     const loadTodayQuiz = useCallback(async () => {
         if (!user) {
             setIsLoading(false);
@@ -27,167 +42,184 @@ export const useQuiz = () => {
             setIsLoading(true);
             setError(null);
 
-            // Check if quiz is already completed today
-            const isCompleted = await quizService.isTodayQuizCompleted();
-            if (isCompleted) {
+            const completedToday = await quizService.isTodayQuizCompleted();
+            if (completedToday) {
                 const result = await quizService.getTodayResult();
                 setQuizResult(result);
                 setIsCompleted(true);
             } else {
-                // Load today's questions
                 const todayQuestions = await quizService.getTodayQuestions();
                 setQuestions(todayQuestions);
                 setCurrentQuestionIndex(0);
                 setAnswers([]);
-                setStartTime(new Date());
+                answersRef.current = [];
+                const startedAt = new Date();
+                startTimeRef.current = startedAt;
+                setStartTime(startedAt);
                 setIsCompleted(false);
                 setQuizResult(null);
             }
 
-            // Load current streak
             const currentStreak = await quizService.getCurrentStreak();
             setStreak(currentStreak);
-        } catch (error) {
-            console.error("Error loading quiz:", error);
+        } catch (loadError) {
+            console.error("Error loading quiz:", loadError);
             setError(
-                "Failed to load quiz. Please check your connection and try again."
+                "Failed to load quiz. Please check your connection and try again.",
             );
         } finally {
             setIsLoading(false);
         }
     }, [user]);
 
-    // Initialize quiz when user changes or hook mounts
     useEffect(() => {
         loadTodayQuiz();
     }, [loadTodayQuiz]);
 
-    // Answer current question
-    const answerQuestion = useCallback(
-        (answerIndex) => {
-            if (currentQuestionIndex >= questions.length || !user) return;
+    const buildAnswer = useCallback(
+        (answerIndex, questionIndex = currentQuestionIndex) => {
+            const question = questionsRef.current[questionIndex];
+            if (!question) return null;
 
-            const newAnswers = [...answers];
-            newAnswers[currentQuestionIndex] = {
-                questionId: questions[currentQuestionIndex].id,
+            return {
+                questionId: question.id,
                 selectedAnswer: answerIndex,
-                isCorrect:
-                    answerIndex ===
-                    questions[currentQuestionIndex].correctAnswer,
-                timeSpent: Date.now() - (startTime?.getTime() || 0),
+                isCorrect: answerIndex === question.correctAnswer,
+                timeSpent:
+                    Date.now() - (startTimeRef.current?.getTime() || Date.now()),
             };
-
-            setAnswers(newAnswers);
         },
-        [currentQuestionIndex, questions, answers, startTime, user]
+        [currentQuestionIndex],
     );
 
-    // Move to next question
+    const answerQuestion = useCallback(
+        (answerIndex) => {
+            if (!user || currentQuestionIndex >= questionsRef.current.length) {
+                return null;
+            }
+
+            const entry = buildAnswer(answerIndex, currentQuestionIndex);
+            if (!entry) return null;
+
+            const newAnswers = [...answersRef.current];
+            while (newAnswers.length <= currentQuestionIndex) {
+                newAnswers.push(undefined);
+            }
+            newAnswers[currentQuestionIndex] = entry;
+            answersRef.current = newAnswers;
+            setAnswers(newAnswers);
+            return newAnswers;
+        },
+        [buildAnswer, currentQuestionIndex, user],
+    );
+
+    const completeQuiz = useCallback(
+        async (submittedAnswers) => {
+            if (!user || completingRef.current) return;
+
+            const finalAnswers = (submittedAnswers ?? answersRef.current).filter(
+                Boolean,
+            );
+            const totalQuestions =
+                questionsRef.current.length || finalAnswers.length;
+            const score = finalAnswers.filter((answer) => answer.isCorrect).length;
+
+            if (finalAnswers.length === 0) {
+                setError("Please answer at least one question before submitting.");
+                return;
+            }
+
+            try {
+                completingRef.current = true;
+                setIsLoading(true);
+
+                const totalTimeSpent = Math.round(
+                    (Date.now() - (startTimeRef.current?.getTime() || Date.now())) /
+                        1000,
+                );
+
+                const result = await quizService.saveQuizResult(
+                    finalAnswers,
+                    score,
+                    totalTimeSpent,
+                );
+                const updatedStreak = await quizService.getCurrentStreak();
+
+                setAnswers(finalAnswers);
+                answersRef.current = finalAnswers;
+                setQuizResult({
+                    ...result,
+                    totalQuestions,
+                });
+                setStreak(updatedStreak);
+                setIsCompleted(true);
+            } catch (completeError) {
+                console.error("Error completing quiz:", completeError);
+                setError("Failed to save quiz results. Please try again.");
+            } finally {
+                completingRef.current = false;
+                setIsLoading(false);
+            }
+        },
+        [user],
+    );
+
     const nextQuestion = useCallback(() => {
         if (!user) return;
 
-        if (currentQuestionIndex < questions.length - 1) {
-            setCurrentQuestionIndex(currentQuestionIndex + 1);
-        } else {
-            // Quiz completed
-            completeQuiz();
-        }
-    }, [currentQuestionIndex, questions.length, user]);
-
-    // Go to previous question
-    const previousQuestion = useCallback(() => {
-        if (currentQuestionIndex > 0 && user) {
-            setCurrentQuestionIndex(currentQuestionIndex - 1);
-        }
-    }, [currentQuestionIndex, user]);
-
-    console.log("useQuiz state:", {
-        questions,
-        answersLength: answers.length,
-        questionsLength: questions.length,
-        error,
-    });
-    // Complete the quiz
-    const completeQuiz = useCallback(async () => {
-        console.log("Completing quiz...");
-        if (!user) {
-            setError("Please sign in to save your quiz results");
+        if (currentQuestionIndex < questionsRef.current.length - 1) {
+            setCurrentQuestionIndex((index) => index + 1);
             return;
         }
 
-        try {
-            setIsLoading(true);
-            const score = answers.filter((answer) => answer.isCorrect).length;
-            const totalTimeSpent = Math.round(
-                (Date.now() - startTime.getTime()) / 1000
-            ); // in seconds
+        completeQuiz(answersRef.current);
+    }, [completeQuiz, currentQuestionIndex, user]);
 
-            console.log("Submitting quiz results:", {
-                answers,
-                score,
-                totalTimeSpent,
-            });
-
-            const result = await quizService.saveQuizResult(
-                answers,
-                score,
-                totalTimeSpent
-            );
-            const updatedStreak = await quizService.getCurrentStreak();
-
-            setQuizResult(result);
-            setStreak(updatedStreak);
-            setIsCompleted(true);
-        } catch (error) {
-            console.error("Error completing quiz:", error);
-            setError("Failed to save quiz results. Please try again.");
-        } finally {
-            setIsLoading(false);
+    const previousQuestion = useCallback(() => {
+        if (currentQuestionIndex > 0 && user) {
+            setCurrentQuestionIndex((index) => index - 1);
         }
-    }, [answers, questions, startTime, user]);
+    }, [currentQuestionIndex, user]);
 
-    // Get current question
     const getCurrentQuestion = useCallback(() => {
         if (currentQuestionIndex >= questions.length) return null;
         return questions[currentQuestionIndex];
     }, [currentQuestionIndex, questions]);
 
-    // Get current answer
-    const getCurrentAnswer = useCallback(() => {
-        return answers[currentQuestionIndex];
-    }, [answers, currentQuestionIndex]);
+    const getCurrentAnswer = useCallback(
+        () => answers[currentQuestionIndex],
+        [answers, currentQuestionIndex],
+    );
 
-    // Check if current question is answered
-    const isCurrentQuestionAnswered = useCallback(() => {
-        return answers[currentQuestionIndex] !== undefined;
-    }, [answers, currentQuestionIndex]);
+    const isCurrentQuestionAnswered = useCallback(
+        () => answers[currentQuestionIndex] !== undefined,
+        [answers, currentQuestionIndex],
+    );
 
-    // Get quiz progress
     const getProgress = useCallback(() => {
         if (questions.length === 0) return 0;
         return ((currentQuestionIndex + 1) / questions.length) * 100;
     }, [currentQuestionIndex, questions.length]);
 
-    // Reset quiz (for new day or retry)
     const resetQuiz = useCallback(() => {
         setQuestions([]);
         setCurrentQuestionIndex(0);
         setAnswers([]);
+        answersRef.current = [];
         setIsCompleted(false);
         setQuizResult(null);
         setStartTime(null);
+        startTimeRef.current = null;
         setError(null);
         loadTodayQuiz();
     }, [loadTodayQuiz]);
 
-    // Retry loading quiz if there was an error
     const retryLoading = useCallback(() => {
         setError(null);
         loadTodayQuiz();
     }, [loadTodayQuiz]);
 
     return {
-        // Quiz state
         questions,
         currentQuestionIndex,
         answers,
@@ -197,29 +229,21 @@ export const useQuiz = () => {
         streak,
         error,
         user,
-
-        // Current question data
         currentQuestion: getCurrentQuestion(),
         currentAnswer: getCurrentAnswer(),
         isCurrentQuestionAnswered: isCurrentQuestionAnswered(),
         progress: getProgress(),
-
-        // Actions
         answerQuestion,
         nextQuestion,
         previousQuestion,
         completeQuiz,
         resetQuiz,
         retryLoading,
-
-        // Computed values
         totalQuestions: questions.length,
-        answeredCount: answers.length,
+        answeredCount: answers.filter(Boolean).length,
         canGoNext: isCurrentQuestionAnswered(),
         canGoPrevious: currentQuestionIndex > 0,
         isLastQuestion: currentQuestionIndex === questions.length - 1,
-
-        // Authentication status
         isAuthenticated: !!user,
     };
 };

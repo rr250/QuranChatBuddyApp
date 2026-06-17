@@ -1,20 +1,27 @@
 import { useMemo } from "react";
 import { useSubscriptionStore } from "../store/subscriptionStore";
-
-const FREE_CHAT_MESSAGES = 5;
+import { usePaywallStore } from "../store/paywallStore";
 
 export const usePremiumGate = (messageCount = 0) => {
     const isPremium = useSubscriptionStore((s) => s.isPremium);
+    const freeMessageCount = usePaywallStore(
+        (s) => s.config?.freeMessageCount ?? 10,
+    );
 
     const canAccess = useMemo(
-        () => isPremium || messageCount < FREE_CHAT_MESSAGES,
-        [isPremium, messageCount],
+        () => isPremium || messageCount < freeMessageCount,
+        [isPremium, messageCount, freeMessageCount],
     );
 
     const remainingFree = useMemo(
-        () => Math.max(0, FREE_CHAT_MESSAGES - messageCount),
-        [messageCount],
+        () => Math.max(0, freeMessageCount - messageCount),
+        [messageCount, freeMessageCount],
     );
 
-    return { isPremium, canAccess, remainingFree, freeLimit: FREE_CHAT_MESSAGES };
+    return {
+        isPremium,
+        canAccess,
+        remainingFree,
+        freeLimit: freeMessageCount,
+    };
 };

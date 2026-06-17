@@ -17,6 +17,7 @@ import { usePremiumGate } from "../../src/hooks/usePremiumGate";
 import { PaywallModal } from "../../src/components/subscription/PaywallModal";
 import { useChatComposerStore } from "../../src/store/chatComposerStore";
 import { AppBackground } from "../../src/components/ui/Glass";
+import { AppLogo } from "../../src/components/common/AppLogo";
 import { ScreenHeader } from "../../src/components/navigation/ScreenHeader";
 import { glass } from "../../src/constants/glass";
 
@@ -161,7 +162,8 @@ export default function ChatScreen() {
                     showsVerticalScrollIndicator={false}
                     ListEmptyComponent={
                         <View style={styles.emptyState}>
-                            <Text style={styles.emptyStateTitle}>🕌 Welcome</Text>
+                            <AppLogo size={56} />
+                            <Text style={styles.emptyStateTitle}>Welcome</Text>
                             <Text style={styles.emptyStateText}>
                                 Ask about Quranic verses, prayer, hadith, or spiritual guidance.
                                 Use the bar below to start a conversation.
@@ -173,6 +175,7 @@ export default function ChatScreen() {
 
                 <PaywallModal
                     visible={paywallVisible}
+                    allowClose
                     onClose={() => setPaywallVisible(false)}
                     onSuccess={() => setPaywallVisible(false)}
                 />

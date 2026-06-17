@@ -1,97 +1,211 @@
-import React, { useMemo } from "react";
-import { View, StyleSheet, Share } from "react-native";
-import { Text, Button, IconButton } from "react-native-paper";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+    View,
+    StyleSheet,
+    FlatList,
+    Dimensions,
+} from "react-native";
+import { Text, Button, ActivityIndicator } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { theme } from "../../constants/theme";
 import { GlassDashboardCard } from "../ui/GlassDashboardCard";
 import { glass } from "../../constants/glass";
+import { usePaywallAction } from "../../hooks/usePaywallAction";
+import { getDailyVerseBatch, getDateKey } from "../../utils/dailyQuran";
+import { aiService } from "../../services/aiService";
+import { VerseShareCard } from "../quran/VerseShareCard";
+import { shareVerse } from "../../utils/shareVerse";
 
-const ISLAMIC_QUOTES = [
-    {
-        text: "And Allah is the best of planners.",
-        source: "Quran 8:30",
-        category: "Trust in Allah",
-        arabic: "وَاللَّهُ خَيْرُ الْمَاكِرِينَ",
-    },
-    {
-        text: "The believer is not one who eats his fill while his neighbor goes hungry.",
-        source: "Prophet Muhammad (ﷺ)",
-        category: "Compassion",
-    },
-    {
-        text: "And whoever relies upon Allah - then He is sufficient for him.",
-        source: "Quran 65:3",
-        category: "Trust in Allah",
-        arabic: "وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ",
-    },
-    {
-        text: "The best of people are those who benefit others.",
-        source: "Prophet Muhammad (ﷺ)",
-        category: "Service",
-    },
-];
+const CAROUSEL_COUNT = 5;
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const CARD_WIDTH = SCREEN_WIDTH - theme.spacing.md * 2;
 
-export const IslamicQuoteCard = () => {
-    const initialQuote = useMemo(() => {
-        const index = new Date().getDate() % ISLAMIC_QUOTES.length;
-        return ISLAMIC_QUOTES[index];
+const categoryCacheKey = (verse) =>
+    `verse_category_${getDateKey()}_${verse.surah}_${verse.ayah}`;
+
+const QuoteSlide = ({
+    item,
+    category,
+    loadingCategory,
+    paywallOpts,
+    withPaywallCheck,
+    onShare,
+    sharing,
+}) => (
+    <View style={[styles.slide, { width: CARD_WIDTH }]}>
+        <View style={styles.badge}>
+            {loadingCategory ? (
+                <ActivityIndicator size={12} color={theme.colors.secondary} />
+            ) : (
+                <Text style={styles.badgeText}>{category}</Text>
+            )}
+        </View>
+
+        <Text style={styles.arabicText}>{item.arabicText}</Text>
+        <Text style={styles.quoteText}>&quot;{item.translation}&quot;</Text>
+        <Text style={styles.source}>— {item.reference}</Text>
+
+        <View style={styles.actions}>
+            <Button
+                mode="outlined"
+                onPress={withPaywallCheck(
+                    () => onShare(item, category),
+                    paywallOpts,
+                )}
+                textColor="#fff"
+                icon="share"
+                loading={sharing}
+                disabled={sharing}
+            >
+                Share
+            </Button>
+        </View>
+    </View>
+);
+
+export const IslamicQuoteCard = ({ placement = null }) => {
+    const { withPaywallCheck } = usePaywallAction();
+    const paywallOpts = placement ? { placement } : {};
+    const shareRef = useRef(null);
+
+    const verses = useMemo(() => getDailyVerseBatch(CAROUSEL_COUNT), []);
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [categories, setCategories] = useState({});
+    const [shareTarget, setShareTarget] = useState(null);
+    const [sharing, setSharing] = useState(false);
+
+    const loadCategory = useCallback(async (verse) => {
+        if (!verse) return "Quranic Wisdom";
+
+        const key = categoryCacheKey(verse);
+        const cached = await AsyncStorage.getItem(key);
+        if (cached) return cached;
+
+        const category = await aiService.getVerseCategory(
+            verse.translation,
+            verse.reference,
+        );
+        await AsyncStorage.setItem(key, category);
+        return category;
     }, []);
 
-    const [quote, setQuote] = React.useState(initialQuote);
+    useEffect(() => {
+        let cancelled = false;
 
-    const handleShare = async () => {
-        const shareText = quote.arabic
-            ? `${quote.arabic}\n\n"${quote.text}"\n\n— ${quote.source}`
-            : `"${quote.text}"\n\n— ${quote.source}`;
+        const loadCategories = async () => {
+            const entries = await Promise.all(
+                verses.map(async (verse) => {
+                    const category = await loadCategory(verse);
+                    return [categoryCacheKey(verse), category];
+                }),
+            );
+
+            if (!cancelled) {
+                setCategories(Object.fromEntries(entries));
+            }
+        };
+
+        if (verses.length) {
+            loadCategories();
+        }
+
+        return () => {
+            cancelled = true;
+        };
+    }, [verses, loadCategory]);
+
+    const handleShare = async (verse, category) => {
+        if (sharing) return;
 
         try {
-            await Share.share({ message: shareText, title: "Islamic Wisdom" });
+            setSharing(true);
+            setShareTarget({ verse, category });
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+            await shareVerse(shareRef, verse, {
+                title: "Today's Reflection",
+                category,
+            });
         } catch (error) {
-            console.error("Error sharing quote:", error);
+            console.error("Error sharing reflection:", error);
+        } finally {
+            setSharing(false);
+            setShareTarget(null);
         }
     };
 
-    const pickNewQuote = () => {
-        const next = ISLAMIC_QUOTES[Math.floor(Math.random() * ISLAMIC_QUOTES.length)];
-        setQuote(next);
+    const onScroll = (event) => {
+        const index = Math.round(
+            event.nativeEvent.contentOffset.x / CARD_WIDTH,
+        );
+        if (index !== activeIndex && index >= 0 && index < verses.length) {
+            setActiveIndex(index);
+        }
     };
 
+    if (!verses.length) return null;
+
     return (
-        <GlassDashboardCard>
-            <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <MaterialCommunityIcons
-                        name="format-quote-close"
-                        size={22}
-                        color="#fff"
-                    />
-                    <Text style={styles.title}>Islamic Wisdom</Text>
+        <>
+            <VerseShareCard
+                ref={shareRef}
+                verse={shareTarget?.verse ?? verses[activeIndex]}
+                category={
+                    shareTarget?.category ??
+                    categories[categoryCacheKey(verses[activeIndex])]
+                }
+            />
+
+            <GlassDashboardCard>
+                <View style={styles.header}>
+                    <View style={styles.headerLeft}>
+                        <MaterialCommunityIcons
+                            name="format-quote-close"
+                            size={22}
+                            color="#fff"
+                        />
+                        <Text style={styles.title}>Today&apos;s Reflections</Text>
+                    </View>
                 </View>
-                <IconButton
-                    icon="refresh"
-                    iconColor="#fff"
-                    size={20}
-                    onPress={pickNewQuote}
+
+                <FlatList
+                    data={verses}
+                    keyExtractor={(item) => `${item.surah}:${item.ayah}`}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    snapToInterval={CARD_WIDTH}
+                    decelerationRate="fast"
+                    onMomentumScrollEnd={onScroll}
+                    renderItem={({ item }) => (
+                        <QuoteSlide
+                            item={item}
+                            category={
+                                categories[categoryCacheKey(item)] ?? "Quranic Wisdom"
+                            }
+                            loadingCategory={!categories[categoryCacheKey(item)]}
+                            paywallOpts={paywallOpts}
+                            withPaywallCheck={withPaywallCheck}
+                            onShare={handleShare}
+                            sharing={sharing}
+                        />
+                    )}
                 />
-            </View>
 
-            <View style={styles.badge}>
-                <Text style={styles.badgeText}>{quote.category}</Text>
-            </View>
-
-            {quote.arabic ? (
-                <Text style={styles.arabicText}>{quote.arabic}</Text>
-            ) : null}
-
-            <Text style={styles.quoteText}>&quot;{quote.text}&quot;</Text>
-            <Text style={styles.source}>— {quote.source}</Text>
-
-            <View style={styles.actions}>
-                <Button mode="outlined" onPress={handleShare} textColor="#fff" icon="share">
-                    Share
-                </Button>
-            </View>
-        </GlassDashboardCard>
+                <View style={styles.dots}>
+                    {verses.map((verse, index) => (
+                        <View
+                            key={`${verse.surah}:${verse.ayah}`}
+                            style={[
+                                styles.dot,
+                                index === activeIndex && styles.dotActive,
+                            ]}
+                        />
+                    ))}
+                </View>
+            </GlassDashboardCard>
+        </>
     );
 };
 
@@ -112,6 +226,9 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         color: "#fff",
     },
+    slide: {
+        paddingRight: theme.spacing.sm,
+    },
     badge: {
         alignSelf: "flex-start",
         backgroundColor: glass.backgroundStrong,
@@ -119,6 +236,8 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
         borderRadius: 12,
         marginBottom: theme.spacing.md,
+        minHeight: 24,
+        justifyContent: "center",
     },
     badgeText: {
         color: theme.colors.secondary,
@@ -147,4 +266,20 @@ const styles = StyleSheet.create({
         marginBottom: theme.spacing.md,
     },
     actions: { alignItems: "center" },
+    dots: {
+        flexDirection: "row",
+        justifyContent: "center",
+        gap: 6,
+        marginTop: theme.spacing.sm,
+    },
+    dot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: "rgba(255,255,255,0.35)",
+    },
+    dotActive: {
+        backgroundColor: "#fff",
+        width: 18,
+    },
 });

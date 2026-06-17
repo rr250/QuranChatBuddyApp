@@ -7,33 +7,36 @@ import {
     Dimensions,
     Animated,
     TouchableOpacity,
+    RefreshControl,
 } from "react-native";
 import { ScreenShell, screenContentPadding } from "../../src/components/navigation/ScreenShell";
-import { BOTTOM_BAR_HEIGHT } from "../../src/constants/layout";
+import { GlassSurface } from "../../src/components/ui/Glass";
 import {
-    Card,
     Text,
     ProgressBar,
-    IconButton,
-    Button,
 } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { PrayerService } from "../../src/services/prayerService";
-import { LocationService } from "../../src/services/locationService";
 import { PrayerNotificationService } from "../../src/services/prayerNotificationService";
+import { usePrayerTimes } from "../../src/hooks/usePrayerTimes";
 import { theme } from "../../src/constants/theme";
-import * as Location from "expo-location";
+import { glass } from "../../src/constants/glass";
 import { Magnetometer } from "expo-sensors";
 
 const { width } = Dimensions.get("window");
 
 export default function PrayerScreen() {
-    const [prayerTimes, setPrayerTimes] = useState(null);
-    const [nextPrayer, setNextPrayer] = useState(null);
-    const [currentPrayer, setCurrentPrayer] = useState(null);
-    const [location, setLocation] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const {
+        prayerTimes,
+        nextPrayer,
+        currentPrayer,
+        location,
+        loading,
+        refreshing,
+        loadPrayerTimes,
+        getTimeUntilNext,
+        getPrayerProgress,
+    } = usePrayerTimes();
     const [showQibla, setShowQibla] = useState(true);
 
     // Qibla compass state
@@ -44,10 +47,18 @@ export default function PrayerScreen() {
     const prayerService = PrayerService.getInstance();
 
     useEffect(() => {
-        loadPrayerTimes();
-        const interval = setInterval(updateNextPrayer, 60000);
-        return () => clearInterval(interval);
-    }, []);
+        if (location) {
+            calculateQiblaDirection(location);
+        }
+    }, [location]);
+
+    useEffect(() => {
+        if (prayerTimes) {
+            PrayerNotificationService.setupDailyPrayerNotifications().catch(
+                (err) => console.warn("Prayer notification schedule failed:", err),
+            );
+        }
+    }, [prayerTimes]);
 
     // Qibla compass magnetometer
     useEffect(() => {
@@ -79,35 +90,14 @@ export default function PrayerScreen() {
         }
     }, [heading, showQibla]);
 
-    const loadPrayerTimes = async () => {
-        try {
-            setLoading(true);
-            const currentLocation = await LocationService.getCurrentLocation();
-            setLocation(currentLocation);
-
-            const times = prayerService.calculatePrayerTimes(currentLocation);
-            setPrayerTimes(times);
-            updatePrayerState(times);
-            calculateQiblaDirection(currentLocation);
-
-            PrayerNotificationService.setupDailyPrayerNotifications().catch(
-                (err) => console.warn("Prayer notification schedule failed:", err)
-            );
-        } catch (error) {
-            console.error("Error loading prayer times:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const calculateQiblaDirection = (location) => {
+    const calculateQiblaDirection = (loc) => {
         // Kaaba coordinates
         const kaabaLat = 21.4225;
         const kaabaLng = 39.8262;
 
-        const lat1 = (location.latitude * Math.PI) / 180;
+        const lat1 = (loc.latitude * Math.PI) / 180;
         const lat2 = (kaabaLat * Math.PI) / 180;
-        const deltaLng = ((kaabaLng - location.longitude) * Math.PI) / 180;
+        const deltaLng = ((kaabaLng - loc.longitude) * Math.PI) / 180;
 
         const y = Math.sin(deltaLng);
         const x =
@@ -120,39 +110,10 @@ export default function PrayerScreen() {
         setQiblaDirection(qibla);
     };
 
-    const updatePrayerState = (times) => {
-        const next = prayerService.getNextPrayer(times);
-        const current = prayerService.getCurrentPrayer(times);
-        setNextPrayer(next);
-        setCurrentPrayer(current);
-    };
-
-    const updateNextPrayer = () => {
-        if (prayerTimes) {
-            updatePrayerState(prayerTimes);
-        }
-    };
-
-    const getTimeUntilNext = () => {
-        if (!nextPrayer) return "0m";
-        return prayerService.getTimeUntilNextPrayer(nextPrayer);
-    };
-
-    const getPrayerProgress = () => {
-        if (!prayerTimes || !nextPrayer) return 0;
-        const now = new Date();
-        const prayers = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
-        const currentIndex = prayers.indexOf(nextPrayer.name.toLowerCase());
-
-        if (currentIndex === 0) return 0;
-
-        const previousPrayerTime = prayerTimes[prayers[currentIndex - 1]];
-        const nextPrayerTime = nextPrayer.timestamp;
-        const totalDuration = nextPrayerTime - previousPrayerTime;
-        const elapsed = now - previousPrayerTime;
-
-        return Math.min(Math.max(elapsed / totalDuration, 0), 1);
-    };
+    const currentPrayerLabel =
+        typeof currentPrayer === "string"
+            ? currentPrayer
+            : currentPrayer?.name ?? "—";
 
     const allPrayers = prayerTimes
         ? [
@@ -189,7 +150,7 @@ export default function PrayerScreen() {
           ]
         : [];
 
-    if (loading) {
+    if (loading && !prayerTimes) {
         return (
             <ScreenShell title="Prayer Times" subtitle="Loading schedule...">
                 <View style={styles.loadingContainer}>
@@ -205,11 +166,34 @@ export default function PrayerScreen() {
     }
 
     return (
-        <ScreenShell title="Prayer Times" subtitle="Salah schedule & Qibla">
+        <ScreenShell
+            title="Prayer Times"
+            subtitle={location?.city ? `${location.city}` : "Salah schedule & Qibla"}
+            rightAction={
+                <TouchableOpacity
+                    onPress={loadPrayerTimes}
+                    disabled={refreshing}
+                    style={styles.refreshButton}
+                >
+                    <MaterialCommunityIcons
+                        name="refresh"
+                        size={22}
+                        color="#fff"
+                    />
+                </TouchableOpacity>
+            }
+        >
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={[styles.scrollContent, screenContentPadding]}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={loadPrayerTimes}
+                        tintColor="#fff"
+                    />
+                }
             >
                 {/* Header */}
                 {/* <View style={styles.header}>
@@ -242,8 +226,8 @@ export default function PrayerScreen() {
 
                 {/* Qibla Compass */}
                 {showQibla && (
-                    <Card style={styles.qiblaCard}>
-                        <Card.Content style={styles.qiblaContent}>
+                    <GlassSurface style={styles.qiblaCard}>
+                        <View style={[styles.cardContent, styles.qiblaContent]}>
                             <Text style={styles.qiblaTitle}>
                                 Qibla Direction
                             </Text>
@@ -364,7 +348,7 @@ export default function PrayerScreen() {
                                     <MaterialCommunityIcons
                                         name="navigation"
                                         size={60}
-                                        color={theme.colors.primary}
+                                        color={theme.colors.secondary}
                                     />
                                 </View>
 
@@ -376,8 +360,8 @@ export default function PrayerScreen() {
                                 Qibla: {Math.round(qiblaDirection)}° • Heading:{" "}
                                 {Math.round(heading)}°
                             </Text>
-                        </Card.Content>
-                    </Card>
+                        </View>
+                    </GlassSurface>
                 )}
 
                 {/* Current Prayer Status */}
@@ -396,8 +380,8 @@ export default function PrayerScreen() {
 
                 {/* Next Prayer */}
                 {nextPrayer && (
-                    <Card style={styles.nextPrayerCard}>
-                        <Card.Content>
+                    <GlassSurface style={styles.nextPrayerCard}>
+                        <View style={styles.cardContent}>
                             <View style={styles.nextPrayerHeader}>
                                 <Text style={styles.nextPrayerLabel}>
                                     Next Prayer
@@ -429,16 +413,15 @@ export default function PrayerScreen() {
 
                             <ProgressBar
                                 progress={getPrayerProgress()}
-                                color={theme.colors.primary}
+                                color={theme.colors.secondary}
                                 style={styles.progressBar}
                             />
-                        </Card.Content>
-                    </Card>
+                        </View>
+                    </GlassSurface>
                 )}
 
-                {/* All Prayer Times */}
-                <Card style={styles.allPrayersCard}>
-                    <Card.Content>
+                <GlassSurface style={styles.allPrayersCard}>
+                    <View style={styles.cardContent}>
                         <Text style={styles.sectionTitle}>
                             Today's Prayer Times
                         </Text>
@@ -472,20 +455,9 @@ export default function PrayerScreen() {
                                         </View>
                                     </View>
                                     <View
-                                        style={[
-                                            styles.prayerTimeBadge,
-                                            {
-                                                backgroundColor:
-                                                    prayer.color + "20",
-                                            },
-                                        ]}
+                                        style={styles.prayerTimeBadge}
                                     >
-                                        <Text
-                                            style={[
-                                                styles.prayerTime,
-                                                { color: prayer.color },
-                                            ]}
-                                        >
+                                        <Text style={styles.prayerTime}>
                                             {prayerService.formatPrayerTime(
                                                 prayer.time
                                             )}
@@ -494,17 +466,16 @@ export default function PrayerScreen() {
                                 </View>
                             );
                         })}
-                    </Card.Content>
-                </Card>
+                    </View>
+                </GlassSurface>
 
-                {/* Location */}
                 {location && (
-                    <Card style={styles.locationCard}>
-                        <Card.Content style={styles.locationContent}>
+                    <GlassSurface style={styles.locationCard}>
+                        <View style={[styles.cardContent, styles.locationContent]}>
                             <MaterialCommunityIcons
                                 name="map-marker"
                                 size={20}
-                                color={theme.colors.primary}
+                                color={theme.colors.secondary}
                             />
                             <Text style={styles.locationText}>
                                 {location.city || "Unknown"},{" "}
@@ -514,11 +485,11 @@ export default function PrayerScreen() {
                                 <MaterialCommunityIcons
                                     name="refresh"
                                     size={20}
-                                    color={theme.colors.onSurfaceVariant}
+                                    color="rgba(255,255,255,0.75)"
                                 />
                             </TouchableOpacity>
-                        </Card.Content>
-                    </Card>
+                        </View>
+                    </GlassSurface>
                 )}
             </ScrollView>
         </ScreenShell>
@@ -526,9 +497,11 @@ export default function PrayerScreen() {
 }
 
 const styles = StyleSheet.create({
+    cardContent: {
+        padding: theme.spacing.lg,
+    },
     container: {
         flex: 1,
-        backgroundColor: theme.colors.background,
     },
     loadingContainer: {
         flex: 1,
@@ -539,6 +512,14 @@ const styles = StyleSheet.create({
         marginTop: theme.spacing.md,
         fontSize: 16,
         color: "rgba(255,255,255,0.8)",
+    },
+    refreshButton: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(255,255,255,0.12)",
     },
     scrollView: {
         flex: 1,
@@ -566,21 +547,19 @@ const styles = StyleSheet.create({
     },
     qiblaCard: {
         marginBottom: theme.spacing.md,
-        elevation: 3,
     },
     qiblaContent: {
         alignItems: "center",
-        paddingVertical: theme.spacing.lg,
     },
     qiblaTitle: {
         fontSize: 20,
         fontWeight: "bold",
-        color: theme.colors.onSurface,
+        color: "#fff",
         marginBottom: theme.spacing.xs,
     },
     qiblaSubtitle: {
         fontSize: 14,
-        color: theme.colors.onSurfaceVariant,
+        color: "rgba(255,255,255,0.75)",
         marginBottom: theme.spacing.lg,
     },
     compassContainer: {
@@ -595,8 +574,8 @@ const styles = StyleSheet.create({
         height: "100%",
         borderRadius: (width * 0.7) / 2,
         borderWidth: 2,
-        borderColor: theme.colors.outline,
-        backgroundColor: theme.colors.surface,
+        borderColor: glass.border,
+        backgroundColor: "rgba(0,0,0,0.2)",
         alignItems: "center",
         justifyContent: "center",
     },
@@ -607,19 +586,19 @@ const styles = StyleSheet.create({
     cardinalText: {
         fontSize: 18,
         fontWeight: "bold",
-        color: theme.colors.primary,
+        color: "#fff",
     },
     compassTick: {
         position: "absolute",
         width: 2,
         height: 10,
-        backgroundColor: theme.colors.outline,
+        backgroundColor: glass.borderSubtle,
         top: 5,
     },
     compassTickMajor: {
         height: 20,
         width: 3,
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.secondary,
     },
     qiblaArrow: {
         position: "absolute",
@@ -629,31 +608,15 @@ const styles = StyleSheet.create({
         width: 10,
         height: 10,
         borderRadius: 5,
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors.secondary,
     },
     qiblaAngle: {
         fontSize: 14,
-        color: theme.colors.onSurfaceVariant,
+        color: "rgba(255,255,255,0.75)",
         marginTop: theme.spacing.sm,
-    },
-    currentPrayerCard: {
-        marginBottom: theme.spacing.md,
-        backgroundColor: theme.colors.primary + "15",
-        elevation: 2,
-    },
-    currentPrayerLabel: {
-        fontSize: 14,
-        color: theme.colors.onSurfaceVariant,
-        marginBottom: theme.spacing.xs,
-    },
-    currentPrayerName: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: theme.colors.primary,
     },
     nextPrayerCard: {
         marginBottom: theme.spacing.md,
-        elevation: 2,
     },
     nextPrayerHeader: {
         flexDirection: "row",
@@ -663,13 +626,13 @@ const styles = StyleSheet.create({
     },
     nextPrayerLabel: {
         fontSize: 14,
-        color: theme.colors.onSurfaceVariant,
+        color: "rgba(255,255,255,0.75)",
         fontWeight: "500",
     },
     timeUntil: {
         fontSize: 18,
         fontWeight: "bold",
-        color: theme.colors.primary,
+        color: theme.colors.secondary,
     },
     nextPrayerInfo: {
         flexDirection: "row",
@@ -686,29 +649,29 @@ const styles = StyleSheet.create({
     nextPrayerName: {
         fontSize: 24,
         fontWeight: "bold",
-        color: theme.colors.onSurface,
+        color: "#fff",
     },
     nextPrayerTime: {
         fontSize: 18,
-        color: theme.colors.primary,
+        color: theme.colors.secondary,
         fontWeight: "600",
     },
     tomorrowLabel: {
         fontSize: 14,
-        color: theme.colors.onSurfaceVariant,
+        color: "rgba(255,255,255,0.65)",
     },
     progressBar: {
         height: 8,
         borderRadius: 4,
+        backgroundColor: "rgba(255,255,255,0.15)",
     },
     allPrayersCard: {
         marginBottom: theme.spacing.md,
-        elevation: 2,
     },
     sectionTitle: {
         fontSize: 18,
         fontWeight: "bold",
-        color: theme.colors.onSurface,
+        color: "#fff",
         marginBottom: theme.spacing.md,
     },
     prayerRow: {
@@ -721,7 +684,7 @@ const styles = StyleSheet.create({
         marginBottom: theme.spacing.xs,
     },
     prayerRowActive: {
-        backgroundColor: theme.colors.primaryContainer + "30",
+        backgroundColor: glass.backgroundLight,
     },
     prayerInfo: {
         flexDirection: "row",
@@ -739,14 +702,14 @@ const styles = StyleSheet.create({
     prayerName: {
         fontSize: 18,
         fontWeight: "500",
-        color: theme.colors.onSurface,
+        color: "#fff",
     },
     nextLabel: {
         fontSize: 12,
         fontWeight: "600",
-        color: theme.colors.primary,
+        color: theme.colors.secondary,
         marginLeft: theme.spacing.sm,
-        backgroundColor: theme.colors.primary + "20",
+        backgroundColor: "rgba(255,255,255,0.12)",
         paddingHorizontal: theme.spacing.xs,
         paddingVertical: 2,
         borderRadius: 4,
@@ -755,13 +718,15 @@ const styles = StyleSheet.create({
         paddingHorizontal: theme.spacing.md,
         paddingVertical: theme.spacing.sm,
         borderRadius: theme.spacing.sm,
+        backgroundColor: "rgba(255,255,255,0.12)",
     },
     prayerTime: {
         fontSize: 16,
         fontWeight: "bold",
+        color: "#fff",
     },
     locationCard: {
-        elevation: 2,
+        marginBottom: theme.spacing.md,
     },
     locationContent: {
         flexDirection: "row",
@@ -771,7 +736,7 @@ const styles = StyleSheet.create({
     locationText: {
         flex: 1,
         fontSize: 14,
-        color: theme.colors.onSurfaceVariant,
+        color: "rgba(255,255,255,0.85)",
         marginLeft: theme.spacing.sm,
     },
 });

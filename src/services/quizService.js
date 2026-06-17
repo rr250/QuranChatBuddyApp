@@ -2,8 +2,8 @@ import questionsData from "../constants/questions.json";
 import { AuthService } from "./authService";
 import { localDataStore } from "../storage/localDataStore";
 import { userSyncService } from "./userSyncService";
-import { transformQuestions } from "../utils/quizQuestions";
-import { shuffleArray } from "../utils/array";
+import { transformQuestions, shuffleQuestionOptions } from "../utils/quizQuestions";
+import { seededShuffle } from "../utils/array";
 import { sortByDateDesc } from "../utils/date";
 import { getTodayDateString } from "../utils/date";
 import { EMPTY_STREAK, updateCompletionStreak } from "../utils/streak";
@@ -55,18 +55,21 @@ class QuizService {
         }
     }
 
-    selectDailyQuestions() {
+    selectDailyQuestions(seed) {
         if (!this.questions.length) return [];
 
-        const pool =
-            this.questions.length < this.DAILY_QUESTIONS_COUNT
-                ? this.questions
-                : shuffleArray(this.questions).slice(0, this.DAILY_QUESTIONS_COUNT);
+        const shuffledQuestions = seededShuffle(this.questions, `${seed}-questions`);
+        const pool = shuffledQuestions.slice(0, this.DAILY_QUESTIONS_COUNT);
 
-        return pool.map((question, index) => ({
-            ...question,
-            questionNumber: index + 1,
-        }));
+        return pool.map((question, index) =>
+            shuffleQuestionOptions(
+                {
+                    ...question,
+                    questionNumber: index + 1,
+                },
+                `${seed}-q${index}`,
+            ),
+        );
     }
 
     async getTodayQuestions() {
@@ -74,18 +77,19 @@ class QuizService {
         const today = this.getTodayDateString();
         await this.ensureQuizData(userId);
 
+        const cacheKey = `dailyQuestions_v2/${today}`;
         const cached = await localDataStore.getNested(
             userId,
             "quiz",
-            `dailyQuestions/${today}`,
+            cacheKey,
         );
         if (cached) return cached;
 
-        const todayQuestions = this.selectDailyQuestions();
+        const todayQuestions = this.selectDailyQuestions(`${userId}-${today}`);
         await localDataStore.setNested(
             userId,
             "quiz",
-            `dailyQuestions/${today}`,
+            cacheKey,
             todayQuestions,
         );
         return todayQuestions;
@@ -122,16 +126,22 @@ class QuizService {
     async saveQuizResult(answers, score, timeSpent) {
         const userId = this.getUserId();
         const today = this.getTodayDateString();
+        const normalizedAnswers = answers.filter(Boolean);
+        const totalQuestions = normalizedAnswers.length || this.DAILY_QUESTIONS_COUNT;
+        const finalScore =
+            typeof score === "number"
+                ? score
+                : normalizedAnswers.filter((answer) => answer.isCorrect).length;
 
         const result = {
             date: today,
             timestamp: new Date().toISOString(),
             userId,
-            answers,
-            score,
-            totalQuestions: this.DAILY_QUESTIONS_COUNT,
+            answers: normalizedAnswers,
+            score: finalScore,
+            totalQuestions,
             timeSpent,
-            percentage: Math.round((score / this.DAILY_QUESTIONS_COUNT) * 100),
+            percentage: Math.round((finalScore / totalQuestions) * 100),
         };
 
         await localDataStore.setNested(userId, "quiz", `quizResults/${today}`, result);

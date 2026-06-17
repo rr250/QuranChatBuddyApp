@@ -1,42 +1,34 @@
 import React from "react";
-import { View, StyleSheet, Dimensions } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Text, ActivityIndicator } from "react-native-paper";
+import { View, StyleSheet } from "react-native";
+import { ActivityIndicator, Text } from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { AppBackground } from "../ui/Glass";
+import { AppLogo } from "./AppLogo";
 import { theme } from "../../constants/theme";
 
-const { width, height } = Dimensions.get("window");
-
-export const LoadingScreen = () => {
-    return (
-        <LinearGradient
-            colors={[theme.colors.primary, theme.colors.secondary]}
-            style={styles.container}
-        >
+export const LoadingScreen = () => (
+    <AppBackground>
+        <SafeAreaView style={styles.container}>
             <View style={styles.content}>
-                <View style={styles.logoContainer}>
-                    <Text style={styles.logoIcon}>🕌</Text>
-                </View>
-
+                <AppLogo size={88} />
                 <Text style={styles.appName}>Quran Chat Buddy</Text>
                 <Text style={styles.tagline}>
                     Loading your Islamic companion...
                 </Text>
-
                 <ActivityIndicator
                     size="large"
                     color="white"
                     style={styles.loader}
                 />
-
                 <View style={styles.dotsContainer}>
                     <View style={[styles.dot, styles.dot1]} />
                     <View style={[styles.dot, styles.dot2]} />
                     <View style={[styles.dot, styles.dot3]} />
                 </View>
             </View>
-        </LinearGradient>
-    );
-};
+        </SafeAreaView>
+    </AppBackground>
+);
 
 const styles = StyleSheet.create({
     container: {
@@ -48,16 +40,11 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    logoContainer: {
-        marginBottom: theme.spacing.xl,
-    },
-    logoIcon: {
-        fontSize: 80,
-    },
     appName: {
         fontSize: 28,
         fontWeight: "bold",
         color: "white",
+        marginTop: theme.spacing.lg,
         marginBottom: theme.spacing.sm,
         textAlign: "center",
     },

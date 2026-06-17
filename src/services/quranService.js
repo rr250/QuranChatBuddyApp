@@ -78,6 +78,7 @@ class QuranService {
             });
 
             await this.updateDailySession(userId, surahNumber, verseNumber);
+            await this.updateReadingPosition(userId, surahNumber, verseNumber);
             await this.updateUserProgress(userId);
             userSyncService.scheduleSync(userId);
         } catch (error) {
@@ -85,18 +86,110 @@ class QuranService {
         }
     }
 
+    async updateReadingPosition(userId, surahNumber, verseNumber) {
+        const surah = await QuranApi.getSurah(surahNumber);
+        let nextSurah = surahNumber;
+        let nextVerse = verseNumber + 1;
+
+        if (nextVerse > surah.numberOfAyahs) {
+            nextSurah = surahNumber < 114 ? surahNumber + 1 : 1;
+            nextVerse = 1;
+        }
+
+        const profile =
+            (await localDataStore.getNested(userId, "quran", "profile")) ??
+            createInitialProfile();
+
+        await localDataStore.setNested(userId, "quran", "profile", {
+            ...profile,
+            currentSurah: nextSurah,
+            currentVerse: nextVerse,
+            lastUpdated: new Date().toISOString(),
+        });
+    }
+
+    async getContinueReadingPosition() {
+        try {
+            const userId = this.getUserId();
+            await this.ensureQuranData(userId);
+
+            const profile =
+                (await localDataStore.getNested(userId, "quran", "profile")) ??
+                createInitialProfile();
+            const versesRead =
+                (await localDataStore.getNested(userId, "quran", "versesRead")) ?? {};
+
+            const startSurah = profile.currentSurah ?? 1;
+            const startVerse = profile.currentVerse ?? 1;
+
+            for (let surahNumber = startSurah; surahNumber <= 114; surahNumber += 1) {
+                const surah = await QuranApi.getSurah(surahNumber);
+                const firstVerse =
+                    surahNumber === startSurah ? startVerse : 1;
+
+                for (
+                    let verseNumber = firstVerse;
+                    verseNumber <= surah.numberOfAyahs;
+                    verseNumber += 1
+                ) {
+                    const verseKey = `${surahNumber}:${verseNumber}`;
+                    if (!versesRead[verseKey]) {
+                        return { surahNumber, verseNumber };
+                    }
+                }
+            }
+
+            return { surahNumber: 1, verseNumber: 1 };
+        } catch (error) {
+            console.error("Error getting continue reading position:", error);
+            return { surahNumber: 1, verseNumber: 1 };
+        }
+    }
+
     async markSurahAsCompleted(surahNumber) {
         try {
             const userId = this.getUserId();
+            const surah = await QuranApi.getSurah(surahNumber);
+            const readAt = new Date().toISOString();
+
+            for (const verse of surah.verses) {
+                const verseNumber = verse.numberInSurah;
+                const verseKey = `${surahNumber}:${verseNumber}`;
+                await localDataStore.setNested(
+                    userId,
+                    "quran",
+                    `versesRead/${verseKey}`,
+                    {
+                        surahNumber,
+                        verseNumber,
+                        readAt,
+                    },
+                );
+                await this.updateDailySession(userId, surahNumber, verseNumber);
+            }
+
             await localDataStore.setNested(
                 userId,
                 "quran",
                 `completedSurahs/${surahNumber}`,
                 {
                     surahNumber,
-                    completedAt: new Date().toISOString(),
+                    completedAt: readAt,
                 },
             );
+
+            const nextSurah = surahNumber < 114 ? surahNumber + 1 : 1;
+            const profile =
+                (await localDataStore.getNested(userId, "quran", "profile")) ??
+                createInitialProfile();
+
+            await localDataStore.setNested(userId, "quran", "profile", {
+                ...profile,
+                currentSurah: nextSurah,
+                currentVerse: 1,
+                lastUpdated: readAt,
+            });
+
             await this.updateUserProgress(userId);
             userSyncService.scheduleSync(userId);
         } catch (error) {
@@ -223,15 +316,17 @@ class QuranService {
     async getReadingStats() {
         try {
             const userId = this.getUserId();
-            const [progress, history] = await Promise.all([
+            const [progress, sessions] = await Promise.all([
                 this.getUserProgress(),
-                this.getReadingHistory(30),
+                localDataStore.getNested(userId, "quran", "dailySessions"),
             ]);
 
+            const sessionMap = sessions ?? {};
+            const sessionDates = Object.keys(sessionMap);
             const totalVersesRead = progress?.totalVersesRead ?? 0;
-            const versesPerSession = history.map(
-                (session) => session.versesRead?.length ?? 0,
-            );
+            const totalVersesInSessions = sessionDates.reduce((sum, date) => {
+                return sum + (sessionMap[date]?.versesRead?.length ?? 0);
+            }, 0);
 
             return {
                 totalVersesRead,
@@ -239,13 +334,10 @@ class QuranService {
                 currentStreak: progress?.readingStreak?.current ?? 0,
                 longestStreak: progress?.readingStreak?.longest ?? 0,
                 averageVersesPerDay:
-                    history.length > 0
-                        ? Math.round(
-                              versesPerSession.reduce((sum, count) => sum + count, 0) /
-                                  history.length,
-                          )
+                    sessionDates.length > 0
+                        ? Math.round(totalVersesInSessions / sessionDates.length)
                         : 0,
-                daysActive: history.length,
+                daysActive: sessionDates.length,
                 completionPercentage: Math.round(
                     (totalVersesRead / TOTAL_QURAN_VERSES) * 100,
                 ),

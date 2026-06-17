@@ -4,10 +4,13 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PaperProvider } from "react-native-paper";
 import { initializeFirebase } from "../src/services/firebase";
+import { RemoteConfigService } from "../src/services/remoteConfigService";
 import { NotificationService } from "../src/services/notificationService";
 import { PrayerNotificationService } from "../src/services/prayerNotificationService";
 import { useAuthStore } from "../src/store/authStore";
 import { useSubscriptionStore } from "../src/store/subscriptionStore";
+import { usePaywallStore } from "../src/store/paywallStore";
+import { PaywallGate } from "../src/components/subscription/PaywallGate";
 import { theme } from "../src/constants/theme";
 import { LoadingScreen } from "../src/components/common/LoadingScreen";
 import { DebugPanel } from "../src/components/debug/DebugPanel";
@@ -39,6 +42,27 @@ export default function RootLayout() {
     }, [user?.uid]);
 
     useEffect(() => {
+        if (loading || isSigningInAnonymously || !isOnboarded || !user?.uid) {
+            return;
+        }
+
+        let cancelled = false;
+
+        const prepareSession = async () => {
+            await syncSubscriptionUser(user.uid);
+            if (!cancelled) {
+                await usePaywallStore.getState().showAppOpenPaywallIfNeeded();
+            }
+        };
+
+        prepareSession();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.uid, isOnboarded, loading, isSigningInAnonymously]);
+
+    useEffect(() => {
         if (loading || isSigningInAnonymously) return;
 
         const navigationTimeout = setTimeout(async () => {
@@ -62,6 +86,7 @@ export default function RootLayout() {
                 try {
                     const anonymousUser = await signInAnonymously();
                     setIsSigningInAnonymously(false);
+                    await initializeSubscription(anonymousUser?.uid);
                     await syncSubscriptionUser(anonymousUser?.uid);
                     router.replace("/(tabs)");
                     return;
@@ -92,9 +117,12 @@ export default function RootLayout() {
     const initializeApp = async () => {
         try {
             initializeFirebase();
+            await RemoteConfigService.initialize();
             await initialize();
             await NotificationService.initialize();
             await PrayerNotificationService.initialize();
+            const { useSettingsStore } = await import("../src/store/settingsStore");
+            await useSettingsStore.getState().hydrate();
         } catch (error) {
             console.error("App initialization error:", error);
         }
@@ -108,6 +136,7 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <PaperProvider theme={theme}>
                 <Slot />
+                <PaywallGate />
                 {__DEV__ ? <DebugPanel /> : null}
                 <StatusBar style="auto" />
             </PaperProvider>

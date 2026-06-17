@@ -14,9 +14,9 @@ import {
 } from "firebase/auth";
 import { ref, set, get, onDisconnect } from "firebase/database";
 import { userSyncService } from "./userSyncService";
-import * as Google from "expo-auth-session/providers/google";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as WebBrowser from "expo-web-browser";
+import { getGoogleRedirectUri } from "../utils/googleAuth";
 import { getFirebaseAuth, getFirebaseDatabase } from "./firebase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -81,15 +81,15 @@ export class AuthService {
         }
     }
 
-    // Google Authentication Hook - to be used in React components
-    static useGoogleAuth() {
-        const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-            clientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-            androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-            iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-        });
+    static extractGoogleIdToken(response) {
+        if (!response || response.type !== "success") return null;
 
-        return { request, response, promptAsync };
+        return (
+            response.params?.id_token ??
+            response.authentication?.idToken ??
+            response.params?.idToken ??
+            null
+        );
     }
 
     // Process Google Sign-in Response
@@ -97,25 +97,26 @@ export class AuthService {
         try {
             this.initialize();
 
-            if (response?.type === "success") {
-                const { id_token } = response.params;
-                const credential = GoogleAuthProvider.credential(id_token);
-                const userCredential = await signInWithCredential(
-                    this.auth,
-                    credential,
-                );
-
-                await this.createUserDocument(userCredential.user);
-                await this.updateUserPresence(userCredential.user);
-                await this.syncOnboardingData(userCredential.user);
-
-                return userCredential.user;
+            const idToken = this.extractGoogleIdToken(response);
+            if (!idToken) {
+                throw new Error("Google sign-in was cancelled");
             }
 
-            throw new Error("Google sign-in was cancelled");
+            const credential = GoogleAuthProvider.credential(idToken);
+            const userCredential = await signInWithCredential(
+                this.auth,
+                credential,
+            );
+
+            await this.createUserDocument(userCredential.user);
+            await this.updateUserPresence(userCredential.user);
+            await this.syncOnboardingData(userCredential.user);
+            await this.mergeUserData(userCredential.user);
+
+            return userCredential.user;
         } catch (error) {
             console.error("Google sign-in error:", error);
-            throw error;
+            throw this.handleAuthError(error);
         }
     }
 
@@ -303,16 +304,19 @@ export class AuthService {
     // Process Google Sign-in Response for Linking
     static async processGoogleLinking(response) {
         try {
-            if (response?.type === "success") {
-                const { id_token } = response.params;
-                return await this.linkWithGoogle(id_token);
+            const idToken = this.extractGoogleIdToken(response);
+            if (!idToken) {
+                throw new Error("Google sign-in was cancelled");
             }
-
-            throw new Error("Google sign-in was cancelled");
+            return await this.linkWithGoogle(idToken);
         } catch (error) {
             console.error("Google linking error:", error);
-            throw error;
+            throw this.handleAuthError(error);
         }
+    }
+
+    static getGoogleOAuthSetupHint() {
+        return `Add this redirect URI in Google Cloud Console (Web OAuth client):\n${getGoogleRedirectUri()}`;
     }
 
     // Password Reset

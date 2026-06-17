@@ -4,16 +4,23 @@ import { Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { usePrayerTimes } from "../../hooks/usePrayerTimes";
+import { usePaywallAction } from "../../hooks/usePaywallAction";
+import { PAYWALL_PLACEMENTS } from "../../constants/paywallConfig";
 import { theme } from "../../constants/theme";
 import { GlassDashboardCard } from "../ui/GlassDashboardCard";
 import { glass } from "../../constants/glass";
 
 export const PrayerTimesCardMini = () => {
-    const { nextPrayer, currentPrayer, loading, getTimeUntilNext } = usePrayerTimes();
+    const { nextPrayer, currentPrayerLabel, loading, getTimeUntilNext } = usePrayerTimes();
+    const { withPaywallCheck } = usePaywallAction();
+    const openPrayer = withPaywallCheck(
+        () => router.push("/(tabs)/prayer"),
+        { placement: PAYWALL_PLACEMENTS.PRAYER_COMPLETION },
+    );
 
-    if (loading) {
+    if (loading && !nextPrayer) {
         return (
-            <GlassDashboardCard onPress={() => router.push("/(tabs)/prayer")}>
+            <GlassDashboardCard onPress={openPrayer}>
                 <View style={styles.loadingRow}>
                     <MaterialCommunityIcons
                         name="clock-outline"
@@ -27,7 +34,7 @@ export const PrayerTimesCardMini = () => {
     }
 
     return (
-        <GlassDashboardCard onPress={() => router.push("/(tabs)/prayer")}>
+        <GlassDashboardCard onPress={openPrayer}>
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
                     <MaterialCommunityIcons
@@ -47,7 +54,7 @@ export const PrayerTimesCardMini = () => {
             <View style={styles.prayerInfo}>
                 <View style={styles.currentPrayer}>
                     <Text style={styles.label}>Current</Text>
-                    <Text style={styles.prayerName}>{currentPrayer?.name ?? "—"}</Text>
+                    <Text style={styles.prayerName}>{currentPrayerLabel}</Text>
                 </View>
                 <View style={styles.divider} />
                 <View style={styles.nextPrayer}>

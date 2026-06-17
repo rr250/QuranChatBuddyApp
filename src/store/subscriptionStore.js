@@ -27,11 +27,16 @@ export const useSubscriptionStore = create((set, get) => ({
         }
     },
 
-    refresh: async () => {
+    refresh: async (paywallId = "default") => {
+        if (!get().isConfigured) {
+            set({ loading: false, packages: [], error: null });
+            return;
+        }
+
         try {
             const [customerInfo, offering] = await Promise.all([
                 SubscriptionService.getCustomerInfo(),
-                SubscriptionService.getOfferings(),
+                SubscriptionService.getOfferings(paywallId),
             ]);
 
             const isPremium = Boolean(

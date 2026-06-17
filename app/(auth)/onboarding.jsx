@@ -20,13 +20,16 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import { useAuthStore } from "../../src/store/authStore";
+import { AppBackground } from "../../src/components/ui/Glass";
+import { AppLogo } from "../../src/components/common/AppLogo";
+import { useSettingsStore } from "../../src/store/settingsStore";
 
 const ONBOARDING_QUESTIONS = [
     {
         id: "name",
         type: "text",
         message:
-            "Assalamu Alaikum! 🌙\n\nI'm your Quran Chat Buddy AI Assistant. I'm here to help you on your Islamic journey. Let's get to know each other better! What should I call you?",
+            "Assalamu Alaikum!\n\nI'm your Quran Chat Buddy AI Assistant. I'm here to help you on your Islamic journey. Let's get to know each other better! What should I call you?",
         placeholder: "Enter your name",
         key: "userName",
     },
@@ -146,22 +149,22 @@ export default function Onboarding() {
         {
             title: "Welcome to Quran Chat Buddy",
             description: "Your AI companion for Quranic study and reflection",
-            emoji: "🕌",
+            icon: "sparkles",
         },
         {
             title: "Explore the Quran",
             description: "Read verses with translations and track your progress",
-            emoji: "📖",
+            icon: "book-outline",
         },
         {
             title: "Ask Questions",
             description: "Chat with AI about Islamic teachings and wisdom",
-            emoji: "💬",
+            icon: "chatbubbles-outline",
         },
         {
             title: "Track Your Progress",
             description: "Daily quiz, prayer times, and reading streaks",
-            emoji: "✨",
+            icon: "stats-chart-outline",
         },
     ];
 
@@ -377,10 +380,12 @@ export default function Onboarding() {
                 );
             } else {
                 setLocationStatus("denied");
+                await useSettingsStore.getState().setUseManualLocation(true);
             }
         } catch (error) {
             console.error("Error requesting location:", error);
             setLocationStatus("denied");
+            await useSettingsStore.getState().setUseManualLocation(true);
         }
     };
 
@@ -442,7 +447,7 @@ export default function Onboarding() {
             return (
                 <View key={index} style={styles.aiMessageContainer}>
                     <View style={styles.aiAvatar}>
-                        <Text style={styles.aiAvatarText}>🤖</Text>
+                        <AppLogo size={34} />
                     </View>
                     <View style={styles.aiMessageBubble}>
                         <Text style={styles.aiMessageText}>
@@ -503,9 +508,6 @@ export default function Onboarding() {
                             style={styles.optionButton}
                             onPress={() => handleChoiceSelect(option)}
                         >
-                            <Text style={styles.optionEmoji}>
-                                {option.emoji}
-                            </Text>
                             <Text style={styles.optionText}>
                                 {option.label}
                             </Text>
@@ -528,9 +530,6 @@ export default function Onboarding() {
                             ]}
                             onPress={() => handleChoiceSelect(option)}
                         >
-                            <Text style={styles.optionEmoji}>
-                                {option.emoji}
-                            </Text>
                             <Text
                                 style={[
                                     styles.optionText,
@@ -570,8 +569,9 @@ export default function Onboarding() {
     // RENDER: Welcome Phase
     if (phase === "welcome") {
         return (
+            <AppBackground>
             <SafeAreaView style={styles.container}>
-                <StatusBar style="dark" />
+                <StatusBar style="light" />
 
                 <View style={styles.skipContainer}>
                     <View style={styles.topControls}>
@@ -596,9 +596,17 @@ export default function Onboarding() {
                 </View>
 
                 <View style={styles.contentContainer}>
-                    <Text style={styles.welcomeEmoji}>
-                        {welcomeSteps[currentStep].emoji}
-                    </Text>
+                    {currentStep === 0 ? (
+                        <AppLogo size={88} />
+                    ) : (
+                        <View style={styles.welcomeIconCircle}>
+                            <Ionicons
+                                name={welcomeSteps[currentStep].icon}
+                                size={44}
+                                color="#fff"
+                            />
+                        </View>
+                    )}
                     <Text style={styles.title}>
                         {welcomeSteps[currentStep].title}
                     </Text>
@@ -637,14 +645,16 @@ export default function Onboarding() {
                     </Text>
                 </TouchableOpacity>
             </SafeAreaView>
+            </AppBackground>
         );
     }
 
     // RENDER: Chat Phase
     if (phase === "chat") {
         return (
+            <AppBackground>
             <SafeAreaView style={styles.container}>
-                <StatusBar style="dark" />
+                <StatusBar style="light" />
 
                 <View style={styles.chatHeader}>
                     <TouchableOpacity
@@ -688,7 +698,7 @@ export default function Onboarding() {
                         {isTyping && (
                             <View style={styles.aiMessageContainer}>
                                 <View style={styles.aiAvatar}>
-                                    <Text style={styles.aiAvatarText}>🤖</Text>
+                                    <AppLogo size={34} />
                                 </View>
                                 <View style={styles.typingIndicator}>
                                     <View style={styles.typingDot} />
@@ -702,14 +712,16 @@ export default function Onboarding() {
                     {renderInputArea()}
                 </KeyboardAvoidingView>
             </SafeAreaView>
+            </AppBackground>
         );
     }
 
     // RENDER: Permissions Phase
     if (phase === "permissions") {
         return (
+            <AppBackground>
             <SafeAreaView style={styles.container}>
-                <StatusBar style="dark" />
+                <StatusBar style="light" />
 
                 <View style={styles.permissionsHeader}>
                     <TouchableOpacity
@@ -734,13 +746,13 @@ export default function Onboarding() {
                     {/* AI Message */}
                     <View style={styles.aiMessageContainer}>
                         <View style={styles.aiAvatar}>
-                            <Text style={styles.aiAvatarText}>🤖</Text>
+                            <AppLogo size={34} />
                         </View>
                         <View style={styles.aiMessageBubble}>
                             <Text style={styles.aiMessageText}>
                                 To provide accurate prayer times and reminders,
                                 I need a couple of permissions. Your privacy is
-                                important! 🔒
+                                important!
                             </Text>
                         </View>
                     </View>
@@ -761,13 +773,23 @@ export default function Onboarding() {
                                     For accurate prayer times
                                 </Text>
                             </View>
-                            <Text style={styles.statusIcon}>
-                                {locationStatus === "granted"
-                                    ? "✅"
-                                    : locationStatus === "denied"
-                                    ? "❌"
-                                    : "⏳"}
-                            </Text>
+                            <Ionicons
+                                name={
+                                    locationStatus === "granted"
+                                        ? "checkmark-circle"
+                                        : locationStatus === "denied"
+                                          ? "close-circle"
+                                          : "time-outline"
+                                }
+                                size={24}
+                                color={
+                                    locationStatus === "granted"
+                                        ? "#4CAF50"
+                                        : locationStatus === "denied"
+                                          ? "#E57373"
+                                          : "#999"
+                                }
+                            />
                         </View>
 
                         <Text style={styles.permissionDescription}>
@@ -785,6 +807,11 @@ export default function Onboarding() {
                                 </Text>
                             </TouchableOpacity>
                         )}
+                        {locationStatus === "denied" ? (
+                            <Text style={styles.permissionHint}>
+                                You can set your city manually in Settings.
+                            </Text>
+                        ) : null}
                     </View>
 
                     {/* Notification Permission */}
@@ -803,13 +830,23 @@ export default function Onboarding() {
                                     Stay on time with reminders
                                 </Text>
                             </View>
-                            <Text style={styles.statusIcon}>
-                                {notificationStatus === "granted"
-                                    ? "✅"
-                                    : notificationStatus === "denied"
-                                    ? "❌"
-                                    : "⏳"}
-                            </Text>
+                            <Ionicons
+                                name={
+                                    notificationStatus === "granted"
+                                        ? "checkmark-circle"
+                                        : notificationStatus === "denied"
+                                          ? "close-circle"
+                                          : "time-outline"
+                                }
+                                size={24}
+                                color={
+                                    notificationStatus === "granted"
+                                        ? "#4CAF50"
+                                        : notificationStatus === "denied"
+                                          ? "#E57373"
+                                          : "#999"
+                                }
+                            />
                         </View>
 
                         <Text style={styles.permissionDescription}>
@@ -836,22 +873,18 @@ export default function Onboarding() {
 
                 <View style={styles.permissionsFooter}>
                     <TouchableOpacity
-                        style={[
-                            styles.button,
-                            locationStatus !== "granted" &&
-                                styles.buttonDisabled,
-                        ]}
+                        style={styles.button}
                         onPress={completeOnboarding}
-                        disabled={locationStatus !== "granted"}
                     >
                         <Text style={styles.buttonText}>
                             {locationStatus === "granted"
-                                ? "Complete Setup ✓"
-                                : "Enable Location to Continue"}
+                                ? "Complete Setup"
+                                : "Continue with City Settings"}
                         </Text>
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>
+            </AppBackground>
         );
     }
 
@@ -861,7 +894,7 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#fff",
+        backgroundColor: "transparent",
     },
     // Welcome phase styles
     skipContainer: {
@@ -901,13 +934,22 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         textAlign: "center",
         marginBottom: 16,
-        color: "#333",
+        color: "#fff",
     },
     description: {
         fontSize: 16,
         textAlign: "center",
-        color: "#666",
+        color: "rgba(255,255,255,0.8)",
         paddingHorizontal: 20,
+    },
+    welcomeIconCircle: {
+        width: 96,
+        height: 96,
+        borderRadius: 48,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(255,255,255,0.12)",
+        marginBottom: 20,
     },
     paginationContainer: {
         flexDirection: "row",
@@ -1174,6 +1216,12 @@ const styles = StyleSheet.create({
     },
     statusIcon: {
         fontSize: 24,
+    },
+    permissionHint: {
+        marginTop: 10,
+        fontSize: 13,
+        color: "rgba(255,255,255,0.75)",
+        textAlign: "center",
     },
     permissionDescription: {
         fontSize: 14,

@@ -1,24 +1,93 @@
-import React, { useState } from "react";
-import { View, StyleSheet, ScrollView, Alert } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+    View,
+    StyleSheet,
+    ScrollView,
+    Alert,
+    TouchableOpacity,
+    Linking,
+} from "react-native";
 import { Text, Button, Avatar, Divider, Chip } from "react-native-paper";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuthStore } from "../../src/store/authStore";
 import { useSubscriptionStore } from "../../src/store/subscriptionStore";
+import { useSettingsStore } from "../../src/store/settingsStore";
 import { PaywallModal } from "../../src/components/subscription/PaywallModal";
+import { OptionPickerSheet } from "../../src/components/settings/OptionPickerSheet";
+import { CityPickerSheet } from "../../src/components/settings/CityPickerSheet";
 import { ScreenShell, screenContentPadding } from "../../src/components/navigation/ScreenShell";
-import { GlassSurface, AppBackground } from "../../src/components/ui/Glass";
+import { GlassSurface } from "../../src/components/ui/Glass";
 import { GlassSection } from "../../src/components/ui/GlassDashboardCard";
 import { theme } from "../../src/constants/theme";
 import { glass } from "../../src/constants/glass";
+import { APP_LINKS } from "../../src/constants/appLinks";
+import {
+    MADHAB_OPTIONS,
+    CALCULATION_METHODS,
+} from "../../src/constants/prayerOptions";
+
+const PreferenceRow = ({ label, value, onPress, showDivider = true }) => (
+    <>
+        <TouchableOpacity style={styles.prefRow} onPress={onPress}>
+            <View style={styles.prefText}>
+                <Text style={styles.prefLabel}>{label}</Text>
+                {value ? <Text style={styles.prefValue}>{value}</Text> : null}
+            </View>
+            <MaterialCommunityIcons
+                name="chevron-right"
+                size={22}
+                color="rgba(255,255,255,0.6)"
+            />
+        </TouchableOpacity>
+        {showDivider ? <Divider style={styles.divider} /> : null}
+    </>
+);
+
+const LegalRow = ({ label, onPress, showDivider = true }) => (
+    <>
+        <TouchableOpacity style={styles.legalRow} onPress={onPress}>
+            <Text style={styles.legalLabel}>{label}</Text>
+            <MaterialCommunityIcons
+                name="open-in-new"
+                size={18}
+                color="rgba(255,255,255,0.55)"
+            />
+        </TouchableOpacity>
+        {showDivider ? <Divider style={styles.divider} /> : null}
+    </>
+);
 
 export default function ProfileScreen() {
     const { user, isAnonymous, signOut } = useAuthStore();
     const { isPremium, loading: subscriptionLoading } = useSubscriptionStore();
+    const {
+        madhab,
+        calculationMethod,
+        selectedCity,
+        hydrate,
+        setMadhab,
+        setCalculationMethod,
+        setSelectedCity,
+    } = useSettingsStore();
+
     const [paywallVisible, setPaywallVisible] = useState(false);
+    const [madhabPickerVisible, setMadhabPickerVisible] = useState(false);
+    const [methodPickerVisible, setMethodPickerVisible] = useState(false);
+    const [cityPickerVisible, setCityPickerVisible] = useState(false);
+
+    useEffect(() => {
+        hydrate();
+    }, [hydrate]);
 
     const displayName = user?.displayName ?? "Guest User";
     const email = user?.email ?? (isAnonymous ? "Anonymous account" : "No email");
+
+    const madhabLabel =
+        MADHAB_OPTIONS.find((option) => option.id === madhab)?.label ?? madhab;
+    const methodLabel =
+        CALCULATION_METHODS.find((option) => option.id === calculationMethod)
+            ?.label ?? calculationMethod;
 
     const handleSignOut = () => {
         Alert.alert(
@@ -41,7 +110,7 @@ export default function ProfileScreen() {
     };
 
     return (
-        <ScreenShell title="Profile" subtitle="Your account & preferences">
+        <ScreenShell title="Profile" subtitle="Account, preferences & settings">
             <ScrollView
                 style={styles.scroll}
                 contentContainerStyle={screenContentPadding}
@@ -105,6 +174,32 @@ export default function ProfileScreen() {
                         </Button>
                     </GlassSection>
                 ) : null}
+
+                <GlassSection
+                    title="Preferences"
+                    description="Used for prayer times when location is off or as a fallback."
+                >
+                    <PreferenceRow
+                        label="Madhab"
+                        value={madhabLabel}
+                        onPress={() => setMadhabPickerVisible(true)}
+                    />
+                    <PreferenceRow
+                        label="City"
+                        value={
+                            selectedCity?.name
+                                ? `${selectedCity.name}${selectedCity.country ? `, ${selectedCity.country}` : ""}`
+                                : "Select city"
+                        }
+                        onPress={() => setCityPickerVisible(true)}
+                    />
+                    <PreferenceRow
+                        label="Calculation Method"
+                        value={methodLabel}
+                        onPress={() => setMethodPickerVisible(true)}
+                        showDivider={false}
+                    />
+                </GlassSection>
 
                 <GlassSection
                     title="Subscription"
@@ -172,6 +267,30 @@ export default function ProfileScreen() {
                     </View>
                 </GlassSection>
 
+                <GlassSection title="Legal & Support">
+                    <LegalRow
+                        label="Terms of Service"
+                        onPress={() => Linking.openURL(APP_LINKS.terms)}
+                    />
+                    <LegalRow
+                        label="Privacy Policy"
+                        onPress={() => Linking.openURL(APP_LINKS.privacy)}
+                    />
+                    <LegalRow
+                        label="Contact Us"
+                        onPress={() => Linking.openURL(APP_LINKS.contact)}
+                    />
+                    <LegalRow
+                        label="quranchatbuddy.com"
+                        onPress={() => Linking.openURL(APP_LINKS.home)}
+                        showDivider={false}
+                    />
+                </GlassSection>
+
+                <Text style={styles.footer}>
+                    © 2026 Quran Chat Buddy — Prayer Time. All rights reserved.
+                </Text>
+
                 {!isAnonymous ? (
                     <Button
                         mode="outlined"
@@ -185,8 +304,38 @@ export default function ProfileScreen() {
                 ) : null}
             </ScrollView>
 
+            <OptionPickerSheet
+                visible={madhabPickerVisible}
+                title="Select Madhab"
+                options={MADHAB_OPTIONS}
+                selectedId={madhab}
+                onSelect={(option) => setMadhab(option.id)}
+                onClose={() => setMadhabPickerVisible(false)}
+            />
+            <OptionPickerSheet
+                visible={methodPickerVisible}
+                title="Select Calculation Method"
+                options={CALCULATION_METHODS}
+                selectedId={calculationMethod}
+                onSelect={(option) => setCalculationMethod(option.id)}
+                onClose={() => setMethodPickerVisible(false)}
+            />
+            <CityPickerSheet
+                visible={cityPickerVisible}
+                selectedCity={selectedCity}
+                onSelect={(city) =>
+                    setSelectedCity({
+                        name: city.name,
+                        country: city.country,
+                        latitude: city.latitude,
+                        longitude: city.longitude,
+                    })
+                }
+                onClose={() => setCityPickerVisible(false)}
+            />
             <PaywallModal
                 visible={paywallVisible}
+                allowClose
                 onClose={() => setPaywallVisible(false)}
                 onSuccess={() => setPaywallVisible(false)}
             />
@@ -229,14 +378,49 @@ const styles = StyleSheet.create({
     premiumChip: { backgroundColor: theme.colors.islamicGold },
     chipText: { color: "#fff" },
     actionButton: { marginTop: theme.spacing.sm },
+    prefRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: theme.spacing.sm,
+    },
+    prefText: { flex: 1, paddingRight: theme.spacing.sm },
+    prefLabel: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#fff",
+    },
+    prefValue: {
+        fontSize: 13,
+        color: "rgba(255,255,255,0.65)",
+        marginTop: 2,
+    },
+    legalRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: theme.spacing.sm,
+    },
+    legalLabel: {
+        fontSize: 15,
+        color: "rgba(255,255,255,0.9)",
+    },
     linkRow: { flexDirection: "row", alignItems: "center" },
     linkButton: { justifyContent: "flex-start" },
     divider: {
         backgroundColor: glass.borderSubtle,
         marginVertical: theme.spacing.sm,
     },
-    signOutButton: {
+    footer: {
+        fontSize: 12,
+        color: "rgba(255,255,255,0.5)",
+        textAlign: "center",
         marginTop: theme.spacing.md,
+        marginBottom: theme.spacing.sm,
+        lineHeight: 18,
+    },
+    signOutButton: {
+        marginTop: theme.spacing.sm,
         borderColor: "#ffcdd2",
     },
 });

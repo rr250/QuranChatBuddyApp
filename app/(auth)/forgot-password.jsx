@@ -33,6 +33,7 @@ export default function ForgotPasswordScreen() {
                 title="Reset Password"
                 subtitle="We'll send you a reset link"
                 compactHeader
+                showHomeButton
             >
                 {sent ? (
                     <View>

@@ -155,15 +155,14 @@ export const useSurah = (surahNumber) => {
     const markSurahAsCompleted = useCallback(async () => {
         try {
             await quranService.markSurahAsCompleted(surahNumber);
-            // Mark all verses as read
-            const allVerses = new Set(
-                surah?.verses.map((v) => v.numberInSurah) || []
-            );
-            setReadVerses(allVerses);
+            const { read, favorited } =
+                await quranService.getSurahVerseStatus(surahNumber);
+            setReadVerses(read);
+            setFavoriteVerses(favorited);
         } catch (error) {
             console.error("Error marking Surah as completed:", error);
         }
-    }, [surahNumber, surah]);
+    }, [surahNumber]);
 
     useEffect(() => {
         loadSurah();

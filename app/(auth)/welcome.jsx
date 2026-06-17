@@ -1,71 +1,50 @@
-import React, { useEffect } from "react";
-import { View, StyleSheet, Dimensions, StatusBar } from "react-native";
+import React from "react";
+import { View, StyleSheet } from "react-native";
 import { router } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { Button, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { AppBackground, GlassSurface } from "../../src/components/ui/Glass";
+import { AppLogo } from "../../src/components/common/AppLogo";
 import { theme } from "../../src/constants/theme";
 
-const { width, height } = Dimensions.get("window");
+const FEATURES = [
+    { icon: "book-open-page-variant", text: "Read & Listen to Quran" },
+    { icon: "clock-outline", text: "Prayer Times & Reminders" },
+    { icon: "head-question", text: "Daily Islamic Quiz" },
+    { icon: "message-text-outline", text: "AI Islamic Guidance" },
+];
 
 export default function WelcomeScreen() {
-    useEffect(() => {
-        // Auto-navigate after showing welcome for a moment
-        const timer = setTimeout(() => {
-            // Auto-navigate can be removed if you want user to choose
-        }, 3000);
-
-        return () => clearTimeout(timer);
-    }, []);
-
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" />
-            <LinearGradient
-                colors={[theme.colors.primary, theme.colors.secondary]}
-                style={styles.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-            >
+        <AppBackground>
+            <SafeAreaView style={styles.container}>
                 <View style={styles.content}>
-                    {/* Logo Section */}
                     <View style={styles.logoContainer}>
-                        <Text style={styles.logoIcon}>🕌</Text>
+                        <AppLogo size={96} />
                         <Text style={styles.appName}>Quran Chat Buddy</Text>
                         <Text style={styles.tagline}>
                             Your AI Islamic Companion
                         </Text>
                     </View>
 
-                    {/* Features Section */}
                     <View style={styles.featuresContainer}>
-                        <View style={styles.feature}>
-                            <Text style={styles.featureIcon}>📖</Text>
-                            <Text style={styles.featureText}>
-                                Read & Listen to Quran
-                            </Text>
-                        </View>
-                        <View style={styles.feature}>
-                            <Text style={styles.featureIcon}>🕐</Text>
-                            <Text style={styles.featureText}>
-                                Prayer Times & Reminders
-                            </Text>
-                        </View>
-                        <View style={styles.feature}>
-                            <Text style={styles.featureIcon}>🧠</Text>
-                            <Text style={styles.featureText}>
-                                Daily Islamic Quiz
-                            </Text>
-                        </View>
-                        <View style={styles.feature}>
-                            <Text style={styles.featureIcon}>🤖</Text>
-                            <Text style={styles.featureText}>
-                                AI Islamic Guidance
-                            </Text>
-                        </View>
+                        {FEATURES.map((feature) => (
+                            <GlassSurface key={feature.text} style={styles.featureCard}>
+                                <View style={styles.featureRow}>
+                                    <MaterialCommunityIcons
+                                        name={feature.icon}
+                                        size={24}
+                                        color="#fff"
+                                    />
+                                    <Text style={styles.featureText}>
+                                        {feature.text}
+                                    </Text>
+                                </View>
+                            </GlassSurface>
+                        ))}
                     </View>
 
-                    {/* Buttons Section */}
                     <View style={styles.buttonsContainer}>
                         <Button
                             mode="contained"
@@ -73,6 +52,8 @@ export default function WelcomeScreen() {
                             style={styles.primaryButton}
                             contentStyle={styles.buttonContent}
                             labelStyle={styles.buttonLabel}
+                            buttonColor="#fff"
+                            textColor={theme.colors.primary}
                         >
                             Get Started
                         </Button>
@@ -82,29 +63,20 @@ export default function WelcomeScreen() {
                             onPress={() => router.push("/(auth)/login")}
                             style={styles.secondaryButton}
                             contentStyle={styles.buttonContent}
-                            labelStyle={[
-                                styles.buttonLabel,
-                                styles.secondaryButtonLabel,
-                            ]}
+                            labelStyle={styles.secondaryButtonLabel}
+                            textColor="#fff"
                         >
                             Sign In
                         </Button>
-
-                        <View style={styles.islamicPattern}>
-                            <Text style={styles.pattern}>✦ ◈ ✧ ◈ ✦</Text>
-                        </View>
                     </View>
                 </View>
-            </LinearGradient>
-        </SafeAreaView>
+            </SafeAreaView>
+        </AppBackground>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
-    },
-    gradient: {
         flex: 1,
     },
     content: {
@@ -117,17 +89,13 @@ const styles = StyleSheet.create({
         alignItems: "center",
         flex: 1,
         justifyContent: "center",
-        marginTop: -theme.spacing.xxl,
-    },
-    logoIcon: {
-        fontSize: 100,
-        marginBottom: theme.spacing.lg,
     },
     appName: {
-        fontSize: 36,
+        fontSize: 34,
         fontWeight: "bold",
         color: "white",
         textAlign: "center",
+        marginTop: theme.spacing.lg,
         marginBottom: theme.spacing.sm,
     },
     tagline: {
@@ -139,38 +107,35 @@ const styles = StyleSheet.create({
     featuresContainer: {
         flex: 1,
         justifyContent: "center",
+        gap: theme.spacing.sm,
         marginVertical: theme.spacing.xl,
     },
-    feature: {
+    featureCard: {
+        marginBottom: theme.spacing.xs,
+    },
+    featureRow: {
         flexDirection: "row",
         alignItems: "center",
         paddingVertical: theme.spacing.md,
         paddingHorizontal: theme.spacing.lg,
-        backgroundColor: "rgba(255,255,255,0.1)",
-        borderRadius: theme.spacing.md,
-        marginBottom: theme.spacing.sm,
-    },
-    featureIcon: {
-        fontSize: 24,
-        marginRight: theme.spacing.md,
+        gap: theme.spacing.md,
     },
     featureText: {
         fontSize: 16,
         color: "white",
         fontWeight: "500",
+        flex: 1,
     },
     buttonsContainer: {
         paddingBottom: theme.spacing.lg,
     },
     primaryButton: {
-        backgroundColor: "white",
         marginBottom: theme.spacing.md,
         borderRadius: theme.spacing.md,
     },
     secondaryButton: {
-        borderColor: "white",
+        borderColor: "rgba(255,255,255,0.7)",
         borderWidth: 1,
-        marginBottom: theme.spacing.lg,
         borderRadius: theme.spacing.md,
     },
     buttonContent: {
@@ -179,18 +144,10 @@ const styles = StyleSheet.create({
     buttonLabel: {
         fontSize: 16,
         fontWeight: "bold",
-        color: theme.colors.primary,
     },
     secondaryButtonLabel: {
         color: "white",
-    },
-    islamicPattern: {
-        alignItems: "center",
-        paddingTop: theme.spacing.lg,
-    },
-    pattern: {
-        fontSize: 20,
-        color: "rgba(255,255,255,0.7)",
-        letterSpacing: 8,
+        fontSize: 16,
+        fontWeight: "bold",
     },
 });

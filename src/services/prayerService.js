@@ -1,4 +1,4 @@
-import { Coordinates, PrayerTimes, CalculationMethod } from "adhan";
+import { Coordinates, PrayerTimes, CalculationMethod, Madhab } from "adhan";
 import moment from "moment";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -42,18 +42,27 @@ export class PrayerService {
         };
     }
 
-    calculatePrayerTimes(location, date = new Date()) {
+    getCalculationParams(settings = {}) {
+        const methodKey = settings.calculationMethod || "MuslimWorldLeague";
+        const methodFactory = CalculationMethod[methodKey];
+        const params = methodFactory
+            ? methodFactory()
+            : CalculationMethod.MuslimWorldLeague();
+
+        const madhabKey = (settings.madhab || "shafi").toLowerCase();
+        params.madhab =
+            madhabKey === "hanafi" ? Madhab.Hanafi : Madhab.Shafi;
+
+        return params;
+    }
+
+    calculatePrayerTimes(location, date = new Date(), settings = null) {
         try {
             const coordinates = new Coordinates(
                 location.latitude,
                 location.longitude
             );
-            const params = CalculationMethod.MuslimWorldLeague();
-
-            // Customize calculation method based on location if needed
-            if (location.country === "Saudi Arabia") {
-                params.madhab = "hanafi"; // or 'shafi'
-            }
+            const params = this.getCalculationParams(settings || {});
 
             const prayerTimes = new PrayerTimes(coordinates, date, params);
 

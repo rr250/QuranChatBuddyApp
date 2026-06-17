@@ -65,8 +65,34 @@ export class LocationService {
         }
     }
 
-    static async getCurrentLocation(useCache = true) {
+    static async getManualLocation() {
         try {
+            const { useSettingsStore } = await import("../store/settingsStore");
+            const override = useSettingsStore.getState().getLocationOverride();
+            if (override) {
+                return override;
+            }
+        } catch (error) {
+            console.warn("Could not read manual location settings:", error);
+        }
+        return null;
+    }
+
+    static async getCurrentLocation(options = {}) {
+        const {
+            useCache = true,
+            skipPermissionPrompt = false,
+        } = typeof options === "boolean"
+            ? { useCache: options }
+            : options;
+
+        try {
+            const manualLocation = await this.getManualLocation();
+            if (manualLocation) {
+                this.currentLocation = manualLocation;
+                return manualLocation;
+            }
+
             // Return cached location if available and not too old
             if (useCache && this.currentLocation) {
                 const age = Date.now() - this.currentLocation.timestamp;
@@ -78,9 +104,26 @@ export class LocationService {
                 }
             }
 
+            const lastKnown = await this.getLastKnownLocation();
+            if (skipPermissionPrompt && lastKnown) {
+                this.currentLocation = lastKnown;
+                return lastKnown;
+            }
+
             // Check permissions first
-            const hasPermission = await this.requestPermissions();
+            const hasPermission = skipPermissionPrompt
+                ? await this.isLocationAvailable()
+                : await this.requestPermissions();
             if (!hasPermission) {
+                const manual = await this.getManualLocation();
+                if (manual) return manual;
+
+                const stored = await this.getLastKnownLocation();
+                if (stored) {
+                    console.log("No permission, using last known location");
+                    return stored;
+                }
+
                 console.log("No location permission, using default location");
                 return this.getDefaultLocation();
             }

@@ -1,43 +1,30 @@
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { PrayerService } from "../services/prayerService";
-import { LocationService } from "../services/locationService";
+import { usePrayerTimesStore } from "../store/prayerTimesStore";
 
 const prayerService = PrayerService.getInstance();
 
 export const usePrayerTimes = (refreshIntervalMs = 60000) => {
-    const [prayerTimes, setPrayerTimes] = useState(null);
-    const [nextPrayer, setNextPrayer] = useState(null);
-    const [currentPrayer, setCurrentPrayer] = useState(null);
-    const [location, setLocation] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    const updatePrayerState = useCallback((times) => {
-        setNextPrayer(prayerService.getNextPrayer(times));
-        setCurrentPrayer(prayerService.getCurrentPrayer(times));
-    }, []);
-
-    const loadPrayerTimes = useCallback(async () => {
-        try {
-            setLoading(true);
-            const currentLocation = await LocationService.getCurrentLocation();
-            setLocation(currentLocation);
-            const times = prayerService.calculatePrayerTimes(currentLocation);
-            setPrayerTimes(times);
-            updatePrayerState(times);
-        } catch (error) {
-            console.error("Error loading prayer times:", error);
-        } finally {
-            setLoading(false);
-        }
-    }, [updatePrayerState]);
+    const prayerTimes = usePrayerTimesStore((s) => s.prayerTimes);
+    const nextPrayer = usePrayerTimesStore((s) => s.nextPrayer);
+    const currentPrayer = usePrayerTimesStore((s) => s.currentPrayer);
+    const location = usePrayerTimesStore((s) => s.location);
+    const loading = usePrayerTimesStore((s) => s.loading);
+    const refreshing = usePrayerTimesStore((s) => s.refreshing);
+    const hydrateAndLoad = usePrayerTimesStore((s) => s.hydrateAndLoad);
+    const loadPrayerTimes = usePrayerTimesStore((s) => s.loadPrayerTimes);
+    const updatePrayerState = usePrayerTimesStore((s) => s.updatePrayerState);
 
     useEffect(() => {
-        loadPrayerTimes();
+        hydrateAndLoad();
+    }, [hydrateAndLoad]);
+
+    useEffect(() => {
         const interval = setInterval(() => {
-            if (prayerTimes) updatePrayerState(prayerTimes);
+            if (prayerTimes) updatePrayerState();
         }, refreshIntervalMs);
         return () => clearInterval(interval);
-    }, [loadPrayerTimes, refreshIntervalMs]);
+    }, [prayerTimes, refreshIntervalMs, updatePrayerState]);
 
     const getTimeUntilNext = useCallback(
         () => (nextPrayer ? prayerService.getTimeUntilNextPrayer(nextPrayer) : "0m"),
@@ -61,13 +48,20 @@ export const usePrayerTimes = (refreshIntervalMs = 60000) => {
         return Math.min(Math.max(elapsed / totalDuration, 0), 1);
     }, [prayerTimes, nextPrayer]);
 
+    const currentPrayerLabel =
+        typeof currentPrayer === "string"
+            ? currentPrayer
+            : currentPrayer?.name ?? "—";
+
     return {
         prayerTimes,
         nextPrayer,
         currentPrayer,
+        currentPrayerLabel,
         location,
         loading,
-        loadPrayerTimes,
+        refreshing,
+        loadPrayerTimes: () => loadPrayerTimes(true),
         getTimeUntilNext,
         getPrayerProgress,
     };

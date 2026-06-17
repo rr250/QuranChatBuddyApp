@@ -1,5 +1,5 @@
 // src/screens/SurahReaderScreen.js - Individual Surah reading with AI integration
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     View,
     Text,
@@ -20,7 +20,9 @@ import { glass } from "../../../src/constants/glass";
 import { useLocalSearchParams } from "expo-router";
 
 export default function SurahReaderScreen() {
-    const { surahNumber, surahName } = useLocalSearchParams();
+    const { surahNumber, surahName, startVerse } = useLocalSearchParams();
+    const scrollRef = useRef(null);
+    const hasScrolledRef = useRef(false);
     const {
         surah,
         loading,
@@ -49,6 +51,27 @@ export default function SurahReaderScreen() {
     // Reading settings
     const [fontSize, setFontSize] = useState(18);
     const [showTranslation, setShowTranslation] = useState(true);
+
+    useEffect(() => {
+        hasScrolledRef.current = false;
+    }, [surahNumber, startVerse]);
+
+    useEffect(() => {
+        if (!surah?.verses?.length || hasScrolledRef.current) return;
+
+        const targetVerse = parseInt(startVerse, 10);
+        if (!targetVerse || targetVerse <= 1) return;
+
+        const timer = setTimeout(() => {
+            scrollRef.current?.scrollTo({
+                y: Math.max(0, (targetVerse - 1) * 132),
+                animated: true,
+            });
+            hasScrolledRef.current = true;
+        }, 250);
+
+        return () => clearTimeout(timer);
+    }, [surah, startVerse]);
 
     const handleVersePress = (verse) => {
         // Mark verse as read when tapped
@@ -378,6 +401,7 @@ export default function SurahReaderScreen() {
             {renderControls()}
 
             <ScrollView
+                ref={scrollRef}
                 style={styles.scrollView}
                 contentContainerStyle={[styles.scrollContent, screenContentPadding]}
                 showsVerticalScrollIndicator={false}

@@ -45,46 +45,23 @@ export const QuranDashboard = ({ onQuranPress }) => {
 
             await quranService.initializeUserProgress();
 
-            const [userProgress, stats] = await Promise.all([
-                quranService.getUserProgress(),
+            const [stats, position] = await Promise.all([
                 quranService.getReadingStats(),
+                quranService.getContinueReadingPosition(),
             ]);
 
             setReadingStats(stats);
-            await determineNextSurah(userProgress);
+
+            const surah = await quranService.getSurah(position.surahNumber);
+            setNextSurah({
+                ...surah,
+                startVerse: position.verseNumber,
+            });
         } catch (err) {
             console.error("Error loading Quran data:", err);
             setError("Failed to load Quran progress. Please try again.");
         } finally {
             setLoading(false);
-        }
-    };
-
-    const determineNextSurah = async (userProgress) => {
-        try {
-            const currentSurahNumber = userProgress?.currentSurah || 1;
-            const completedSurahs = userProgress?.completedSurahs || [];
-            let nextSurahNumber = currentSurahNumber;
-
-            if (completedSurahs.includes(currentSurahNumber)) {
-                for (let i = currentSurahNumber + 1; i <= 114; i++) {
-                    if (!completedSurahs.includes(i)) {
-                        nextSurahNumber = i;
-                        break;
-                    }
-                }
-                if (
-                    nextSurahNumber === currentSurahNumber &&
-                    completedSurahs.length === 114
-                ) {
-                    nextSurahNumber = 1;
-                }
-            }
-
-            const next = await quranService.getSurah(nextSurahNumber);
-            setNextSurah(next);
-        } catch (err) {
-            console.error("Error determining next Surah:", err);
         }
     };
 
@@ -109,8 +86,9 @@ export const QuranDashboard = ({ onQuranPress }) => {
         router.push({
             pathname: "(tabs)/quran/reader",
             params: {
-                surahNumber: nextSurah.number,
+                surahNumber: String(nextSurah.number),
                 surahName: nextSurah.englishName,
+                startVerse: String(nextSurah.startVerse ?? 1),
             },
         });
     };
@@ -133,7 +111,7 @@ export const QuranDashboard = ({ onQuranPress }) => {
         if (completionPercentage > 0) {
             return `${completionPercentage}% complete! Excellent! ⭐`;
         }
-        return "Begin your blessed journey 🕌";
+        return "Begin your blessed journey";
     };
 
     if (loading) {
@@ -242,7 +220,8 @@ export const QuranDashboard = ({ onQuranPress }) => {
                         <Text style={styles.continueLabel}>Continue reading</Text>
                         <Text style={styles.continueName}>{nextSurah.englishName}</Text>
                         <Text style={styles.continueMeta}>
-                            {nextSurah.name} · {nextSurah.numberOfAyahs} verses
+                            {nextSurah.name} · Verse {nextSurah.startVerse ?? 1} ·{" "}
+                            {nextSurah.numberOfAyahs} verses
                         </Text>
                     </View>
                     <Text style={styles.continueArrow}>→</Text>

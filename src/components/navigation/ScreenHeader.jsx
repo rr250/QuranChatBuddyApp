@@ -10,13 +10,15 @@ export const ScreenHeader = ({
     title,
     subtitle,
     showHome = true,
+    leftAction,
     rightAction,
 }) => (
     <View style={styles.header}>
         <View style={styles.left}>
+            {leftAction ?? null}
             {showHome ? (
                 <TouchableOpacity
-                    style={styles.homeButton}
+                    style={styles.iconButton}
                     onPress={() => router.push("/(tabs)")}
                 >
                     <MaterialCommunityIcons name="home-variant" size={20} color="#fff" />
@@ -46,7 +48,7 @@ const styles = StyleSheet.create({
         gap: theme.spacing.sm,
         flex: 1,
     },
-    homeButton: {
+    iconButton: {
         width: 38,
         height: 38,
         borderRadius: 19,

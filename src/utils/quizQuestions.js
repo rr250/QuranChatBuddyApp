@@ -1,3 +1,18 @@
+import { seededShuffle } from "./array";
+
+export const shuffleQuestionOptions = (question, seed) => {
+    const indexed = question.options.map((text, index) => ({ text, index }));
+    const shuffled = seededShuffle(indexed, `${seed}-options`);
+
+    return {
+        ...question,
+        options: shuffled.map((item) => item.text),
+        correctAnswer: shuffled.findIndex(
+            (item) => item.index === question.correctAnswer,
+        ),
+    };
+};
+
 export const transformQuestions = (questionsArray) => {
     if (!Array.isArray(questionsArray)) {
         console.error("Questions data is not an array:", questionsArray);
