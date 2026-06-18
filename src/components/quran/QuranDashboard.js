@@ -13,7 +13,7 @@ import { quranService } from "../../services/quranService";
 import { theme } from "../../constants/theme";
 import { glass } from "../../constants/glass";
 import { useRouter } from "expo-router";
-import { useAuthStore } from "../../store/authStore";
+import { AuthService } from "../../services/authService";
 
 export const QuranDashboard = ({ onQuranPress }) => {
     const router = useRouter();
@@ -21,28 +21,18 @@ export const QuranDashboard = ({ onQuranPress }) => {
     const [readingStats, setReadingStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const { user } = useAuthStore();
 
     useFocusEffect(
         React.useCallback(() => {
-            if (user) {
-                loadQuranData();
-            } else {
-                setLoading(false);
-            }
-        }, [user])
+            loadQuranData();
+        }, []),
     );
 
     const loadQuranData = async () => {
-        if (!user) {
-            setLoading(false);
-            return;
-        }
-
         try {
             setLoading(true);
             setError(null);
-
+            await AuthService.ensureAuthenticated();
             await quranService.initializeUserProgress();
 
             const [stats, position] = await Promise.all([
@@ -79,7 +69,7 @@ export const QuranDashboard = ({ onQuranPress }) => {
 
     const handleContinueReading = (e) => {
         e?.stopPropagation?.();
-        if (!user || !nextSurah) {
+        if (!nextSurah) {
             handleQuranPress();
             return;
         }
@@ -121,24 +111,6 @@ export const QuranDashboard = ({ onQuranPress }) => {
                     <ActivityIndicator size="small" color="#fff" />
                     <Text style={styles.loadingText}>Loading Quran...</Text>
                 </View>
-            </GlassDashboardCard>
-        );
-    }
-
-    if (!user) {
-        return (
-            <GlassDashboardCard onPress={handleQuranPress}>
-                <View style={styles.header}>
-                    <Text style={styles.icon}>🔒</Text>
-                    <View style={styles.headerText}>
-                        <Text style={styles.title}>Holy Quran</Text>
-                        <Text style={styles.subtitle}>Sign in to track progress</Text>
-                    </View>
-                </View>
-                <Text style={styles.bodyText}>
-                    Read all 114 surahs offline and track your reading streak.
-                </Text>
-                <Text style={styles.actionText}>Tap to explore →</Text>
             </GlassDashboardCard>
         );
     }

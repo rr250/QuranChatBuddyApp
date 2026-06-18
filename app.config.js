@@ -8,7 +8,7 @@ export default {
         icon: "./assets/icon.png",
         userInterfaceStyle: "light",
         splash: {
-            image: "./assets/splash.png",
+            image: "./assets/icon.png",
             resizeMode: "contain",
             backgroundColor: "#2E8B57",
         },
@@ -29,6 +29,7 @@ export default {
             },
         },
         android: {
+            softwareKeyboardLayoutMode: "resize",
             adaptiveIcon: {
                 foregroundImage: "./assets/icon.png",
                 backgroundColor: "#2E8B57",
@@ -48,6 +49,9 @@ export default {
                 "android.permission.ACCESS_BACKGROUND_LOCATION",
                 "android.permission.FOREGROUND_SERVICE",
                 "android.permission.FOREGROUND_SERVICE_LOCATION",
+                "android.permission.POST_NOTIFICATIONS",
+                "android.permission.SCHEDULE_EXACT_ALARM",
+                "android.permission.USE_EXACT_ALARM",
                 "com.android.vending.BILLING",
             ],
         },

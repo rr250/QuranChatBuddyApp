@@ -1,5 +1,5 @@
 // app/(auth)/onboarding.jsx - Enhanced with AI Chat & Permissions
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
     View,
     Text,
@@ -10,109 +10,119 @@ import {
     KeyboardAvoidingView,
     Platform,
     Animated,
+    ActivityIndicator,
+    Linking,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Audio } from "expo-av";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
-import * as Notifications from "expo-notifications";
 import { useAuthStore } from "../../src/store/authStore";
 import { AppBackground } from "../../src/components/ui/Glass";
 import { AppLogo } from "../../src/components/common/AppLogo";
+import { MessageBubble } from "../../src/components/chat/MessageBubble";
+import { ScreenHeader } from "../../src/components/navigation/ScreenHeader";
+import { glass } from "../../src/constants/glass";
+import { theme, spacing } from "../../src/constants/theme";
 import { useSettingsStore } from "../../src/store/settingsStore";
+import { LocationService } from "../../src/services/locationService";
+import { NotificationService } from "../../src/services/notificationService";
+import { usePaywallStore } from "../../src/store/paywallStore";
+import { APP_LINKS } from "../../src/constants/appLinks";
+import { FaithReminderPreview } from "../../src/components/notifications/FaithReminderPreview";
+import { PrayerTimeWidget } from "../../src/components/prayer/PrayerTimeWidget";
+
+const ONBOARDING_INTRO = [
+    "Assalamu Alaikum! 🌟",
+    "Welcome to QuranChatBuddy – we're blessed to have you here.",
+    "Before we begin your personalized journey, we'd love to get to know you a little better so we can tailor the experience to your pace, comfort level, and goals.",
+    "Please answer a few short questions — there are no right or wrong answers. This is a safe, private, and judgment-free space meant to support your growth with kindness and compassion.",
+];
 
 const ONBOARDING_QUESTIONS = [
     {
         id: "name",
         type: "text",
-        message:
-            "Assalamu Alaikum!\n\nI'm your Quran Chat Buddy AI Assistant. I'm here to help you on your Islamic journey. Let's get to know each other better! What should I call you?",
-        placeholder: "Enter your name",
+        message: "To start, what's your name?",
+        placeholder: "Type your answer...",
         key: "userName",
     },
     {
-        id: "knowledge_level",
+        id: "quran_familiarity",
         type: "choice",
-        message: "How would you describe your current Islamic knowledge level?",
+        message: (data) =>
+            `Great to meet you, ${data.userName || "friend"}! How familiar are you with the Quran?`,
         options: [
+            { label: "I'm just starting", value: "just_starting" },
+            { label: "I read occasionally", value: "read_occasionally" },
+            { label: "I read often", value: "read_often" },
             {
-                label: "Beginner - Just starting",
-                value: "Beginner - Just starting",
-                emoji: "🌱",
+                label: "I'm comfortable with reading & understanding",
+                value: "comfortable",
             },
             {
-                label: "Intermediate - Some knowledge",
-                value: "Intermediate - Some knowledge",
-                emoji: "📚",
-            },
-            {
-                label: "Advanced - Well-versed",
-                value: "Advanced - Well-versed",
-                emoji: "🎓",
+                label: "I'm advanced / seeking deeper study",
+                value: "advanced",
             },
         ],
-        key: "knowledgeLevel",
+        key: "quranFamiliarity",
     },
     {
         id: "prayer_frequency",
         type: "choice",
-        message: "How often do you currently pray?",
+        message:
+            "Thank you for sharing. How often do you currently pray?",
         options: [
             {
                 label: "All 5 daily prayers",
                 value: "All 5 daily prayers",
-                emoji: "🕌",
             },
             {
                 label: "Some prayers regularly",
                 value: "Some prayers regularly",
-                emoji: "🤲",
             },
-            { label: "Occasionally", value: "Occasionally", emoji: "🌟" },
-            { label: "Learning", value: "Learning", emoji: "📖" },
+            { label: "Occasionally", value: "Occasionally" },
+            { label: "Still learning", value: "Still learning" },
         ],
         key: "prayerFrequency",
     },
     {
         id: "quran_reading",
         type: "choice",
-        message: "How familiar are you with reading the Quran?",
+        message:
+            "And how often do you read or spend time with the Quran?",
         options: [
-            { label: "Regularly", value: "Regularly", emoji: "📖" },
-            { label: "Occasionally", value: "Occasionally", emoji: "📚" },
-            { label: "Just starting", value: "Just starting", emoji: "🌱" },
-            { label: "Want to learn", value: "Want to learn", emoji: "✨" },
+            { label: "Regularly", value: "Regularly" },
+            { label: "Occasionally", value: "Occasionally" },
+            { label: "Just starting", value: "Just starting" },
+            { label: "Want to learn", value: "Want to learn" },
         ],
         key: "quranReading",
     },
     {
         id: "goals",
         type: "multichoice",
-        message: "What would you like to achieve? (Select all that apply)",
+        message: "What would you like to focus on? (Select all that apply)",
         options: [
             {
                 label: "Learn more about Islam",
-                value: "Learn more about Islam",
-                emoji: "📚",
+                value: "learn_islam",
             },
             {
                 label: "Improve prayer habits",
-                value: "Improve prayer habits",
-                emoji: "🕌",
+                value: "improve_prayer",
             },
-            { label: "Read the Quran", value: "Read the Quran", emoji: "📖" },
+            { label: "Read the Quran", value: "read_quran" },
             {
                 label: "Ask Islamic questions",
-                value: "Ask Islamic questions",
-                emoji: "🤔",
+                value: "ask_questions",
             },
             {
                 label: "Build daily habits",
-                value: "Build daily habits",
-                emoji: "🌟",
+                value: "daily_habits",
             },
         ],
         key: "goals",
@@ -120,9 +130,12 @@ const ONBOARDING_QUESTIONS = [
 ];
 
 export default function Onboarding() {
-    // Phase management
-    const [phase, setPhase] = useState("welcome"); // welcome, chat, permissions
-    const [currentStep, setCurrentStep] = useState(0);
+    // Phase management: welcome → permissions → chat
+    const [phase, setPhase] = useState("welcome");
+    const [introIndex, setIntroIndex] = useState(0);
+    const [introComplete, setIntroComplete] = useState(false);
+    const [questionRevealed, setQuestionRevealed] = useState(false);
+    const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
 
     // Audio state
     const [isMusicPlaying, setIsMusicPlaying] = useState(false);
@@ -142,33 +155,28 @@ export default function Onboarding() {
     const [notificationStatus, setNotificationStatus] = useState("pending");
 
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const scrollViewRef = useRef(null);
     const fadeAnim = useRef(new Animated.Value(0)).current;
+    const activeQuestionAnchorY = useRef(0);
 
-    const welcomeSteps = [
-        {
-            title: "Welcome to Quran Chat Buddy",
-            description: "Your AI companion for Quranic study and reflection",
-            icon: "sparkles",
-        },
-        {
-            title: "Explore the Quran",
-            description: "Read verses with translations and track your progress",
-            icon: "book-outline",
-        },
-        {
-            title: "Ask Questions",
-            description: "Chat with AI about Islamic teachings and wisdom",
-            icon: "chatbubbles-outline",
-        },
-        {
-            title: "Track Your Progress",
-            description: "Daily quiz, prayer times, and reading streaks",
-            icon: "stats-chart-outline",
-        },
-    ];
+    const scrollChatToEnd = useCallback(() => {
+        setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 120);
+    }, []);
+
+    const scrollToActiveQuestion = useCallback(() => {
+        setTimeout(() => {
+            scrollViewRef.current?.scrollTo({
+                y: Math.max(0, activeQuestionAnchorY.current - spacing.md),
+                animated: true,
+            });
+        }, 160);
+    }, []);
 
     const saveTimeoutRef = useRef(null);
+    const introShownRef = useRef(new Set());
 
     // Audio loads only when user opts in (keeps onboarding fast)
     const ensureAudio = async () => {
@@ -217,28 +225,71 @@ export default function Onboarding() {
         }
     };
 
-    // Scroll to bottom when messages change
+    // Scroll to bottom when messages or input area change
     useEffect(() => {
         if (phase === "chat") {
-            setTimeout(() => {
-                scrollViewRef.current?.scrollToEnd({ animated: true });
-            }, 100);
+            scrollChatToEnd();
         }
-    }, [messages]);
+    }, [messages, phase, questionRevealed, currentQuestionIndex, scrollChatToEnd, scrollToActiveQuestion]);
+
+    useEffect(() => {
+        if (phase === "chat" && questionRevealed) {
+            scrollToActiveQuestion();
+        }
+    }, [phase, questionRevealed, currentQuestionIndex, scrollToActiveQuestion]);
+
+    const startPermissions = () => {
+        setPhase("permissions");
+    };
 
     const startChat = () => {
         setPhase("chat");
         setCurrentQuestionIndex(0);
         setMessages([]);
+        setIntroIndex(0);
+        setIntroComplete(false);
+        setQuestionRevealed(false);
+        introShownRef.current = new Set();
+    };
+
+    const getQuestionMessage = (question) =>
+        typeof question.message === "function"
+            ? question.message(userData)
+            : question.message;
+
+    const showIntroMessage = (index) => {
+        const introId = `intro-${index}`;
+        if (introShownRef.current.has(introId)) return;
+        introShownRef.current.add(introId);
+
+        setIsTyping(true);
+        setTimeout(() => {
+            setIsTyping(false);
+            setMessages((prev) => [
+                ...prev,
+                {
+                    type: "ai",
+                    content: ONBOARDING_INTRO[index],
+                    animate: true,
+                    id: introId,
+                    timestamp: new Date(),
+                },
+            ]);
+        }, 120);
     };
 
     const showNextQuestion = () => {
         if (currentQuestionIndex >= ONBOARDING_QUESTIONS.length) {
-            setPhase("permissions");
+            finishOnboarding();
             return;
         }
 
         const question = ONBOARDING_QUESTIONS[currentQuestionIndex];
+        const questionId = `question-${question.id}`;
+        if (introShownRef.current.has(questionId)) return;
+        introShownRef.current.add(questionId);
+
+        setQuestionRevealed(false);
         setIsTyping(true);
 
         setTimeout(() => {
@@ -247,8 +298,10 @@ export default function Onboarding() {
                 ...prev,
                 {
                     type: "ai",
-                    content: question.message,
+                    content: getQuestionMessage(question),
                     question,
+                    animate: true,
+                    id: questionId,
                     timestamp: new Date(),
                 },
             ]);
@@ -341,10 +394,20 @@ export default function Onboarding() {
     };
 
     useEffect(() => {
-        if (phase !== "chat") return undefined;
+        if (phase !== "chat" || introComplete) return undefined;
+        if (introIndex >= ONBOARDING_INTRO.length) {
+            setIntroComplete(true);
+            return undefined;
+        }
+        showIntroMessage(introIndex);
+        return undefined;
+    }, [phase, introIndex, introComplete]);
+
+    useEffect(() => {
+        if (phase !== "chat" || !introComplete) return undefined;
         const timer = setTimeout(showNextQuestion, 60);
         return () => clearTimeout(timer);
-    }, [currentQuestionIndex, phase]);
+    }, [currentQuestionIndex, phase, introComplete]);
 
     const saveToStorage = (data) => {
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -369,15 +432,19 @@ export default function Onboarding() {
 
             if (status === "granted") {
                 setLocationStatus("granted");
-                const location = await Location.getCurrentPositionAsync({});
+                const location = await LocationService.getCurrentLocation({
+                    skipPermissionPrompt: true,
+                    useCache: false,
+                });
                 await AsyncStorage.setItem(
                     "user_location",
                     JSON.stringify({
-                        latitude: location.coords.latitude,
-                        longitude: location.coords.longitude,
+                        latitude: location.coords?.latitude ?? location.latitude,
+                        longitude: location.coords?.longitude ?? location.longitude,
                         timestamp: new Date().toISOString(),
                     })
                 );
+                await useSettingsStore.getState().applyDeviceLocation(location);
             } else {
                 setLocationStatus("denied");
                 await useSettingsStore.getState().setUseManualLocation(true);
@@ -392,18 +459,27 @@ export default function Onboarding() {
     // Request notification permission
     const requestNotificationPermission = async () => {
         try {
-            const { status } = await Notifications.requestPermissionsAsync();
+            const granted =
+                await NotificationService.requestNotificationPermissions();
 
-            if (status === "granted") {
+            if (granted) {
                 setNotificationStatus("granted");
                 await AsyncStorage.setItem("notifications_enabled", "true");
                 await AsyncStorage.setItem("prayerNotificationsEnabled", "true");
+                await AsyncStorage.setItem("verseNotificationsEnabled", "true");
+
+                NotificationService.registerForPushNotifications().catch(
+                    (error) =>
+                        console.warn("Push token registration failed:", error),
+                );
+
                 const { PrayerNotificationService } = await import(
                     "../../src/services/prayerNotificationService"
                 );
-                await PrayerNotificationService.setupDailyPrayerNotifications();
+                await PrayerNotificationService.setupFaithReminders();
             } else {
                 setNotificationStatus("denied");
+                await AsyncStorage.setItem("notifications_enabled", "false");
             }
         } catch (error) {
             console.error("Error requesting notifications:", error);
@@ -411,97 +487,133 @@ export default function Onboarding() {
         }
     };
 
-    // Complete onboarding
-    const completeOnboarding = async () => {
+    const handlePermissionsContinue = async () => {
+        if (isRequestingPermissions) return;
+        setIsRequestingPermissions(true);
         try {
-            // Stop and unload audio
+            await requestNotificationPermission();
+            await requestLocationPermission();
+            startChat();
+        } finally {
+            setIsRequestingPermissions(false);
+        }
+    };
+
+    const finishOnboarding = async () => {
+        try {
             if (soundRef.current) {
                 await soundRef.current.stopAsync();
                 await soundRef.current.unloadAsync();
             }
 
-            // Mark onboarding as complete
             await AsyncStorage.setItem("onboarding_completed", "true");
             await AsyncStorage.setItem(
                 "onboarding_completed_date",
-                new Date().toISOString()
+                new Date().toISOString(),
             );
 
             useAuthStore.getState().setOnboarded(true);
-            router.replace("/(auth)/register");
+            const userName = userData.userName || "";
+            router.replace("/(tabs)");
+            setTimeout(() => {
+                usePaywallStore.getState().showOnboardingPaywall(userName);
+            }, 400);
         } catch (error) {
             console.log("Error completing onboarding:", error);
         }
     };
 
-    // Skip to end
-    const handleSkip = () => {
-        if (phase === "welcome") {
-            startChat();
+    const handleIntroTypewriterComplete = (messageId) => {
+        if (messageId?.startsWith("intro-")) {
+            const index = Number(messageId.replace("intro-", ""));
+            if (!Number.isNaN(index)) {
+                setIntroIndex(index + 1);
+            }
+            return;
+        }
+
+        if (messageId?.startsWith("question-")) {
+            setQuestionRevealed(true);
         }
     };
 
-    // Render message
-    const renderMessage = (message, index) => {
-        if (message.type === "ai") {
-            return (
-                <View key={index} style={styles.aiMessageContainer}>
-                    <View style={styles.aiAvatar}>
-                        <AppLogo size={34} />
-                    </View>
-                    <View style={styles.aiMessageBubble}>
-                        <Text style={styles.aiMessageText}>
-                            {message.content}
-                        </Text>
-                    </View>
-                </View>
-            );
-        } else {
-            return (
-                <View key={index} style={styles.userMessageContainer}>
-                    <View style={styles.userMessageBubble}>
-                        <Text style={styles.userMessageText}>
-                            {message.content}
-                        </Text>
-                    </View>
-                </View>
-            );
-        }
-    };
+    const renderMessage = (message, index) => (
+        <MessageBubble
+            key={message.id || `${message.type}-${index}`}
+            message={{
+                isUser: message.type === "user",
+                text: message.content,
+                animate: message.animate,
+                timestamp: message.timestamp,
+            }}
+            onTypewriterComplete={() =>
+                handleIntroTypewriterComplete(message.id)
+            }
+        />
+    );
 
     // Render input area based on question type
     const renderInputArea = () => {
         const currentQuestion = ONBOARDING_QUESTIONS[currentQuestionIndex];
-        if (!currentQuestion) return null;
+        if (!currentQuestion || !questionRevealed) return null;
 
         if (currentQuestion.type === "text") {
             return (
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={styles.textInput}
-                        placeholder={currentQuestion.placeholder}
-                        value={userInput}
-                        onChangeText={setUserInput}
-                        onSubmitEditing={handleTextSubmit}
-                        returnKeyType="send"
-                    />
-                    <TouchableOpacity
-                        style={[
-                            styles.sendButton,
-                            !userInput.trim() && styles.sendButtonDisabled,
-                        ]}
-                        onPress={handleTextSubmit}
-                        disabled={!userInput.trim()}
-                    >
-                        <Ionicons name="send" size={20} color="#fff" />
-                    </TouchableOpacity>
+                <View
+                    style={[
+                        styles.composerWrapper,
+                        { paddingBottom: Math.max(insets.bottom, 8) },
+                    ]}
+                >
+                    <View style={styles.composerBar}>
+                        <View style={styles.composerInputShell}>
+                            <MaterialCommunityIcons
+                                name="message-text-outline"
+                                size={18}
+                                color="rgba(255,255,255,0.75)"
+                            />
+                            <TextInput
+                                style={styles.composerInput}
+                                placeholder={currentQuestion.placeholder}
+                                placeholderTextColor="rgba(255,255,255,0.5)"
+                                value={userInput}
+                                onChangeText={setUserInput}
+                                onSubmitEditing={handleTextSubmit}
+                                returnKeyType="send"
+                            />
+                            <TouchableOpacity
+                                style={[
+                                    styles.composerSendButton,
+                                    !userInput.trim() &&
+                                        styles.composerSendButtonDisabled,
+                                ]}
+                                onPress={handleTextSubmit}
+                                disabled={!userInput.trim()}
+                            >
+                                <MaterialCommunityIcons
+                                    name="send"
+                                    size={18}
+                                    color={
+                                        userInput.trim()
+                                            ? "#fff"
+                                            : "rgba(255,255,255,0.35)"
+                                    }
+                                />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
                 </View>
             );
         }
 
         if (currentQuestion.type === "choice") {
             return (
-                <View style={styles.optionsContainer}>
+                <View
+                    style={[
+                        styles.optionsContainer,
+                        { paddingBottom: Math.max(insets.bottom, 8) },
+                    ]}
+                >
                     {currentQuestion.options.map((option, index) => (
                         <TouchableOpacity
                             key={index}
@@ -519,7 +631,12 @@ export default function Onboarding() {
 
         if (currentQuestion.type === "multichoice") {
             return (
-                <View style={styles.optionsContainer}>
+                <View
+                    style={[
+                        styles.optionsContainer,
+                        { paddingBottom: Math.max(insets.bottom, 8) },
+                    ]}
+                >
                     {currentQuestion.options.map((option, index) => (
                         <TouchableOpacity
                             key={index}
@@ -540,10 +657,10 @@ export default function Onboarding() {
                                 {option.label}
                             </Text>
                             {selectedOptions.includes(option.value) && (
-                                <Ionicons
-                                    name="checkmark-circle"
+                                <MaterialCommunityIcons
+                                    name="check-circle"
                                     size={20}
-                                    color="#4CAF50"
+                                    color={theme.colors.secondary}
                                 />
                             )}
                         </TouchableOpacity>
@@ -573,77 +690,29 @@ export default function Onboarding() {
             <SafeAreaView style={styles.container}>
                 <StatusBar style="light" />
 
-                <View style={styles.skipContainer}>
-                    <View style={styles.topControls}>
-                        <TouchableOpacity
-                            style={styles.musicButton}
-                            onPress={toggleMusic}
+                <View style={styles.welcomeContent}>
+                    <AppLogo size={88} />
+                    <Text style={styles.welcomeEyebrow}>Welcome to</Text>
+                    <Text style={styles.title}>Quran Chat Buddy</Text>
+                </View>
+
+                <View style={styles.welcomeFooter}>
+                    <TouchableOpacity
+                        style={styles.primaryCtaButton}
+                        onPress={startPermissions}
+                    >
+                        <Text style={styles.primaryCtaButtonText}>Continue</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.termsText}>
+                        By continuing you agree to our{" "}
+                        <Text
+                            style={styles.termsLink}
+                            onPress={() => Linking.openURL(APP_LINKS.terms)}
                         >
-                            <Ionicons
-                                name={
-                                    isMusicPlaying
-                                        ? "volume-high"
-                                        : "volume-mute"
-                                }
-                                size={24}
-                                color="#666"
-                            />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={handleSkip}>
-                            <Text style={styles.skipText}>Skip</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                <View style={styles.contentContainer}>
-                    {currentStep === 0 ? (
-                        <AppLogo size={88} />
-                    ) : (
-                        <View style={styles.welcomeIconCircle}>
-                            <Ionicons
-                                name={welcomeSteps[currentStep].icon}
-                                size={44}
-                                color="#fff"
-                            />
-                        </View>
-                    )}
-                    <Text style={styles.title}>
-                        {welcomeSteps[currentStep].title}
-                    </Text>
-                    <Text style={styles.description}>
-                        {welcomeSteps[currentStep].description}
+                            Terms & Conditions
+                        </Text>
                     </Text>
                 </View>
-
-                <View style={styles.paginationContainer}>
-                    {welcomeSteps.map((_, index) => (
-                        <View
-                            key={index}
-                            style={[
-                                styles.paginationDot,
-                                index === currentStep &&
-                                    styles.paginationDotActive,
-                            ]}
-                        />
-                    ))}
-                </View>
-
-                <TouchableOpacity
-                    style={styles.button}
-                    onPress={() => {
-                        if (currentStep < welcomeSteps.length - 1) {
-                            setCurrentStep(currentStep + 1);
-                        } else {
-                            startChat();
-                        }
-                    }}
-                >
-                    <Text style={styles.buttonText}>
-                        {currentStep === welcomeSteps.length - 1
-                            ? "Let's Begin"
-                            : "Next"}
-                    </Text>
-                </TouchableOpacity>
             </SafeAreaView>
             </AppBackground>
         );
@@ -653,63 +722,83 @@ export default function Onboarding() {
     if (phase === "chat") {
         return (
             <AppBackground>
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={styles.container} edges={["top"]}>
                 <StatusBar style="light" />
 
-                <View style={styles.chatHeader}>
-                    <TouchableOpacity
-                        style={styles.musicButton}
-                        onPress={toggleMusic}
-                    >
-                        <Ionicons
-                            name={
-                                isMusicPlaying ? "volume-high" : "volume-mute"
-                            }
-                            size={24}
-                            color="#666"
-                        />
-                    </TouchableOpacity>
-                    <View style={styles.chatHeaderContent}>
-                        <Text style={styles.chatHeaderTitle}>
-                            Getting to Know You
-                        </Text>
-                        <Text style={styles.chatHeaderSubtitle}>
-                            {currentQuestionIndex + 1} of{" "}
-                            {ONBOARDING_QUESTIONS.length}
-                        </Text>
-                    </View>
-                </View>
+                <ScreenHeader
+                    title="Meet Quran Chat Buddy"
+                    subtitle={
+                        introComplete
+                            ? `Question ${Math.min(
+                                  currentQuestionIndex + 1,
+                                  ONBOARDING_QUESTIONS.length,
+                              )} of ${ONBOARDING_QUESTIONS.length}`
+                            : "Getting started"
+                    }
+                    showHome={false}
+                    leftAction={
+                        <TouchableOpacity
+                            style={styles.headerIconButton}
+                            onPress={toggleMusic}
+                        >
+                            <Ionicons
+                                name={
+                                    isMusicPlaying
+                                        ? "volume-high"
+                                        : "volume-mute"
+                                }
+                                size={20}
+                                color="#fff"
+                            />
+                        </TouchableOpacity>
+                    }
+                />
 
                 <KeyboardAvoidingView
                     style={styles.chatContent}
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    keyboardVerticalOffset={100}
+                    behavior="padding"
+                    keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
                 >
                     <ScrollView
                         ref={scrollViewRef}
                         style={styles.messagesContainer}
-                        contentContainerStyle={styles.messagesContent}
+                        contentContainerStyle={[
+                            styles.messagesContent,
+                            { paddingBottom: Math.max(insets.bottom, spacing.md) },
+                        ]}
                         showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        keyboardDismissMode="interactive"
+                        onContentSizeChange={() => {
+                            if (questionRevealed) {
+                                scrollToActiveQuestion();
+                            } else {
+                                scrollChatToEnd();
+                            }
+                        }}
                     >
                         {messages.map((message, index) =>
                             renderMessage(message, index)
                         )}
 
-                        {isTyping && (
-                            <View style={styles.aiMessageContainer}>
-                                <View style={styles.aiAvatar}>
-                                    <AppLogo size={34} />
-                                </View>
-                                <View style={styles.typingIndicator}>
-                                    <View style={styles.typingDot} />
-                                    <View style={styles.typingDot} />
-                                    <View style={styles.typingDot} />
-                                </View>
+                        {isTyping ? (
+                            <View style={styles.typingContainer}>
+                                <ActivityIndicator size="small" color="#fff" />
+                                <Text style={styles.typingText}>Thinking...</Text>
                             </View>
-                        )}
-                    </ScrollView>
+                        ) : null}
 
-                    {renderInputArea()}
+                        {questionRevealed ? (
+                            <View
+                                onLayout={(event) => {
+                                    activeQuestionAnchorY.current =
+                                        event.nativeEvent.layout.y;
+                                }}
+                            />
+                        ) : null}
+
+                        {renderInputArea()}
+                    </ScrollView>
                 </KeyboardAvoidingView>
             </SafeAreaView>
             </AppBackground>
@@ -720,167 +809,55 @@ export default function Onboarding() {
     if (phase === "permissions") {
         return (
             <AppBackground>
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={styles.container} edges={["top"]}>
                 <StatusBar style="light" />
 
-                <View style={styles.permissionsHeader}>
-                    <TouchableOpacity
-                        style={styles.musicButton}
-                        onPress={toggleMusic}
-                    >
-                        <Ionicons
-                            name={
-                                isMusicPlaying ? "volume-high" : "volume-mute"
-                            }
-                            size={24}
-                            color="#666"
-                        />
-                    </TouchableOpacity>
-                    <Text style={styles.permissionsTitle}>
-                        Setup Permissions
+                <ScrollView
+                    style={styles.permissionsScroll}
+                    contentContainerStyle={[
+                        styles.permissionsContent,
+                        { paddingBottom: spacing.lg },
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <Text style={styles.permissionsHeadline}>
+                        Enable notifications and location permission to get the
+                        most out of Quran Chat Buddy
                     </Text>
-                    <View style={{ width: 40 }} />
-                </View>
 
-                <ScrollView style={styles.permissionsContent}>
-                    {/* AI Message */}
-                    <View style={styles.aiMessageContainer}>
-                        <View style={styles.aiAvatar}>
-                            <AppLogo size={34} />
-                        </View>
-                        <View style={styles.aiMessageBubble}>
-                            <Text style={styles.aiMessageText}>
-                                To provide accurate prayer times and reminders,
-                                I need a couple of permissions. Your privacy is
-                                important!
-                            </Text>
-                        </View>
-                    </View>
+                    <Text style={styles.previewSectionTitle}>
+                        Faith Reminders
+                    </Text>
+                    <FaithReminderPreview />
 
-                    {/* Location Permission */}
-                    <View style={styles.permissionCard}>
-                        <View style={styles.permissionHeader}>
-                            <Ionicons
-                                name="location"
-                                size={32}
-                                color="#4CAF50"
-                            />
-                            <View style={styles.permissionInfo}>
-                                <Text style={styles.permissionTitle}>
-                                    Location Access
-                                </Text>
-                                <Text style={styles.permissionSubtitle}>
-                                    For accurate prayer times
-                                </Text>
-                            </View>
-                            <Ionicons
-                                name={
-                                    locationStatus === "granted"
-                                        ? "checkmark-circle"
-                                        : locationStatus === "denied"
-                                          ? "close-circle"
-                                          : "time-outline"
-                                }
-                                size={24}
-                                color={
-                                    locationStatus === "granted"
-                                        ? "#4CAF50"
-                                        : locationStatus === "denied"
-                                          ? "#E57373"
-                                          : "#999"
-                                }
-                            />
-                        </View>
-
-                        <Text style={styles.permissionDescription}>
-                            We use your location to calculate precise prayer
-                            times. Data stored locally, never shared.
-                        </Text>
-
-                        {locationStatus === "pending" && (
-                            <TouchableOpacity
-                                style={styles.permissionButton}
-                                onPress={requestLocationPermission}
-                            >
-                                <Text style={styles.permissionButtonText}>
-                                    Enable Location
-                                </Text>
-                            </TouchableOpacity>
-                        )}
-                        {locationStatus === "denied" ? (
-                            <Text style={styles.permissionHint}>
-                                You can set your city manually in Settings.
-                            </Text>
-                        ) : null}
-                    </View>
-
-                    {/* Notification Permission */}
-                    <View style={styles.permissionCard}>
-                        <View style={styles.permissionHeader}>
-                            <Ionicons
-                                name="notifications"
-                                size={32}
-                                color="#4CAF50"
-                            />
-                            <View style={styles.permissionInfo}>
-                                <Text style={styles.permissionTitle}>
-                                    Prayer Notifications
-                                </Text>
-                                <Text style={styles.permissionSubtitle}>
-                                    Stay on time with reminders
-                                </Text>
-                            </View>
-                            <Ionicons
-                                name={
-                                    notificationStatus === "granted"
-                                        ? "checkmark-circle"
-                                        : notificationStatus === "denied"
-                                          ? "close-circle"
-                                          : "time-outline"
-                                }
-                                size={24}
-                                color={
-                                    notificationStatus === "granted"
-                                        ? "#4CAF50"
-                                        : notificationStatus === "denied"
-                                          ? "#E57373"
-                                          : "#999"
-                                }
-                            />
-                        </View>
-
-                        <Text style={styles.permissionDescription}>
-                            Receive gentle reminders before each prayer time.
-                        </Text>
-
-                        {notificationStatus === "pending" && (
-                            <TouchableOpacity
-                                style={[
-                                    styles.permissionButton,
-                                    styles.permissionButtonSecondary,
-                                ]}
-                                onPress={requestNotificationPermission}
-                            >
-                                <Text
-                                    style={styles.permissionButtonTextSecondary}
-                                >
-                                    Enable Notifications
-                                </Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
+                    <Text style={styles.previewSectionTitle}>
+                        Prayer Time Widget
+                    </Text>
+                    <PrayerTimeWidget preview />
                 </ScrollView>
 
-                <View style={styles.permissionsFooter}>
+                <View
+                    style={[
+                        styles.permissionsFooter,
+                        { paddingBottom: Math.max(insets.bottom, spacing.md) },
+                    ]}
+                >
                     <TouchableOpacity
-                        style={styles.button}
-                        onPress={completeOnboarding}
+                        style={[
+                            styles.primaryCtaButton,
+                            isRequestingPermissions &&
+                                styles.primaryCtaButtonDisabled,
+                        ]}
+                        onPress={handlePermissionsContinue}
+                        disabled={isRequestingPermissions}
                     >
-                        <Text style={styles.buttonText}>
-                            {locationStatus === "granted"
-                                ? "Complete Setup"
-                                : "Continue with City Settings"}
-                        </Text>
+                        {isRequestingPermissions ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <Text style={styles.primaryCtaButtonText}>
+                                Continue
+                            </Text>
+                        )}
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>
@@ -984,28 +961,15 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
     // Chat phase styles
-    chatHeader: {
-        flexDirection: "row",
+    headerIconButton: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
         alignItems: "center",
-        justifyContent: "space-between",
-        padding: 16,
-        backgroundColor: "#fff",
-        borderBottomWidth: 1,
-        borderBottomColor: "#e0e0e0",
-    },
-    chatHeaderContent: {
-        flex: 1,
-        alignItems: "center",
-    },
-    chatHeaderTitle: {
-        fontSize: 18,
-        fontWeight: "bold",
-        color: "#333",
-    },
-    chatHeaderSubtitle: {
-        fontSize: 14,
-        color: "#666",
-        marginTop: 2,
+        justifyContent: "center",
+        backgroundColor: glass.backgroundStrong,
+        borderWidth: 1,
+        borderColor: glass.border,
     },
     chatContent: {
         flex: 1,
@@ -1014,247 +978,332 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     messagesContent: {
-        padding: 16,
-        paddingBottom: 80,
+        padding: spacing.md,
     },
-    aiMessageContainer: {
+    typingContainer: {
         flexDirection: "row",
-        marginBottom: 16,
-        alignItems: "flex-start",
-    },
-    aiAvatar: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: "#4CAF50",
         alignItems: "center",
-        justifyContent: "center",
-        marginRight: 12,
+        gap: 8,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
     },
-    aiAvatarText: {
-        fontSize: 18,
+    typingText: {
+        color: "rgba(255,255,255,0.8)",
     },
-    aiMessageBubble: {
-        flex: 1,
-        backgroundColor: "#f0f0f0",
-        borderRadius: 16,
-        borderTopLeftRadius: 4,
-        padding: 16,
-    },
-    aiMessageText: {
-        fontSize: 16,
-        color: "#333",
-        lineHeight: 24,
-    },
-    userMessageContainer: {
-        flexDirection: "row",
-        justifyContent: "flex-end",
-        marginBottom: 16,
-    },
-    userMessageBubble: {
-        maxWidth: "80%",
-        backgroundColor: "#4CAF50",
-        borderRadius: 16,
-        borderTopRightRadius: 4,
-        padding: 16,
-    },
-    userMessageText: {
-        fontSize: 16,
-        color: "white",
-        lineHeight: 24,
-    },
-    typingIndicator: {
-        flexDirection: "row",
-        backgroundColor: "#f0f0f0",
-        borderRadius: 16,
-        borderTopLeftRadius: 4,
-        padding: 16,
-    },
-    typingDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: "#999",
-        marginRight: 4,
-    },
-    inputContainer: {
-        flexDirection: "row",
-        padding: 16,
-        backgroundColor: "#fff",
+    composerWrapper: {
+        paddingHorizontal: spacing.md,
+        paddingTop: spacing.sm,
+        backgroundColor: glass.barBackground,
         borderTopWidth: 1,
-        borderTopColor: "#e0e0e0",
+        borderTopColor: "rgba(255,255,255,0.1)",
     },
-    textInput: {
+    composerBar: {
+        borderRadius: glass.radiusLg,
+        borderWidth: 1,
+        borderColor: glass.cardBorder,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.sm,
+        backgroundColor: "#1A4D38",
+    },
+    composerInputShell: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        backgroundColor: "rgba(0,0,0,0.2)",
+        borderRadius: 22,
+        paddingHorizontal: 12,
+        minHeight: 44,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.12)",
+    },
+    composerInput: {
         flex: 1,
-        backgroundColor: "#f0f0f0",
-        borderRadius: 24,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        fontSize: 16,
-        marginRight: 12,
+        color: "#fff",
+        fontSize: 15,
+        paddingVertical: 8,
     },
-    sendButton: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: "#4CAF50",
+    composerSendButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         alignItems: "center",
         justifyContent: "center",
+        backgroundColor: theme.colors.primary,
     },
-    sendButtonDisabled: {
-        opacity: 0.5,
-    },
-    continueButton: {
-        flex: 1,
-        backgroundColor: "#4CAF50",
-        borderRadius: 24,
-        paddingVertical: 14,
-        alignItems: "center",
-    },
-    continueButtonText: {
-        fontSize: 16,
-        fontWeight: "bold",
-        color: "white",
+    composerSendButtonDisabled: {
+        opacity: 0.6,
     },
     optionsContainer: {
-        padding: 16,
-        backgroundColor: "#fff",
+        paddingHorizontal: spacing.md,
+        paddingTop: spacing.sm,
+        backgroundColor: glass.barBackground,
         borderTopWidth: 1,
-        borderTopColor: "#e0e0e0",
+        borderTopColor: "rgba(255,255,255,0.1)",
     },
     optionButton: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#f8f9fa",
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 8,
-        borderWidth: 2,
-        borderColor: "#f8f9fa",
+        backgroundColor: "rgba(0,0,0,0.2)",
+        borderRadius: 16,
+        padding: spacing.md,
+        marginBottom: spacing.sm,
+        borderWidth: 1,
+        borderColor: glass.cardBorder,
     },
     optionButtonSelected: {
-        backgroundColor: "#e8f5e9",
-        borderColor: "#4CAF50",
-    },
-    optionEmoji: {
-        fontSize: 24,
-        marginRight: 12,
+        backgroundColor: glass.backgroundLight,
+        borderColor: theme.colors.secondary,
     },
     optionText: {
         flex: 1,
-        fontSize: 16,
-        color: "#333",
+        fontSize: 15,
+        color: "#fff",
         fontWeight: "500",
     },
     optionTextSelected: {
-        color: "#4CAF50",
+        color: theme.colors.secondary,
         fontWeight: "600",
     },
     submitButton: {
-        backgroundColor: "#4CAF50",
-        borderRadius: 12,
+        backgroundColor: theme.colors.primary,
+        borderRadius: 16,
         paddingVertical: 16,
         alignItems: "center",
-        marginTop: 8,
+        marginTop: spacing.xs,
+        borderWidth: 1,
+        borderColor: glass.cardBorder,
     },
     submitButtonDisabled: {
         opacity: 0.5,
     },
     submitButtonText: {
         fontSize: 16,
-        fontWeight: "bold",
+        fontWeight: "700",
         color: "white",
     },
     // Permissions phase styles
-    permissionsHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: 16,
-        backgroundColor: "#fff",
-        borderBottomWidth: 1,
-        borderBottomColor: "#e0e0e0",
-    },
-    permissionsTitle: {
-        fontSize: 20,
-        fontWeight: "bold",
-        color: "#333",
+    permissionsScroll: {
+        flex: 1,
     },
     permissionsContent: {
+        paddingHorizontal: spacing.md,
+        paddingTop: spacing.lg,
+    },
+    permissionsHeadline: {
+        fontSize: 22,
+        fontWeight: "700",
+        color: "#fff",
+        textAlign: "center",
+        lineHeight: 30,
+        marginBottom: spacing.lg,
+    },
+    previewSectionTitle: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "rgba(255,255,255,0.9)",
+        marginBottom: spacing.sm,
+        marginTop: spacing.sm,
+    },
+    previewNotificationCard: {
+        marginBottom: spacing.sm,
+    },
+    previewNotificationInner: {
+        flexDirection: "row",
+        alignItems: "center",
+        padding: spacing.md,
+        gap: spacing.sm,
+    },
+    previewAppIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        overflow: "hidden",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(255,255,255,0.12)",
+    },
+    previewNotificationText: {
         flex: 1,
-        padding: 16,
+    },
+    previewNotificationTitle: {
+        color: "#fff",
+        fontSize: 14,
+        fontWeight: "600",
+    },
+    previewNotificationBody: {
+        color: "rgba(255,255,255,0.75)",
+        fontSize: 13,
+        marginTop: 2,
+    },
+    previewNotificationTime: {
+        color: "rgba(255,255,255,0.55)",
+        fontSize: 12,
+    },
+    previewWidgetCard: {
+        padding: spacing.md,
+        marginBottom: spacing.md,
+    },
+    previewWidgetTitle: {
+        color: "#fff",
+        fontSize: 15,
+        fontWeight: "600",
+        textAlign: "center",
+        marginBottom: spacing.md,
+    },
+    previewPrayerRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+    },
+    previewPrayerItem: {
+        alignItems: "center",
+        flex: 1,
+    },
+    previewPrayerIconWrap: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(255,255,255,0.12)",
+        marginBottom: 6,
+    },
+    previewPrayerIconActive: {
+        backgroundColor: theme.colors.primary,
+    },
+    previewPrayerName: {
+        color: "rgba(255,255,255,0.85)",
+        fontSize: 11,
+        marginBottom: 2,
+    },
+    previewPrayerTime: {
+        color: "#fff",
+        fontSize: 10,
+        textAlign: "center",
+    },
+    welcomeContent: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 24,
+    },
+    welcomeEyebrow: {
+        fontSize: 20,
+        color: "rgba(255,255,255,0.85)",
+        marginTop: spacing.lg,
+        marginBottom: spacing.xs,
+    },
+    welcomeFooter: {
+        paddingHorizontal: spacing.lg,
+        paddingBottom: spacing.xxl,
+    },
+    termsText: {
+        textAlign: "center",
+        color: theme.colors.secondary,
+        fontSize: 13,
+        marginTop: spacing.md,
+        lineHeight: 20,
+    },
+    termsLink: {
+        textDecorationLine: "underline",
+        color: theme.colors.secondary,
+        fontWeight: "600",
+    },
+    primaryCtaButtonDisabled: {
+        opacity: 0.7,
     },
     permissionCard: {
-        backgroundColor: "#fff",
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 16,
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        marginBottom: spacing.md,
+    },
+    permissionCardInner: {
+        padding: spacing.lg,
     },
     permissionHeader: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 12,
+        marginBottom: spacing.md,
+    },
+    permissionIconWrap: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: glass.backgroundLight,
+        borderWidth: 1,
+        borderColor: glass.borderSubtle,
     },
     permissionInfo: {
         flex: 1,
-        marginLeft: 12,
+        marginLeft: spacing.md,
+        paddingRight: spacing.sm,
     },
     permissionTitle: {
         fontSize: 18,
-        fontWeight: "bold",
-        color: "#333",
+        fontWeight: "700",
+        color: "#fff",
     },
     permissionSubtitle: {
         fontSize: 14,
-        color: "#666",
+        color: "rgba(255,255,255,0.75)",
         marginTop: 2,
     },
-    statusIcon: {
-        fontSize: 24,
-    },
     permissionHint: {
-        marginTop: 10,
+        marginTop: spacing.sm,
         fontSize: 13,
         color: "rgba(255,255,255,0.75)",
         textAlign: "center",
     },
     permissionDescription: {
         fontSize: 14,
-        color: "#666",
-        lineHeight: 20,
-        marginBottom: 16,
+        color: "rgba(255,255,255,0.8)",
+        lineHeight: 21,
+        marginBottom: spacing.md,
     },
     permissionButton: {
-        backgroundColor: "#4CAF50",
-        borderRadius: 12,
+        backgroundColor: theme.colors.primary,
+        borderRadius: 16,
         paddingVertical: 14,
         alignItems: "center",
+        borderWidth: 1,
+        borderColor: glass.cardBorder,
     },
-    permissionButtonSecondary: {
-        backgroundColor: "#fff",
-        borderWidth: 2,
-        borderColor: "#4CAF50",
+    permissionButtonOutline: {
+        backgroundColor: "rgba(0,0,0,0.2)",
+        borderRadius: 16,
+        paddingVertical: 14,
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: glass.cardBorder,
     },
     permissionButtonText: {
         fontSize: 16,
-        fontWeight: "bold",
+        fontWeight: "700",
         color: "#fff",
     },
-    permissionButtonTextSecondary: {
+    permissionButtonOutlineText: {
         fontSize: 16,
-        fontWeight: "bold",
-        color: "#4CAF50",
+        fontWeight: "700",
+        color: "#fff",
     },
     permissionsFooter: {
-        padding: 20,
-        backgroundColor: "#fff",
+        paddingHorizontal: spacing.md,
+        paddingTop: spacing.md,
+        backgroundColor: glass.barBackground,
         borderTopWidth: 1,
-        borderTopColor: "#e0e0e0",
+        borderTopColor: "rgba(255,255,255,0.1)",
+    },
+    primaryCtaButton: {
+        backgroundColor: theme.colors.primary,
+        borderRadius: glass.radiusLg,
+        paddingVertical: 16,
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: glass.cardBorder,
+    },
+    primaryCtaButtonText: {
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "700",
     },
     skipButtonBottom: {
         paddingVertical: 12,

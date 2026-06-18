@@ -1,16 +1,24 @@
+import { Platform } from "react-native";
 import {
     getRemoteConfig,
     fetchAndActivate,
     getValue,
-    setDefaults,
+    getAll,
+    isSupported,
 } from "firebase/remote-config";
 import { getFirebaseApp } from "./firebase";
+import { createNativeRemoteConfigClient } from "./remoteConfigNative";
 import {
     DEFAULT_REMOTE_CONFIG_VALUES,
+    REMOTE_CONFIG_KEYS,
 } from "../constants/paywallConfig";
 
 let remoteConfig = null;
+let nativeClient = null;
+let useWebSdk = Platform.OS === "web";
 let initPromise = null;
+
+const LOG_PREFIX = "[Remote Config]";
 
 const getMinimumFetchInterval = () => {
     const fromEnv = process.env.EXPO_PUBLIC_REMOTE_CONFIG_FETCH_INTERVAL_MS;
@@ -21,12 +29,19 @@ const getMinimumFetchInterval = () => {
 };
 
 const readString = (key) => {
+    if (nativeClient) {
+        const value = nativeClient.getString(key);
+        return value || (DEFAULT_REMOTE_CONFIG_VALUES[key] ?? "");
+    }
     if (!remoteConfig) return DEFAULT_REMOTE_CONFIG_VALUES[key] ?? "";
     const value = getValue(remoteConfig, key).asString();
     return value || (DEFAULT_REMOTE_CONFIG_VALUES[key] ?? "");
 };
 
 const readBoolean = (key) => {
+    if (nativeClient) {
+        return nativeClient.getBoolean(key);
+    }
     if (!remoteConfig) {
         return DEFAULT_REMOTE_CONFIG_VALUES[key] === "true";
     }
@@ -34,6 +49,9 @@ const readBoolean = (key) => {
 };
 
 const readNumber = (key) => {
+    if (nativeClient) {
+        return nativeClient.getNumber(key);
+    }
     if (!remoteConfig) {
         return Number(DEFAULT_REMOTE_CONFIG_VALUES[key] ?? 0);
     }
@@ -49,23 +67,115 @@ const parseJson = (key) => {
     }
 };
 
+const buildRawValues = () => ({
+    forceHardPaywall: readBoolean("ios_force_hard_paywall"),
+    quizAnimationSpeed: readNumber("ios_quiz_annimation_speed"),
+    paywallsConfig: parseJson("ios_paywalls_config"),
+    suggestiveQuestions: parseJson("ios_ask_me_anything_suggestive_question"),
+    paywallAudioPath: readString("ios_paywall_audio_path"),
+    freeMessageCount: readNumber("ios_free_message_count"),
+    prayerDurations: parseJson("ios_prayer_namaz_durations"),
+    paywallCta: parseJson("ios_appopen_paywall_CTA"),
+    todayTopics: parseJson("ios_today_topic"),
+    revenueCatOfferingId: readString("ios_paywall_revenuecat_identifier_v1"),
+});
+
+const getValueSources = () => {
+    if (nativeClient) {
+        return nativeClient.getSources();
+    }
+    if (!remoteConfig) {
+        return Object.fromEntries(
+            Object.values(REMOTE_CONFIG_KEYS).map((key) => [key, "default"])
+        );
+    }
+
+    const all = getAll(remoteConfig);
+    return Object.fromEntries(
+        Object.values(REMOTE_CONFIG_KEYS).map((key) => [
+            key,
+            all[key]?.getSource?.() ?? "default",
+        ])
+    );
+};
+
+const logRemoteConfigStatus = (event, { activated = null, error = null } = {}) => {
+    const values = buildRawValues();
+    const sources = getValueSources();
+    const remoteKeyCount = Object.values(sources).filter(
+        (source) => source === "remote"
+    ).length;
+
+    if (error) {
+        console.warn(`${LOG_PREFIX} ${event} failed:`, error);
+        console.warn(
+            `${LOG_PREFIX} Using in-app defaults until Remote Config is available`
+        );
+    } else {
+        console.log(`${LOG_PREFIX} ${event} succeeded`);
+        const status = nativeClient
+            ? nativeClient.getStatus()
+            : remoteConfig
+              ? {
+                    lastFetchStatus: remoteConfig.lastFetchStatus,
+                    fetchTimeMillis: remoteConfig.fetchTimeMillis,
+                }
+              : null;
+
+        console.log(`${LOG_PREFIX} Connection:`, {
+            platform: Platform.OS,
+            transport: useWebSdk ? "firebase-web-sdk" : "firebase-rest-api",
+            ...status,
+            activated,
+            remoteValues: remoteKeyCount,
+            totalKeys: Object.keys(sources).length,
+        });
+    }
+
+    console.log(`${LOG_PREFIX} Active values:`, values);
+    console.log(`${LOG_PREFIX} Value sources:`, sources);
+};
+
+const initializeWebRemoteConfig = async () => {
+    const supported = await isSupported();
+    if (!supported) {
+        throw new Error("Firebase web Remote Config is not supported in this environment");
+    }
+
+    const app = getFirebaseApp();
+    remoteConfig = getRemoteConfig(app);
+    remoteConfig.settings.minimumFetchIntervalMillis = getMinimumFetchInterval();
+    remoteConfig.defaultConfig = DEFAULT_REMOTE_CONFIG_VALUES;
+
+    return fetchAndActivate(remoteConfig);
+};
+
+const initializeNativeRemoteConfig = async () => {
+    nativeClient = createNativeRemoteConfigClient();
+    return nativeClient.initialize(getMinimumFetchInterval());
+};
+
 export const RemoteConfigService = {
     async initialize() {
         if (initPromise) return initPromise;
 
         initPromise = (async () => {
             try {
-                const app = getFirebaseApp();
-                remoteConfig = getRemoteConfig(app);
-                remoteConfig.settings.minimumFetchIntervalMillis =
-                    getMinimumFetchInterval();
+                if (Platform.OS === "web") {
+                    useWebSdk = true;
+                    const activated = await initializeWebRemoteConfig();
+                    logRemoteConfigStatus("initialize", { activated });
+                    return remoteConfig;
+                }
 
-                await setDefaults(remoteConfig, DEFAULT_REMOTE_CONFIG_VALUES);
-                await fetchAndActivate(remoteConfig);
+                useWebSdk = false;
+                const activated = await initializeNativeRemoteConfig();
+                logRemoteConfigStatus("initialize", { activated });
+                return nativeClient;
             } catch (error) {
-                console.warn("Firebase Remote Config init failed:", error);
+                logRemoteConfigStatus("initialize", { error });
+                return useWebSdk ? remoteConfig : nativeClient;
             }
-            return remoteConfig;
         })();
 
         return initPromise;
@@ -73,29 +183,26 @@ export const RemoteConfigService = {
 
     async refresh() {
         await this.initialize();
-        if (!remoteConfig) return false;
 
         try {
-            await fetchAndActivate(remoteConfig);
+            if (useWebSdk) {
+                if (!remoteConfig) return false;
+                const activated = await fetchAndActivate(remoteConfig);
+                logRemoteConfigStatus("refresh", { activated });
+                return true;
+            }
+
+            if (!nativeClient) return false;
+            const activated = await nativeClient.refresh();
+            logRemoteConfigStatus("refresh", { activated });
             return true;
         } catch (error) {
-            console.warn("Firebase Remote Config refresh failed:", error);
+            logRemoteConfigStatus("refresh", { error });
             return false;
         }
     },
 
     getRawValues() {
-        return {
-            forceHardPaywall: readBoolean("ios_force_hard_paywall"),
-            quizAnimationSpeed: readNumber("ios_quiz_annimation_speed"),
-            paywallsConfig: parseJson("ios_paywalls_config"),
-            suggestiveQuestions: parseJson("ios_ask_me_anything_suggestive_question"),
-            paywallAudioPath: readString("ios_paywall_audio_path"),
-            freeMessageCount: readNumber("ios_free_message_count"),
-            prayerDurations: parseJson("ios_prayer_namaz_durations"),
-            paywallCta: parseJson("ios_appopen_paywall_CTA"),
-            todayTopics: parseJson("ios_today_topic"),
-            revenueCatOfferingId: readString("ios_paywall_revenuecat_identifier_v1"),
-        };
+        return buildRawValues();
     },
 };

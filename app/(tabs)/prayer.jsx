@@ -38,6 +38,7 @@ export default function PrayerScreen() {
         getPrayerProgress,
     } = usePrayerTimes();
     const [showQibla, setShowQibla] = useState(true);
+    const lastScheduledDayRef = React.useRef(null);
 
     // Qibla compass state
     const [heading, setHeading] = useState(0);
@@ -53,11 +54,15 @@ export default function PrayerScreen() {
     }, [location]);
 
     useEffect(() => {
-        if (prayerTimes) {
-            PrayerNotificationService.setupDailyPrayerNotifications().catch(
-                (err) => console.warn("Prayer notification schedule failed:", err),
-            );
-        }
+        if (!prayerTimes) return;
+
+        const scheduleKey = new Date().toISOString().slice(0, 10);
+        if (lastScheduledDayRef.current === scheduleKey) return;
+
+        lastScheduledDayRef.current = scheduleKey;
+        PrayerNotificationService.setupFaithReminders().catch(
+            (err) => console.warn("Prayer notification schedule failed:", err),
+        );
     }, [prayerTimes]);
 
     // Qibla compass magnetometer

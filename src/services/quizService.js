@@ -254,10 +254,12 @@ class QuizService {
 
     async initializeUserData() {
         try {
+            await AuthService.ensureAuthenticated();
             const userId = this.getUserId();
             await this.ensureQuizData(userId);
         } catch (error) {
             console.error("Error initializing user data:", error);
+            throw error;
         }
     }
 

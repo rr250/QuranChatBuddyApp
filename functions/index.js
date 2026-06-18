@@ -55,10 +55,10 @@ exports.chatCompletion = onCall(
       const {
         messages,
         model = "gpt-4",
-        max_tokens = 800,
+        max_tokens: maxTokens = 800,
         temperature = 0.7,
-        presence_penalty = 0.1,
-        frequency_penalty = 0.1,
+        presence_penalty: presencePenalty = 0.1,
+        frequency_penalty: frequencyPenalty = 0.1,
       } = request.data ?? {};
 
       if (!Array.isArray(messages) || messages.length === 0) {
@@ -72,10 +72,10 @@ exports.chatCompletion = onCall(
       const content = await callOpenAI(openaiApiKey.value(), {
         model,
         messages,
-        max_tokens,
+        max_tokens: maxTokens,
         temperature,
-        presence_penalty,
-        frequency_penalty,
+        presence_penalty: presencePenalty,
+        frequency_penalty: frequencyPenalty,
       });
 
       return {content};
@@ -103,12 +103,18 @@ exports.verseCategory = onCall(
         messages: [
           {
             role: "system",
-            content:
-              "Categorize Quran verses with a short Islamic theme label (2-4 words). Examples: Trust in Allah, Patience, Gratitude, Mercy. Reply with only the label, no quotes or punctuation.",
+            content: [
+              "Categorize Quran verses with a short Islamic theme label ",
+              "(2-4 words). Examples: Trust in Allah, Patience, Gratitude, ",
+              "Mercy. Reply with only the label, no quotes or punctuation.",
+            ].join(""),
           },
           {
             role: "user",
-            content: `Verse translation: ${translation}\nReference: ${reference}`,
+            content: [
+              `Verse translation: ${translation}`,
+              `\nReference: ${reference}`,
+            ].join(""),
           },
         ],
         max_tokens: 24,

@@ -82,6 +82,7 @@ export class LocationService {
         const {
             useCache = true,
             skipPermissionPrompt = false,
+            allowFreshGps = true,
         } = typeof options === "boolean"
             ? { useCache: options }
             : options;
@@ -128,14 +129,31 @@ export class LocationService {
                 return this.getDefaultLocation();
             }
 
+            if (!allowFreshGps) {
+                const stored = await this.getLastKnownLocation();
+                if (stored) {
+                    console.log("Using stored location (GPS fetch skipped)");
+                    this.currentLocation = stored;
+                    return stored;
+                }
+                console.log("No cached location available, skipping GPS fetch");
+                return this.getDefaultLocation();
+            }
+
             console.log("Getting current location...");
 
-            // Get current location with timeout
-            const location = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
-                timeout: 15000,
-                maximumAge: 300000, // 5 minutes
-            });
+            const location = await Promise.race([
+                Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.Balanced,
+                    maximumAge: 300000,
+                }),
+                new Promise((_, reject) =>
+                    setTimeout(
+                        () => reject(new Error("Location request timed out")),
+                        10000,
+                    ),
+                ),
+            ]);
 
             const locationData = {
                 latitude: location.coords.latitude,

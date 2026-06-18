@@ -10,6 +10,10 @@ export const usePaywallStore = create((set, get) => ({
     config: null,
     configLoaded: false,
     appOpenPaywallShownThisSession: false,
+    personalization: { userName: "" },
+
+    setPersonalization: (personalization) =>
+        set({ personalization: { ...get().personalization, ...personalization } }),
 
     loadConfig: async () => {
         const config = await PaywallConfigService.getConfig();
@@ -54,6 +58,22 @@ export const usePaywallStore = create((set, get) => ({
         const opened = get().openPaywall(placementName);
         if (!opened) return false;
         return !get().allowClose;
+    },
+
+    /** Show onboarding completion paywall with optional personalization */
+    showOnboardingPaywall: async (userName = "") => {
+        if (userName) {
+            get().setPersonalization({ userName });
+        }
+        await get().loadConfig();
+        const isPremium = useSubscriptionStore.getState().isPremium;
+        if (isPremium) return false;
+
+        const opened = get().openPaywall(PAYWALL_PLACEMENTS.ONBOARDING);
+        if (opened) {
+            set({ appOpenPaywallShownThisSession: true });
+        }
+        return opened;
     },
 
     /** Show Onboarding placement on every app open (once per session) */

@@ -80,12 +80,16 @@ export const PickerOptionRow = ({
     selected,
     onPress,
     showDivider = true,
+    leadingIcon = null,
 }) => (
     <>
         <Pressable
             style={[styles.row, selected && styles.rowSelected]}
             onPress={onPress}
         >
+            {leadingIcon ? (
+                <View style={styles.leadingIcon}>{leadingIcon}</View>
+            ) : null}
             <View style={styles.rowText}>
                 <Text style={[styles.rowLabel, selected && styles.rowLabelSelected]}>
                     {label}
@@ -113,6 +117,9 @@ export const PickerOptionRow = ({
 );
 
 export const pickerSheetStyles = StyleSheet.create({
+    listHeader: {
+        marginBottom: theme.spacing.xs,
+    },
     search: {
         backgroundColor: "rgba(0,0,0,0.22)",
         borderWidth: 1,
@@ -196,6 +203,9 @@ const styles = StyleSheet.create({
     rowText: {
         flex: 1,
         paddingRight: theme.spacing.sm,
+    },
+    leadingIcon: {
+        marginRight: theme.spacing.sm,
     },
     rowLabel: {
         fontSize: 16,

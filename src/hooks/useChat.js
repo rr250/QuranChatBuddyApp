@@ -67,6 +67,7 @@ export const useChat = (userId = "default_user") => {
                     text: aiResponse,
                     isUser: false,
                     timestamp: new Date(),
+                    animate: true,
                 };
 
                 setMessages((prev) => {

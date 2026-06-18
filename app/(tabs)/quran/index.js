@@ -43,19 +43,6 @@ const QuranListScreen = () => {
     }, [surahs, searchQuery]);
 
     const handleSurahPress = (surah) => {
-        if (!user) {
-            Alert.alert(
-                "Sign In Required",
-                "Please sign in to read the Quran and track your progress.",
-                [{ text: "OK" }]
-            );
-            return;
-        }
-
-        // navigation.navigate("SurahReader", {
-        //     surahNumber: surah.number,
-        //     surahName: surah.englishName,
-        // });
         router.push({
             pathname: "(tabs)/quran/reader",
             params: { surahNumber: surah.number, surahName: surah.englishName },

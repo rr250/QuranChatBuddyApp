@@ -7,8 +7,9 @@ import {
     StyleSheet,
     Alert,
     ActivityIndicator,
+    Keyboard,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useChat } from "../../src/hooks/useChat";
 import { MessageBubble } from "../../src/components/chat/MessageBubble";
 import { theme, spacing } from "../../src/constants/theme";
@@ -20,10 +21,13 @@ import { AppBackground } from "../../src/components/ui/Glass";
 import { AppLogo } from "../../src/components/common/AppLogo";
 import { ScreenHeader } from "../../src/components/navigation/ScreenHeader";
 import { glass } from "../../src/constants/glass";
+import { CHAT_BOTTOM_BAR_HEIGHT } from "../../src/constants/layout";
+import { AuthService } from "../../src/services/authService";
 
 export default function ChatScreen() {
     const [paywallVisible, setPaywallVisible] = useState(false);
     const { user } = useAuthStore();
+    const insets = useSafeAreaInsets();
     const pendingMessage = useChatComposerStore((s) => s.pendingMessage);
     const queueMessage = useChatComposerStore((s) => s.queueMessage);
     const {
@@ -33,11 +37,31 @@ export default function ChatScreen() {
         error,
         clearChat,
         loadChatHistory,
-    } = useChat(user?.uid);
+    } = useChat(user?.uid ?? "guest");
     const userMessageCount = messages.filter((m) => m.isUser).length;
     const { isPremium, canAccess, remainingFree } = usePremiumGate(userMessageCount);
     const flatListRef = useRef(null);
     const processingRef = useRef(false);
+
+    const listBottomPadding =
+        CHAT_BOTTOM_BAR_HEIGHT + insets.bottom + spacing.lg;
+
+    const scrollToLatest = useCallback(() => {
+        requestAnimationFrame(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+        });
+    }, []);
+
+    useEffect(() => {
+        AuthService.ensureAuthenticated()
+            .then((authUser) => {
+                useAuthStore.getState().setUser(authUser);
+                if (authUser?.uid) {
+                    loadChatHistory();
+                }
+            })
+            .catch(() => {});
+    }, [loadChatHistory]);
 
     useEffect(() => {
         if (user?.uid) {
@@ -47,11 +71,14 @@ export default function ChatScreen() {
 
     useEffect(() => {
         if (messages.length > 0) {
-            requestAnimationFrame(() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
-            });
+            scrollToLatest();
         }
-    }, [messages]);
+    }, [messages, loading, error, scrollToLatest]);
+
+    useEffect(() => {
+        const showSub = Keyboard.addListener("keyboardDidShow", scrollToLatest);
+        return () => showSub.remove();
+    }, [scrollToLatest]);
 
     const submitMessage = useCallback(
         async (text) => {
@@ -158,10 +185,13 @@ export default function ChatScreen() {
                     style={styles.messagesList}
                     contentContainerStyle={[
                         styles.messagesContainer,
-                        { paddingBottom: spacing.lg },
+                        { paddingBottom: listBottomPadding },
                         messages.length === 0 && styles.emptyContainer,
                     ]}
                     showsVerticalScrollIndicator={false}
+                    onContentSizeChange={scrollToLatest}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="interactive"
                     ListEmptyComponent={
                         <View style={styles.emptyState}>
                             <AppLogo size={56} />

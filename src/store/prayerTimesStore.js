@@ -88,7 +88,8 @@ export const usePrayerTimesStore = create((set, get) => ({
             const settings = useSettingsStore.getState();
             const location = await LocationService.getCurrentLocation({
                 useCache: !force,
-                skipPermissionPrompt: hasData && !force,
+                skipPermissionPrompt: true,
+                allowFreshGps: force,
             });
 
             const times = prayerService.calculatePrayerTimes(

@@ -7,6 +7,7 @@ export const PaywallGate = () => {
     const visible = usePaywallStore((s) => s.visible);
     const allowClose = usePaywallStore((s) => s.allowClose);
     const activePlacement = usePaywallStore((s) => s.activePlacement);
+    const userName = usePaywallStore((s) => s.personalization.userName);
     const closePaywall = usePaywallStore((s) => s.closePaywall);
     const loadConfig = usePaywallStore((s) => s.loadConfig);
     const isPremium = useSubscriptionStore((s) => s.isPremium);
@@ -26,6 +27,7 @@ export const PaywallGate = () => {
             visible={visible && !isPremium}
             allowClose={allowClose}
             paywallId={activePlacement?.paywallId ?? "premium-worldwide-a"}
+            userName={userName}
             onClose={() => closePaywall(false)}
             onSuccess={() => closePaywall(true)}
         />

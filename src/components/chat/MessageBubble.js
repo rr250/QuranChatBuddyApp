@@ -1,9 +1,17 @@
 // src/components/chat/MessageBubble.js
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Share } from "react-native";
 import { colors } from "../../constants/theme";
+import { TypewriterText } from "../common/TypewriterText";
 
-export const MessageBubble = ({ message, onShare }) => {
+export const MessageBubble = ({ message, onShare, onTypewriterComplete }) => {
+    const shouldAnimate = !message.isUser && message.animate;
+    const [animationDone, setAnimationDone] = useState(!shouldAnimate);
+
+    const handleTypewriterComplete = () => {
+        setAnimationDone(true);
+        onTypewriterComplete?.();
+    };
     const handleShare = async () => {
         if (onShare) {
             onShare(message.text);
@@ -35,15 +43,29 @@ export const MessageBubble = ({ message, onShare }) => {
                     message.isError && styles.errorContent,
                 ]}
             >
-                <Text
-                    style={[
-                        styles.messageText,
-                        message.isUser ? styles.userText : styles.aiText,
-                        message.isError && styles.errorText,
-                    ]}
-                >
-                    {message.text}
-                </Text>
+                {shouldAnimate && !animationDone ? (
+                    <TypewriterText
+                        text={message.text}
+                        mode={message.text?.length > 80 ? "word" : "char"}
+                        style={[
+                            styles.messageText,
+                            message.isUser ? styles.userText : styles.aiText,
+                            message.isError && styles.errorText,
+                        ]}
+                        onComplete={handleTypewriterComplete}
+                    />
+                ) : (
+                    <Text
+                        style={[
+                            styles.messageText,
+                            message.isUser ? styles.userText : styles.aiText,
+                            message.isError && styles.errorText,
+                        ]}
+                    >
+                        {message.text}
+                    </Text>
+                )}
+                {animationDone ? (
                 <Text
                     style={[
                         styles.timestamp,
@@ -86,6 +108,7 @@ export const MessageBubble = ({ message, onShare }) => {
                         return "";
                     })()}
                 </Text>
+                ) : null}
             </TouchableOpacity>
         </View>
     );

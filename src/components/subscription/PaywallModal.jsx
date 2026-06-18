@@ -15,8 +15,8 @@ import { theme } from "../../constants/theme";
 import { APP_LINKS } from "../../constants/appLinks";
 
 const PAYWALL_QUOTE = {
-    text: "The best among you are those who learn the Quran and teach it.",
-    source: "Bukhari 5027",
+    text: "The best of you are those who learn the Quran and teach it",
+    source: "Bukhari 6478",
 };
 
 const pickYearlyPackage = (packages) => {
@@ -37,6 +37,7 @@ export const PaywallModal = ({
     onSuccess,
     allowClose = false,
     paywallId = "default",
+    userName = "",
 }) => {
     const {
         packages,
@@ -122,14 +123,32 @@ export const PaywallModal = ({
                     ) : null}
 
                     <View style={styles.content}>
-                        <Text style={styles.brand}>Quran Chat Buddy</Text>
-
                         <View style={styles.quoteCard}>
                             <Text style={styles.quoteText}>
                                 &ldquo;{PAYWALL_QUOTE.text}&rdquo;
                             </Text>
                             <Text style={styles.quoteSource}>
-                                — {PAYWALL_QUOTE.source}
+                                — {PAYWALL_QUOTE.source} —
+                            </Text>
+                        </View>
+
+                        <View style={styles.personalizedCard}>
+                            {userName ? (
+                                <Text style={styles.greeting}>Dear {userName}</Text>
+                            ) : null}
+                            <Text style={styles.personalizedText}>
+                                Thank you for taking a moment to share about
+                                yourself.
+                            </Text>
+                            <Text style={styles.personalizedText}>
+                                Your personalized Quran Chat Buddy is now ready
+                                to guide, support, and grow with you on your
+                                spiritual journey.
+                            </Text>
+                            <Text style={styles.personalizedText}>
+                                Continue with full access to unlock daily
+                                guidance, meaningful conversations, and a deeply
+                                personalized experience.
                             </Text>
                         </View>
 
@@ -228,12 +247,23 @@ const styles = StyleSheet.create({
         paddingHorizontal: theme.spacing.lg,
         paddingBottom: theme.spacing.xxl,
     },
-    brand: {
-        color: "white",
-        fontSize: 28,
-        fontWeight: "700",
-        textAlign: "center",
+    personalizedCard: {
+        backgroundColor: "rgba(255,255,255,0.1)",
+        borderRadius: 16,
+        padding: theme.spacing.lg,
         marginBottom: theme.spacing.lg,
+        gap: theme.spacing.sm,
+    },
+    greeting: {
+        color: "white",
+        fontSize: 22,
+        fontWeight: "700",
+        marginBottom: theme.spacing.xs,
+    },
+    personalizedText: {
+        color: "rgba(255,255,255,0.92)",
+        fontSize: 15,
+        lineHeight: 22,
     },
     quoteCard: {
         backgroundColor: "rgba(255,255,255,0.12)",

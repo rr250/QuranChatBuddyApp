@@ -4,6 +4,9 @@ import { ref, get } from "firebase/database";
 import { getIslamicSystemPrompt } from "../constants/ai";
 import { BaseService } from "./baseService";
 import { getFirebaseFunctions } from "./firebase";
+import { AuthService } from "./authService";
+
+const LOG_PREFIX = "[AI Service]";
 
 class AIService extends BaseService {
     constructor() {
@@ -12,13 +15,24 @@ class AIService extends BaseService {
     }
 
     async callCloudFunction(name, data) {
+        console.log(`${LOG_PREFIX} Calling Firebase function: ${name}`);
         try {
             const functions = getFirebaseFunctions();
             const callable = httpsCallable(functions, name);
             const result = await callable(data);
+            const content = result.data?.content ?? "";
+            console.log(`${LOG_PREFIX} Firebase response received (${name})`, {
+                source: "firebase-functions",
+                contentLength: content.length,
+                preview: content.slice(0, 120),
+            });
             return result.data;
         } catch (error) {
-            if (__DEV__ && process.env.EXPO_PUBLIC_OPENAI_API_KEY) {
+            console.warn(`${LOG_PREFIX} Firebase call failed (${name}):`, error);
+            if (process.env.EXPO_PUBLIC_OPENAI_API_KEY) {
+                console.warn(
+                    `${LOG_PREFIX} Falling back to direct OpenAI`,
+                );
                 return this.callOpenAIDirect(name, data);
             }
             throw error;
@@ -60,11 +74,15 @@ class AIService extends BaseService {
                 },
             );
             const completion = await response.json();
-            return {
-                content:
-                    completion.choices?.[0]?.message?.content?.trim() ||
-                    "Quranic Wisdom",
-            };
+            const content =
+                completion.choices?.[0]?.message?.content?.trim() ||
+                "Quranic Wisdom";
+            console.log(`${LOG_PREFIX} Direct OpenAI response (${name})`, {
+                source: "openai-direct-dev",
+                contentLength: content.length,
+                preview: content.slice(0, 120),
+            });
+            return { content };
         }
 
         const response = await fetch(
@@ -86,16 +104,34 @@ class AIService extends BaseService {
             },
         );
         const completion = await response.json();
-        return {
-            content: completion.choices?.[0]?.message?.content?.trim() || "",
-        };
+        const content =
+            completion.choices?.[0]?.message?.content?.trim() || "";
+        console.log(`${LOG_PREFIX} Direct OpenAI response (${name})`, {
+            source: "openai-direct-dev",
+            contentLength: content.length,
+            preview: content.slice(0, 120),
+        });
+        return { content };
     }
 
     async getOnboardingData() {
         try {
+            const stored = await AsyncStorage.getItem("onboarding_data");
+            if (stored) {
+                return JSON.parse(stored);
+            }
+        } catch (error) {
+            console.warn("Error reading local onboarding data:", error);
+        }
+
+        try {
+            this.initialize();
+            const user = AuthService.getCurrentUser();
+            if (!user) return null;
+
             const onboardingRef = ref(
                 this.database,
-                this.getUserPath("profile/onboarding"),
+                `users/${user.uid}/profile/onboarding`,
             );
             const snapshot = await get(onboardingRef);
             return snapshot.exists() ? snapshot.val() : null;
@@ -107,7 +143,8 @@ class AIService extends BaseService {
 
     async sendMessage(message) {
         try {
-            const userId = this.getCurrentUserId();
+            const user = await AuthService.ensureAuthenticated();
+            const userId = user.uid;
             const onboardingData = await this.getOnboardingData();
             const systemPrompt = getIslamicSystemPrompt({ onboardingData });
             const conversationHistory =

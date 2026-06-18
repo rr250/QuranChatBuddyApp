@@ -1,30 +1,21 @@
 // src/hooks/useQuran.js - React hooks for Quran functionality
 import { useState, useEffect, useCallback } from "react";
 import { quranService } from "../services/quranService";
+import { AuthService } from "../services/authService";
 import { useAuthStore } from "../store/authStore";
 
 export const useQuran = () => {
     const [surahs, setSurahs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const { user } = useAuthStore();
+    const user = useAuthStore((s) => s.user);
     const [progress, setProgress] = useState(null);
 
-    // Monitor authentication state
-    useEffect(() => {
-        if (user) {
-            quranService.initializeUserProgress().catch(console.error);
-            loadUserProgress();
-        }
-    }, [user]);
-
-    // Load all Surahs
     const loadSurahs = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
             const surahList = await quranService.getAllSurahs();
-            console.log("Surah list loaded:", surahList);
             setSurahs(surahList);
         } catch (error) {
             console.error("Error loading Surahs:", error);
@@ -34,28 +25,26 @@ export const useQuran = () => {
         }
     }, []);
 
-    // Load user progress
     const loadUserProgress = useCallback(async () => {
-        if (!user) return;
-
         try {
+            await AuthService.ensureAuthenticated();
             const userProgress = await quranService.getUserProgress();
             setProgress(userProgress);
         } catch (error) {
             console.error("Error loading user progress:", error);
         }
-    }, [user]);
+    }, []);
 
-    // Initialize data
     useEffect(() => {
         loadSurahs();
-    }, [loadSurahs]);
+        loadUserProgress();
+    }, [loadSurahs, loadUserProgress]);
 
     useEffect(() => {
-        if (user) {
+        if (user?.uid) {
             loadUserProgress();
         }
-    }, [user, loadUserProgress]);
+    }, [user?.uid, loadUserProgress]);
 
     return {
         surahs,
@@ -201,17 +190,13 @@ export const useQuranStats = () => {
     const [favorites, setFavorites] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const { user } = useAuthStore();
+    const user = useAuthStore((s) => s.user);
 
     const loadStats = useCallback(async () => {
-        if (!user) {
-            setLoading(false);
-            return;
-        }
-
         try {
             setLoading(true);
             setError(null);
+            await AuthService.ensureAuthenticated();
 
             const [statsData, historyData, favoritesData] = await Promise.all([
                 quranService.getReadingStats(),
@@ -230,7 +215,7 @@ export const useQuranStats = () => {
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, []);
 
     useEffect(() => {
         loadStats();

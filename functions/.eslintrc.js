@@ -4,13 +4,14 @@ module.exports = {
     node: true,
   },
   parserOptions: {
-    "ecmaVersion": 2018,
+    ecmaVersion: 2022,
   },
   extends: [
     "eslint:recommended",
     "google",
   ],
   rules: {
+    "linebreak-style": "off",
     "no-restricted-globals": ["error", "name", "length"],
     "prefer-arrow-callback": "error",
     "quotes": ["error", "double", {"allowTemplateLiterals": true}],

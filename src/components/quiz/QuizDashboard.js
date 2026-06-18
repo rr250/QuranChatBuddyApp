@@ -5,15 +5,14 @@ import {
     Text,
     StyleSheet,
     TouchableOpacity,
-    Alert,
     ActivityIndicator,
 } from "react-native";
 import { GlassDashboardCard } from "../ui/GlassDashboardCard";
 import { useFocusEffect } from "@react-navigation/native";
 import { quizService } from "../../services/quizService";
 import { theme } from "../../constants/theme";
-import { useAuthStore } from "../../store/authStore";
 import { useRouter } from "expo-router";
+import { AuthService } from "../../services/authService";
 
 export const QuizDashboard = ({ onQuizPress }) => {
     const router = useRouter();
@@ -22,29 +21,18 @@ export const QuizDashboard = ({ onQuizPress }) => {
     const [streak, setStreak] = useState({ current: 0, longest: 0 });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const { user } = useAuthStore();
 
     useFocusEffect(
         useCallback(() => {
-            if (user) {
-                console.log("Dashboard focused - refreshing quiz status");
-                loadQuizStatus();
-            }
-        }, [user])
+            loadQuizStatus();
+        }, []),
     );
 
     const loadQuizStatus = async () => {
-        if (!user) {
-            setLoading(false);
-            setError("Please sign in to access the quiz");
-            return;
-        }
-
         try {
             setLoading(true);
             setError(null);
-
-            // Initialize user data if needed
+            await AuthService.ensureAuthenticated();
             await quizService.initializeUserData();
 
             const [completed, todayResult, currentStreak] = await Promise.all([
@@ -65,17 +53,7 @@ export const QuizDashboard = ({ onQuizPress }) => {
     };
 
     const handleQuizPress = () => {
-        if (!user) {
-            Alert.alert(
-                "Sign In Required",
-                "Please sign in to access the daily quiz and track your progress.",
-                [{ text: "OK" }]
-            );
-            return;
-        }
-
         if (error) {
-            // Retry loading
             loadQuizStatus();
             return;
         }
@@ -102,24 +80,6 @@ export const QuizDashboard = ({ onQuizPress }) => {
                     <ActivityIndicator size="small" color="#fff" />
                     <Text style={styles.loadingText}>Loading quiz...</Text>
                 </View>
-            </GlassDashboardCard>
-        );
-    }
-
-    if (!user) {
-        return (
-            <GlassDashboardCard onPress={handleQuizPress}>
-                <View style={styles.header}>
-                    <Text style={styles.icon}>🔒</Text>
-                    <View style={styles.headerText}>
-                        <Text style={styles.title}>Daily Islamic Quiz</Text>
-                        <Text style={styles.subtitle}>Sign in to start learning</Text>
-                    </View>
-                </View>
-                <Text style={styles.bodyText}>
-                    Track your Islamic knowledge with daily quizzes and streaks.
-                </Text>
-                <Text style={styles.actionText}>Tap to sign in →</Text>
             </GlassDashboardCard>
         );
     }

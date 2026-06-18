@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FlatList, TextInput } from "react-native";
+import { FlatList, TextInput, View } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
     PickerSheetShell,
     PickerOptionRow,
@@ -10,7 +11,9 @@ import { searchCities } from "../../utils/citySearch";
 export const CityPickerSheet = ({
     visible,
     selectedCity,
+    usingCurrentLocation = false,
     onSelect,
+    onUseCurrentLocation,
     onClose,
 }) => {
     const [query, setQuery] = useState("");
@@ -30,6 +33,27 @@ export const CityPickerSheet = ({
             onClose={onClose}
             maxHeight="85%"
         >
+            {onUseCurrentLocation ? (
+                <View style={pickerSheetStyles.listHeader}>
+                    <PickerOptionRow
+                        label="Use current location"
+                        subtitle="Prayer times based on your device GPS"
+                        selected={usingCurrentLocation}
+                        showDivider
+                        leadingIcon={
+                            <MaterialCommunityIcons
+                                name="crosshairs-gps"
+                                size={20}
+                                color="rgba(255,255,255,0.85)"
+                            />
+                        }
+                        onPress={async () => {
+                            await onUseCurrentLocation();
+                            onClose();
+                        }}
+                    />
+                </View>
+            ) : null}
             <TextInput
                 value={query}
                 onChangeText={setQuery}
@@ -45,6 +69,7 @@ export const CityPickerSheet = ({
                 style={{ maxHeight: 420 }}
                 renderItem={({ item, index }) => {
                     const selected =
+                        !usingCurrentLocation &&
                         selectedCity?.name === item.name &&
                         selectedCity?.country === item.country;
 

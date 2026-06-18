@@ -65,10 +65,14 @@ export default function ProfileScreen() {
         madhab,
         calculationMethod,
         selectedCity,
+        useManualLocation,
         hydrate,
+        syncDetectedCity,
         setMadhab,
         setCalculationMethod,
         setSelectedCity,
+        useCurrentLocation,
+        getDisplayCity,
     } = useSettingsStore();
 
     const [paywallVisible, setPaywallVisible] = useState(false);
@@ -77,8 +81,10 @@ export default function ProfileScreen() {
     const [cityPickerVisible, setCityPickerVisible] = useState(false);
 
     useEffect(() => {
-        hydrate();
-    }, [hydrate]);
+        hydrate().then(() => syncDetectedCity({ silent: true }));
+    }, [hydrate, syncDetectedCity]);
+
+    const cityDisplay = getDisplayCity();
 
     const displayName = user?.displayName ?? "Guest User";
     const email = user?.email ?? (isAnonymous ? "Anonymous account" : "No email");
@@ -107,6 +113,16 @@ export default function ProfileScreen() {
                 },
             ],
         );
+    };
+
+    const handleUseCurrentLocation = async () => {
+        const result = await useCurrentLocation();
+        if (!result.success) {
+            Alert.alert(
+                "Location permission needed",
+                "Enable location access to use your current city for prayer times.",
+            );
+        }
     };
 
     return (
@@ -177,7 +193,7 @@ export default function ProfileScreen() {
 
                 <GlassSection
                     title="Preferences"
-                    description="Used for prayer times when location is off or as a fallback."
+                    description="Prayer times use your current location when enabled, otherwise your selected city."
                 >
                     <PreferenceRow
                         label="Madhab"
@@ -186,11 +202,7 @@ export default function ProfileScreen() {
                     />
                     <PreferenceRow
                         label="City"
-                        value={
-                            selectedCity?.name
-                                ? `${selectedCity.name}${selectedCity.country ? `, ${selectedCity.country}` : ""}`
-                                : "Select city"
-                        }
+                        value={cityDisplay.label}
                         onPress={() => setCityPickerVisible(true)}
                     />
                     <PreferenceRow
@@ -323,6 +335,7 @@ export default function ProfileScreen() {
             <CityPickerSheet
                 visible={cityPickerVisible}
                 selectedCity={selectedCity}
+                usingCurrentLocation={!useManualLocation}
                 onSelect={(city) =>
                     setSelectedCity({
                         name: city.name,
@@ -331,6 +344,7 @@ export default function ProfileScreen() {
                         longitude: city.longitude,
                     })
                 }
+                onUseCurrentLocation={handleUseCurrentLocation}
                 onClose={() => setCityPickerVisible(false)}
             />
             <PaywallModal

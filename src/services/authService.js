@@ -161,6 +161,8 @@ export class AuthService {
         }
     }
 
+    static _ensureAuthPromise = null;
+
     // Anonymous Authentication
     static async signInAnonymously() {
         try {
@@ -177,6 +179,21 @@ export class AuthService {
             console.error("Anonymous sign-in error:", error);
             throw this.handleAuthError(error);
         }
+    }
+
+    /** Ensures a Firebase user exists (anonymous) without blocking the UI on sign-in screens. */
+    static async ensureAuthenticated() {
+        this.initialize();
+        const existing = this.getCurrentUser();
+        if (existing) return existing;
+
+        if (!this._ensureAuthPromise) {
+            this._ensureAuthPromise = this.signInAnonymously().finally(() => {
+                this._ensureAuthPromise = null;
+            });
+        }
+
+        return this._ensureAuthPromise;
     }
 
     // Link Anonymous Account with Email/Password

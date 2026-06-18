@@ -1,9 +1,7 @@
 // src/hooks/useQuizStats.js - UPDATED for Firebase Realtime Database
 import { useState, useEffect, useCallback } from "react";
 import { quizService } from "../services/quizService";
-import { auth } from "../services/firebase";
 import { AuthService } from "../services/authService";
-import { useAuthStore } from "../store/authStore";
 
 export const useQuizStats = () => {
     const [stats, setStats] = useState({
@@ -18,18 +16,12 @@ export const useQuizStats = () => {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const { user } = useAuthStore();
 
     const loadStats = useCallback(async () => {
-        if (!user) {
-            setLoading(false);
-            setError("Please sign in to view your statistics");
-            return;
-        }
-
         try {
             setLoading(true);
             setError(null);
+            await AuthService.ensureAuthenticated();
 
             const [statsData, historyData] = await Promise.all([
                 quizService.getQuizStats(),
@@ -46,7 +38,7 @@ export const useQuizStats = () => {
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, []);
 
     useEffect(() => {
         loadStats();
@@ -135,13 +127,12 @@ export const useQuizStats = () => {
         history,
         loading,
         error,
-        user,
         refreshStats: loadStats,
         getStatsForPeriod,
         getWeeklyStats,
         getMonthlyStats,
         getPerformanceTrend,
         retryLoading,
-        isAuthenticated: !!user,
+        isAuthenticated: true,
     };
 };

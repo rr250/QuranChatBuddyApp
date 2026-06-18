@@ -1,14 +1,24 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from "expo-location";
 import { DEFAULT_CITY } from "../constants/prayerOptions";
 import { PrayerService } from "../services/prayerService";
+import { LocationService } from "../services/locationService";
 
 const STORAGE_KEY = "app_settings_v1";
+
+const toCityFromLocation = (location) => ({
+    name: location?.city || DEFAULT_CITY.name,
+    country: location?.country || DEFAULT_CITY.country,
+    latitude: location?.latitude ?? DEFAULT_CITY.latitude,
+    longitude: location?.longitude ?? DEFAULT_CITY.longitude,
+});
 
 export const useSettingsStore = create((set, get) => ({
     madhab: "shafi",
     calculationMethod: "MuslimWorldLeague",
     selectedCity: DEFAULT_CITY,
+    detectedCity: null,
     useManualLocation: false,
     hydrated: false,
 
@@ -22,6 +32,7 @@ export const useSettingsStore = create((set, get) => ({
                     calculationMethod:
                         parsed.calculationMethod ?? "MuslimWorldLeague",
                     selectedCity: parsed.selectedCity ?? DEFAULT_CITY,
+                    detectedCity: parsed.detectedCity ?? null,
                     useManualLocation: Boolean(parsed.useManualLocation),
                     hydrated: true,
                 });
@@ -35,12 +46,18 @@ export const useSettingsStore = create((set, get) => ({
     },
 
     persist: async () => {
-        const { madhab, calculationMethod, selectedCity, useManualLocation } =
-            get();
+        const {
+            madhab,
+            calculationMethod,
+            selectedCity,
+            detectedCity,
+            useManualLocation,
+        } = get();
         const payload = {
             madhab,
             calculationMethod,
             selectedCity,
+            detectedCity,
             useManualLocation,
         };
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -48,6 +65,64 @@ export const useSettingsStore = create((set, get) => ({
             madhab,
             calculationMethod,
         });
+    },
+
+    applyDeviceLocation: async (location) => {
+        if (!location) return null;
+
+        const city = toCityFromLocation(location);
+        set({
+            selectedCity: city,
+            detectedCity: city,
+            useManualLocation: false,
+        });
+        await get().persist();
+        await get().refreshPrayerTimes();
+        return city;
+    },
+
+    syncDetectedCity: async ({ silent = false } = {}) => {
+        try {
+            const { status } = await Location.getForegroundPermissionsAsync();
+            if (status !== "granted") {
+                return null;
+            }
+
+            const location = await LocationService.getCurrentLocation({
+                skipPermissionPrompt: true,
+                useCache: !silent,
+                allowFreshGps: !silent,
+            });
+
+            if (
+                !location?.latitude ||
+                !location?.longitude ||
+                location.isDefault
+            ) {
+                return null;
+            }
+
+            return get().applyDeviceLocation(location);
+        } catch (error) {
+            if (!silent) {
+                console.warn("Could not sync detected city:", error);
+            }
+            return null;
+        }
+    },
+
+    useCurrentLocation: async () => {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+            return { success: false, reason: "permission_denied" };
+        }
+
+        const location = await LocationService.getCurrentLocation({
+            skipPermissionPrompt: true,
+            useCache: false,
+        });
+        const city = await get().applyDeviceLocation(location);
+        return { success: Boolean(city), city };
     },
 
     setMadhab: async (madhab) => {
@@ -93,6 +168,28 @@ export const useSettingsStore = create((set, get) => ({
             country: selectedCity.country,
             timestamp: Date.now(),
             isManual: true,
+        };
+    },
+
+    getDisplayCity: () => {
+        const { useManualLocation, selectedCity, detectedCity } = get();
+        if (useManualLocation) {
+            return {
+                city: selectedCity,
+                label: selectedCity?.name
+                    ? `${selectedCity.name}${selectedCity.country ? `, ${selectedCity.country}` : ""}`
+                    : "Select city",
+                isCurrentLocation: false,
+            };
+        }
+
+        const city = detectedCity ?? selectedCity;
+        return {
+            city,
+            label: city?.name
+                ? `${city.name}${city.country ? `, ${city.country}` : ""} · Current location`
+                : "Current location",
+            isCurrentLocation: true,
         };
     },
 }));

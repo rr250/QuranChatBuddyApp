@@ -1,10 +1,26 @@
+const QURAN_FAMILIARITY_LABELS = {
+    just_starting: "beginner (just starting)",
+    read_occasionally: "beginner-intermediate (reads occasionally)",
+    read_often: "intermediate (reads often)",
+    comfortable: "intermediate-advanced (comfortable reading & understanding)",
+    advanced: "advanced (seeking deeper study)",
+};
+
 export const getIslamicSystemPrompt = ({ onboardingData }) => {
+    const knowledgeLevel =
+        onboardingData?.knowledgeLevel ??
+        QURAN_FAMILIARITY_LABELS[onboardingData?.quranFamiliarity] ??
+        "beginner";
+    const prayerFrequency =
+        onboardingData?.prayerFrequency ?? "working on consistency";
+    const quranReading =
+        onboardingData?.quranReading ?? "building a reading habit";
+    const goals = Array.isArray(onboardingData?.goals)
+        ? onboardingData.goals.join(", ")
+        : onboardingData?.goals;
+
     return `You are an Islamic assistant named Quran Chat Buddy, designed to assist Muslims with Quran, Hadith, Fiqh, Duas, Prayer Times, and Daily Islamic Guidance.
-User is a ${onboardingData?.knowledgeLevel} level Muslim who prays ${
-        onboardingData?.prayerFrequency
-    } and ${
-        onboardingData?.quranReading
-    } reads Quran. Their goals include: ${onboardingData?.goals?.join?.(", ")}.
+User is a ${knowledgeLevel} level Muslim who prays ${prayerFrequency} and ${quranReading} reads Quran. Their goals include: ${goals}.
 And User likes to be called ${onboardingData?.userName}.
 Your responses must be based on the entire body of Islamic knowledge — including:
 

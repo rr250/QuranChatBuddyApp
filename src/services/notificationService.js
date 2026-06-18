@@ -1,6 +1,8 @@
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
+
+const { SchedulableTriggerInputTypes } = Notifications;
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getFirebaseDatabase } from "./firebase";
 import { ref, update } from "firebase/database";
@@ -19,25 +21,21 @@ Notifications.setNotificationHandler({
 export class NotificationService {
     static isExpoGo = Constants.appOwnership === "expo";
 
-    static async initialize() {
+    static async initialize({ requestPermissions = false } = {}) {
         try {
             console.log("Initializing notification service...");
             console.log("Running in Expo Go:", this.isExpoGo);
 
-            if (this.isExpoGo) {
-                console.log(
-                    "🚨 EXPO GO LIMITATION: Push notifications are not fully supported"
-                );
-                console.log(
-                    "📱 For full notification support, create a development build"
-                );
-                await this.setupLocalNotifications();
-            } else {
-                await this.registerForPushNotifications();
-            }
-
             await this.setupNotificationChannels();
             this.setupNotificationListeners();
+
+            if (requestPermissions) {
+                await this.ensurePermissions();
+            } else {
+                console.log(
+                    "Notification permissions deferred until onboarding"
+                );
+            }
 
             console.log("Notification service initialized");
         } catch (error) {
@@ -45,7 +43,7 @@ export class NotificationService {
         }
     }
 
-    static async setupLocalNotifications() {
+    static async requestNotificationPermissions() {
         try {
             const { status: existingStatus } =
                 await Notifications.getPermissionsAsync();
@@ -53,56 +51,72 @@ export class NotificationService {
 
             if (existingStatus !== "granted") {
                 const { status } =
-                    await Notifications.requestPermissionsAsync();
+                    await Notifications.requestPermissionsAsync({
+                        ios: {
+                            allowAlert: true,
+                            allowBadge: true,
+                            allowSound: true,
+                        },
+                    });
                 finalStatus = status;
             }
 
             if (finalStatus !== "granted") {
-                console.log("Local notification permissions denied");
-                return;
+                console.log("Notification permissions denied");
+                return false;
             }
 
-            console.log("✅ Local notifications permissions granted");
+            console.log("Notification permissions granted");
+            return true;
         } catch (error) {
-            console.error("Error setting up local notifications:", error);
+            console.error("Error requesting notification permissions:", error);
+            return false;
+        }
+    }
+
+    static async ensurePermissions() {
+        try {
+            const granted = await this.requestNotificationPermissions();
+            if (!granted) {
+                return false;
+            }
+
+            if (!this.isExpoGo) {
+                this.registerForPushNotifications().catch((error) => {
+                    console.warn(
+                        "Push token registration failed (local notifications still work):",
+                        error,
+                    );
+                });
+            }
+
+            return true;
+        } catch (error) {
+            console.error("Failed to ensure notification permissions:", error);
+            return false;
         }
     }
 
     static async registerForPushNotifications() {
         try {
-            const { status: existingStatus } =
-                await Notifications.getPermissionsAsync();
-            let finalStatus = existingStatus;
-
-            if (existingStatus !== "granted") {
-                const { status } =
-                    await Notifications.requestPermissionsAsync();
-                finalStatus = status;
-            }
-
-            if (finalStatus !== "granted") {
-                console.log("Push notification permissions denied");
-                return;
-            }
-
             const projectId =
+                Constants.expoConfig?.extra?.eas?.projectId ||
                 Constants.expoConfig?.projectId ||
                 Constants.manifest?.projectId;
 
             if (!projectId) {
-                console.error("No project ID found for push notifications");
+                console.warn("No project ID found for push notifications");
                 return;
             }
 
             const token = (
                 await Notifications.getExpoPushTokenAsync({
-                    projectId: projectId,
+                    projectId,
                 })
             ).data;
 
             console.log("Push token:", token);
             await this.savePushToken(token);
-            return token;
         } catch (error) {
             console.error("Error registering for push notifications:", error);
         }
@@ -144,6 +158,17 @@ export class NotificationService {
             );
 
             await Notifications.setNotificationChannelAsync(
+                "faith-reminders",
+                {
+                    name: "Faith Reminders",
+                    description: "Daily verse and spiritual reminders",
+                    importance: Notifications.AndroidImportance.HIGH,
+                    vibrationPattern: [0, 250, 250, 250],
+                    sound: "default",
+                },
+            );
+
+            await Notifications.setNotificationChannelAsync(
                 "local-notifications",
                 {
                     name: "App Notifications",
@@ -171,7 +196,6 @@ export class NotificationService {
         console.log("Notification data:", data);
     }
 
-    // Schedule LOCAL prayer notifications
     static async schedulePrayerNotification(
         prayerName,
         prayerTime,
@@ -199,8 +223,9 @@ export class NotificationService {
                         },
                     },
                     trigger: {
-                        type: "date",
+                        type: SchedulableTriggerInputTypes.DATE,
                         date: when,
+                        channelId: "prayer-reminders",
                     },
                 });
 
@@ -210,6 +235,43 @@ export class NotificationService {
             return notificationId;
         } catch (error) {
             console.error("Error scheduling local notification:", error);
+            return null;
+        }
+    }
+
+    static async scheduleVerseNotification(when, title, body) {
+        try {
+            const date = when instanceof Date ? when : new Date(when);
+            if (date <= new Date()) return null;
+
+            const identifier = `verse-daily-${date.toISOString().slice(0, 10)}`;
+
+            const notificationId =
+                await Notifications.scheduleNotificationAsync({
+                    identifier,
+                    content: {
+                        title,
+                        body,
+                        sound: "default",
+                        channelId: "faith-reminders",
+                        data: {
+                            type: "verse",
+                            source: "local",
+                        },
+                    },
+                    trigger: {
+                        type: SchedulableTriggerInputTypes.DATE,
+                        date,
+                        channelId: "faith-reminders",
+                    },
+                });
+
+            console.log(
+                `✅ Scheduled verse notification for ${date.toLocaleString()}`,
+            );
+            return notificationId;
+        } catch (error) {
+            console.error("Error scheduling verse notification:", error);
             return null;
         }
     }
@@ -225,6 +287,9 @@ export class NotificationService {
                     source: "local",
                 },
                 sound: "default",
+                ...(Platform.OS === "android"
+                    ? { channelId: "local-notifications" }
+                    : {}),
             });
 
             console.log("✅ Local notification sent:", title);
@@ -288,6 +353,23 @@ export class NotificationService {
             );
         } catch (error) {
             console.error("Error cancelling prayer notifications:", error);
+        }
+    }
+
+    static async cancelVerseNotifications() {
+        try {
+            const pending = await this.getPendingNotifications();
+            const verseIds = pending
+                .filter(
+                    (n) =>
+                        n.identifier?.startsWith("verse-") ||
+                        n.content?.data?.type === "verse",
+                )
+                .map((n) => n.identifier);
+
+            await Promise.all(verseIds.map((id) => this.cancelNotification(id)));
+        } catch (error) {
+            console.error("Error cancelling verse notifications:", error);
         }
     }
 

@@ -1,1 +1,2 @@
-export const BOTTOM_BAR_HEIGHT = 72;
+/** Estimated height of the persistent chat bottom bar (excluding safe area). */
+export const CHAT_BOTTOM_BAR_HEIGHT = 68;

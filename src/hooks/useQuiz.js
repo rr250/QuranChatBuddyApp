@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { quizService } from "../services/quizService";
-import { useAuthStore } from "../store/authStore";
+import { AuthService } from "../services/authService";
 
 export const useQuiz = () => {
     const [questions, setQuestions] = useState([]);
@@ -12,7 +12,6 @@ export const useQuiz = () => {
     const [streak, setStreak] = useState({ current: 0, longest: 0 });
     const [startTime, setStartTime] = useState(null);
     const [error, setError] = useState(null);
-    const { user } = useAuthStore();
 
     const answersRef = useRef([]);
     const questionsRef = useRef([]);
@@ -32,15 +31,10 @@ export const useQuiz = () => {
     }, [startTime]);
 
     const loadTodayQuiz = useCallback(async () => {
-        if (!user) {
-            setIsLoading(false);
-            setError("Please sign in to access the quiz");
-            return;
-        }
-
         try {
             setIsLoading(true);
             setError(null);
+            await AuthService.ensureAuthenticated();
 
             const completedToday = await quizService.isTodayQuizCompleted();
             if (completedToday) {
@@ -70,7 +64,7 @@ export const useQuiz = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [user]);
+    }, []);
 
     useEffect(() => {
         loadTodayQuiz();
@@ -94,7 +88,7 @@ export const useQuiz = () => {
 
     const answerQuestion = useCallback(
         (answerIndex) => {
-            if (!user || currentQuestionIndex >= questionsRef.current.length) {
+            if (currentQuestionIndex >= questionsRef.current.length) {
                 return null;
             }
 
@@ -110,12 +104,12 @@ export const useQuiz = () => {
             setAnswers(newAnswers);
             return newAnswers;
         },
-        [buildAnswer, currentQuestionIndex, user],
+        [buildAnswer, currentQuestionIndex],
     );
 
     const completeQuiz = useCallback(
         async (submittedAnswers) => {
-            if (!user || completingRef.current) return;
+            if (completingRef.current) return;
 
             const finalAnswers = (submittedAnswers ?? answersRef.current).filter(
                 Boolean,
@@ -161,25 +155,23 @@ export const useQuiz = () => {
                 setIsLoading(false);
             }
         },
-        [user],
+        [],
     );
 
     const nextQuestion = useCallback(() => {
-        if (!user) return;
-
         if (currentQuestionIndex < questionsRef.current.length - 1) {
             setCurrentQuestionIndex((index) => index + 1);
             return;
         }
 
         completeQuiz(answersRef.current);
-    }, [completeQuiz, currentQuestionIndex, user]);
+    }, [completeQuiz, currentQuestionIndex]);
 
     const previousQuestion = useCallback(() => {
-        if (currentQuestionIndex > 0 && user) {
+        if (currentQuestionIndex > 0) {
             setCurrentQuestionIndex((index) => index - 1);
         }
-    }, [currentQuestionIndex, user]);
+    }, [currentQuestionIndex]);
 
     const getCurrentQuestion = useCallback(() => {
         if (currentQuestionIndex >= questions.length) return null;
@@ -228,7 +220,6 @@ export const useQuiz = () => {
         quizResult,
         streak,
         error,
-        user,
         currentQuestion: getCurrentQuestion(),
         currentAnswer: getCurrentAnswer(),
         isCurrentQuestionAnswered: isCurrentQuestionAnswered(),
@@ -244,6 +235,6 @@ export const useQuiz = () => {
         canGoNext: isCurrentQuestionAnswered(),
         canGoPrevious: currentQuestionIndex > 0,
         isLastQuestion: currentQuestionIndex === questions.length - 1,
-        isAuthenticated: !!user,
+        isAuthenticated: true,
     };
 };
