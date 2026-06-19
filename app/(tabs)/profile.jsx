@@ -218,7 +218,7 @@ export default function ProfileScreen() {
                     description={
                         isPremium
                             ? "You have access to all premium features."
-                            : "Upgrade to unlock unlimited AI chat and premium content."
+                            : "Upgrade to unlock unlimited QCB chat and premium content."
                     }
                 >
                     {!isPremium ? (

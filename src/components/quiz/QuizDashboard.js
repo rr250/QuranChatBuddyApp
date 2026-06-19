@@ -33,7 +33,14 @@ export const QuizDashboard = ({ onQuizPress }) => {
             setLoading(true);
             setError(null);
             await AuthService.ensureAuthenticated();
-            await quizService.initializeUserData();
+            const userId = AuthService.getCurrentUser()?.uid;
+            if (!userId) {
+                throw new Error("Not signed in");
+            }
+            await quizService.ensureQuizData(userId);
+            void quizService.ensureQuestionBank().catch((bankError) => {
+                console.warn("Quiz bank preload failed:", bankError?.message ?? bankError);
+            });
 
             const [completed, todayResult, currentStreak] = await Promise.all([
                 quizService.isTodayQuizCompleted(),

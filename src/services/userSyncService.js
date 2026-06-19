@@ -12,6 +12,7 @@ let syncTimer = null;
 const defaultQuizLocal = () => ({
     dailyQuestions: {},
     quizResults: {},
+    questionHistory: { seenIds: [] },
     stats: {
         totalQuizzes: 0,
         totalScore: 0,
@@ -106,6 +107,7 @@ export const buildCompactSync = (quiz, quran, user) => ({
               }
             : null,
         results: toQuizResultsPayload(quiz?.quizResults),
+        seenIds: (quiz?.questionHistory?.seenIds ?? []).slice(0, 500),
     },
     quran: {
         versesReadCount: Object.keys(quran?.versesRead ?? {}).length,
@@ -144,6 +146,7 @@ const normalizeRemoteSync = (remote) => {
                         }
                       : null,
                   results: quiz.results ?? quiz.r ?? {},
+                  seenIds: quiz.seenIds ?? quiz.sq ?? [],
               }
             : null,
         quran: quran
@@ -168,6 +171,9 @@ const expandRemoteSync = (remote) => {
         ? {
               dailyQuestions: {},
               quizResults,
+              questionHistory: {
+                  seenIds: normalized.quiz.seenIds ?? [],
+              },
               stats: {
                   totalQuizzes: totals?.totalQuizzes ?? Object.keys(quizResults).length,
                   totalScore: 0,
@@ -252,6 +258,14 @@ const mergeQuizLocalWins = (local, remote) => {
     return {
         dailyQuestions: { ...remote.dailyQuestions, ...base.dailyQuestions },
         quizResults: { ...remote.quizResults, ...base.quizResults },
+        questionHistory: {
+            seenIds: [
+                ...new Set([
+                    ...(remote.questionHistory?.seenIds ?? []),
+                    ...(base.questionHistory?.seenIds ?? []),
+                ]),
+            ].slice(0, 500),
+        },
         stats: {
             ...remote.stats,
             ...base.stats,

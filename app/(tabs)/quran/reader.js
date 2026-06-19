@@ -7,17 +7,15 @@ import {
     ScrollView,
     TouchableOpacity,
     Alert,
-    Modal,
-    TextInput,
     ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenShell, screenContentPadding } from "../../../src/components/navigation/ScreenShell";
 import { useSurah } from "../../../src/hooks/useQuran";
-import { useVerseAI } from "../../../src/hooks/useVerseAI";
 import { theme } from "../../../src/constants/theme";
 import { glass } from "../../../src/constants/glass";
 import { useLocalSearchParams } from "expo-router";
+import { openChatWithPrompt } from "../../../src/utils/openChatWithPrompt";
+import { buildExplainVersePrompt } from "../../../src/utils/verseChatPrompts";
 
 export default function SurahReaderScreen() {
     const { surahNumber, surahName, startVerse } = useLocalSearchParams();
@@ -34,19 +32,6 @@ export default function SurahReaderScreen() {
         markSurahAsCompleted,
         completionPercentage,
     } = useSurah(parseInt(surahNumber));
-
-    const {
-        askAboutVerse,
-        getVerseReflection,
-        loading: aiLoading,
-    } = useVerseAI();
-
-    // AI Modal states
-    const [showAIModal, setShowAIModal] = useState(false);
-    const [selectedVerse, setSelectedVerse] = useState(null);
-    const [aiResponse, setAIResponse] = useState("");
-    const [customQuestion, setCustomQuestion] = useState("");
-    const [aiModalType, setAIModalType] = useState("explain"); // 'explain', 'reflect', 'custom'
 
     // Reading settings
     const [fontSize, setFontSize] = useState(18);
@@ -80,22 +65,23 @@ export default function SurahReaderScreen() {
         }
     };
 
+    const handleAskAI = (verse) => {
+        openChatWithPrompt(
+            buildExplainVersePrompt({
+                ...verse,
+                surah: { englishName: surah?.englishName },
+            }),
+        );
+    };
+
     const handleVerseLongPress = (verse) => {
         Alert.alert(
             "Verse Options",
             `Surah ${surah.englishName}, Verse ${verse.numberInSurah}`,
             [
                 {
-                    text: "Ask AI about this verse",
-                    onPress: () => openAIModal(verse, "explain"),
-                },
-                {
-                    text: "Get reflection",
-                    onPress: () => openAIModal(verse, "reflect"),
-                },
-                {
-                    text: "Ask custom question",
-                    onPress: () => openAIModal(verse, "custom"),
+                    text: "Ask QCB about this verse",
+                    onPress: () => handleAskAI(verse),
                 },
                 {
                     text: favoriteVerses.has(verse.numberInSurah)
@@ -106,39 +92,6 @@ export default function SurahReaderScreen() {
                 { text: "Cancel", style: "cancel" },
             ]
         );
-    };
-
-    const openAIModal = (verse, type) => {
-        setSelectedVerse(verse);
-        setAIModalType(type);
-        setAIResponse("");
-        setCustomQuestion("");
-        setShowAIModal(true);
-    };
-
-    const handleAIRequest = async () => {
-        if (!selectedVerse) return;
-
-        try {
-            let response;
-            if (aiModalType === "explain") {
-                response = await askAboutVerse(selectedVerse);
-            } else if (aiModalType === "reflect") {
-                response = await getVerseReflection(selectedVerse);
-            } else if (aiModalType === "custom" && customQuestion.trim()) {
-                response = await askAboutVerse(
-                    selectedVerse,
-                    customQuestion.trim()
-                );
-            }
-
-            setAIResponse(response);
-        } catch (error) {
-            Alert.alert(
-                "Error",
-                "Failed to get AI response. Please try again."
-            );
-        }
     };
 
     const handleCompleteSurah = () => {
@@ -216,9 +169,9 @@ export default function SurahReaderScreen() {
                     </Text>
                     <TouchableOpacity
                         style={styles.aiButton}
-                        onPress={() => openAIModal(verse, "explain")}
+                        onPress={() => handleAskAI(verse)}
                     >
-                        <Text style={styles.aiButtonText}>🤖 Ask AI</Text>
+                        <Text style={styles.aiButtonText}>🤖 Ask QCB</Text>
                     </TouchableOpacity>
                 </View>
             </TouchableOpacity>
@@ -252,92 +205,6 @@ export default function SurahReaderScreen() {
                 </TouchableOpacity>
             </View>
         </View>
-    );
-
-    const renderAIModal = () => (
-        <Modal
-            visible={showAIModal}
-            animationType="slide"
-            presentationStyle="pageSheet"
-            onRequestClose={() => setShowAIModal(false)}
-        >
-            <SafeAreaView style={styles.modalContainer}>
-                <View style={styles.modalHeader}>
-                    <TouchableOpacity
-                        onPress={() => setShowAIModal(false)}
-                        style={styles.modalCloseButton}
-                    >
-                        <Text style={styles.modalCloseText}>✕</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.modalTitle}>
-                        AI Assistant - Verse {selectedVerse?.numberInSurah}
-                    </Text>
-                </View>
-
-                <ScrollView style={styles.modalContent}>
-                    <View style={styles.versePreview}>
-                        <Text style={styles.modalArabicText}>
-                            {selectedVerse?.text}
-                        </Text>
-                        {selectedVerse?.translation && (
-                            <Text style={styles.modalTranslationText}>
-                                {selectedVerse?.translation}
-                            </Text>
-                        )}
-                    </View>
-
-                    {aiModalType === "custom" && (
-                        <View style={styles.customQuestionContainer}>
-                            <Text style={styles.customQuestionLabel}>
-                                Ask your question:
-                            </Text>
-                            <TextInput
-                                style={styles.customQuestionInput}
-                                placeholder="What would you like to know about this verse?"
-                                value={customQuestion}
-                                onChangeText={setCustomQuestion}
-                                multiline
-                            />
-                        </View>
-                    )}
-
-                    <TouchableOpacity
-                        style={[
-                            styles.askButton,
-                            aiLoading && styles.askButtonDisabled,
-                        ]}
-                        onPress={handleAIRequest}
-                        disabled={
-                            aiLoading ||
-                            (aiModalType === "custom" && !customQuestion.trim())
-                        }
-                    >
-                        {aiLoading ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <Text style={styles.askButtonText}>
-                                {aiModalType === "explain"
-                                    ? "Explain this verse"
-                                    : aiModalType === "reflect"
-                                    ? "Get reflection"
-                                    : "Ask question"}
-                            </Text>
-                        )}
-                    </TouchableOpacity>
-
-                    {aiResponse ? (
-                        <View style={styles.aiResponseContainer}>
-                            <Text style={styles.aiResponseTitle}>
-                                AI Response:
-                            </Text>
-                            <Text style={styles.aiResponseText}>
-                                {aiResponse}
-                            </Text>
-                        </View>
-                    ) : null}
-                </ScrollView>
-            </SafeAreaView>
-        </Modal>
     );
 
     const renderProgressBar = () => (
@@ -410,8 +277,6 @@ export default function SurahReaderScreen() {
                     renderVerseItem(verse, index)
                 )}
             </ScrollView>
-
-            {renderAIModal()}
         </ScreenShell>
     );
 }

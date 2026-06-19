@@ -51,7 +51,7 @@ export const QuickActionsGrid = ({ onAction }) => {
         },
         {
             id: "chat",
-            title: "AI Islamic Guide",
+            title: "QCB Islamic Guide",
             subtitle: "Ask Questions",
             icon: "robot",
             gradient: [theme.colors.primary, theme.colors.primaryContainer],

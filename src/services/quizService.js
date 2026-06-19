@@ -1,9 +1,12 @@
-import questionsData from "../constants/questions.json";
 import { AuthService } from "./authService";
 import { localDataStore } from "../storage/localDataStore";
 import { userSyncService } from "./userSyncService";
-import { transformQuestions, shuffleQuestionOptions } from "../utils/quizQuestions";
-import { seededShuffle } from "../utils/array";
+import { quizQuestionBankService } from "./quizQuestionBankService";
+import {
+    shuffleQuestionOptions,
+    pickUnseenQuestions,
+    collectSeenIdsFromQuizResults,
+} from "../utils/quizQuestions";
 import { sortByDateDesc } from "../utils/date";
 import { getTodayDateString } from "../utils/date";
 import { EMPTY_STREAK, updateCompletionStreak } from "../utils/streak";
@@ -34,7 +37,19 @@ const DEFAULT_QUIZ_STATS = {
 class QuizService {
     constructor() {
         this.DAILY_QUESTIONS_COUNT = DAILY_QUESTIONS_COUNT;
-        this.questions = transformQuestions(questionsData);
+        this.questions = [];
+    }
+
+    async ensureQuestionBank() {
+        this.questions = await quizQuestionBankService.ensureQuestionsLoaded();
+        return this.questions;
+    }
+
+    async refreshQuestionBank() {
+        this.questions = await quizQuestionBankService.ensureQuestionsLoaded({
+            forceRefresh: true,
+        });
+        return this.questions;
     }
 
     getUserId() {
@@ -55,13 +70,53 @@ class QuizService {
         }
     }
 
-    selectDailyQuestions(seed) {
+    async getQuestionHistory(userId) {
+        const stored =
+            (await localDataStore.getNested(userId, "quiz", "questionHistory")) ??
+            {};
+        let seenIds = Array.isArray(stored.seenIds) ? stored.seenIds : [];
+
+        if (!seenIds.length) {
+            const quizResults =
+                (await localDataStore.getNested(userId, "quiz", "quizResults")) ??
+                {};
+            seenIds = collectSeenIdsFromQuizResults(quizResults);
+            if (seenIds.length) {
+                await localDataStore.setNested(userId, "quiz", "questionHistory", {
+                    seenIds,
+                    backfilledAt: new Date().toISOString(),
+                });
+            }
+        }
+
+        return { seenIds };
+    }
+
+    async saveQuestionHistory(userId, seenIds) {
+        await localDataStore.setNested(userId, "quiz", "questionHistory", {
+            seenIds: [...new Set(seenIds)],
+            updatedAt: new Date().toISOString(),
+        });
+    }
+
+    async selectDailyQuestions(userId, seed) {
+        await this.ensureQuestionBank();
         if (!this.questions.length) return [];
 
-        const shuffledQuestions = seededShuffle(this.questions, `${seed}-questions`);
-        const pool = shuffledQuestions.slice(0, this.DAILY_QUESTIONS_COUNT);
+        const { seenIds } = await this.getQuestionHistory(userId);
+        const { picked, nextSeenIds } = pickUnseenQuestions(
+            this.questions,
+            seenIds,
+            this.DAILY_QUESTIONS_COUNT,
+            seed,
+        );
 
-        return pool.map((question, index) =>
+        if (!picked.length) return [];
+
+        await this.saveQuestionHistory(userId, nextSeenIds);
+        userSyncService.scheduleSync(userId);
+
+        return picked.map((question, index) =>
             shuffleQuestionOptions(
                 {
                     ...question,
@@ -77,7 +132,7 @@ class QuizService {
         const today = this.getTodayDateString();
         await this.ensureQuizData(userId);
 
-        const cacheKey = `dailyQuestions_v2/${today}`;
+        const cacheKey = `dailyQuestions_v3/${today}`;
         const cached = await localDataStore.getNested(
             userId,
             "quiz",
@@ -85,7 +140,10 @@ class QuizService {
         );
         if (cached) return cached;
 
-        const todayQuestions = this.selectDailyQuestions(`${userId}-${today}`);
+        const todayQuestions = await this.selectDailyQuestions(
+            userId,
+            `${userId}-${today}`,
+        );
         await localDataStore.setNested(
             userId,
             "quiz",
@@ -145,6 +203,7 @@ class QuizService {
         };
 
         await localDataStore.setNested(userId, "quiz", `quizResults/${today}`, result);
+        await this.updateSeenIdsFromAnswers(userId, normalizedAnswers);
         await this.updateStreak(score > 0);
         await this.updateUserStats(result);
         userSyncService.scheduleSync(userId);
@@ -160,6 +219,16 @@ class QuizService {
         } catch {
             return { ...EMPTY_STREAK };
         }
+    }
+
+    async updateSeenIdsFromAnswers(userId, answers) {
+        const questionIds = answers
+            .map((answer) => answer?.questionId)
+            .filter((id) => id != null);
+        if (!questionIds.length) return;
+
+        const { seenIds } = await this.getQuestionHistory(userId);
+        await this.saveQuestionHistory(userId, [...seenIds, ...questionIds]);
     }
 
     async updateStreak(quizPassed) {
@@ -253,13 +322,16 @@ class QuizService {
     }
 
     async initializeUserData() {
+        await AuthService.ensureAuthenticated();
+        const userId = this.getUserId();
+        await this.ensureQuizData(userId);
         try {
-            await AuthService.ensureAuthenticated();
-            const userId = this.getUserId();
-            await this.ensureQuizData(userId);
+            await this.ensureQuestionBank();
         } catch (error) {
-            console.error("Error initializing user data:", error);
-            throw error;
+            console.warn(
+                "Quiz question bank load failed, bundled fallback may be in use:",
+                error?.message ?? error,
+            );
         }
     }
 

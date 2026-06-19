@@ -8,6 +8,8 @@ import { getDailyVerse } from "../../utils/dailyQuran";
 import { usePaywallAction } from "../../hooks/usePaywallAction";
 import { VerseShareCard } from "./VerseShareCard";
 import { shareVerse } from "../../utils/shareVerse";
+import { openChatWithPrompt } from "../../utils/openChatWithPrompt";
+import { buildExplainVersePrompt } from "../../utils/verseChatPrompts";
 
 export const QuranVerseCard = ({ placement = null }) => {
     const { withPaywallCheck } = usePaywallAction();
@@ -29,6 +31,10 @@ export const QuranVerseCard = ({ placement = null }) => {
         } finally {
             setSharing(false);
         }
+    };
+
+    const handleAskAI = () => {
+        openChatWithPrompt(buildExplainVersePrompt(currentVerse));
     };
 
     if (!currentVerse) return null;
@@ -59,11 +65,21 @@ export const QuranVerseCard = ({ placement = null }) => {
                     <View style={styles.actions}>
                         <Button
                             mode="outlined"
+                            onPress={withPaywallCheck(handleAskAI, paywallOpts)}
+                            textColor="#fff"
+                            icon="robot-outline"
+                            style={styles.actionButton}
+                        >
+                            Ask QCB
+                        </Button>
+                        <Button
+                            mode="outlined"
                             onPress={withPaywallCheck(handleShare, paywallOpts)}
                             textColor="#fff"
                             icon="share"
                             loading={sharing}
                             disabled={sharing}
+                            style={styles.actionButton}
                         >
                             Share
                         </Button>
@@ -105,5 +121,13 @@ const styles = StyleSheet.create({
         color: "rgba(255,255,255,0.65)",
         marginBottom: theme.spacing.md,
     },
-    actions: { alignItems: "center" },
+    actions: {
+        flexDirection: "row",
+        justifyContent: "center",
+        gap: theme.spacing.sm,
+        flexWrap: "wrap",
+    },
+    actionButton: {
+        minWidth: 120,
+    },
 });

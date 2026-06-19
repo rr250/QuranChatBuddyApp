@@ -16,10 +16,13 @@ import { getDailyVerseBatch, getDateKey } from "../../utils/dailyQuran";
 import { aiService } from "../../services/aiService";
 import { VerseShareCard } from "../quran/VerseShareCard";
 import { shareVerse } from "../../utils/shareVerse";
+import { openChatWithPrompt } from "../../utils/openChatWithPrompt";
+import { buildExplainVersePrompt } from "../../utils/verseChatPrompts";
 
 const CAROUSEL_COUNT = 5;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CARD_WIDTH = SCREEN_WIDTH - theme.spacing.md * 2;
+const SLIDE_HORIZONTAL_INSET = theme.spacing.md * 2 + theme.spacing.lg * 2;
+const CARD_WIDTH = SCREEN_WIDTH - SLIDE_HORIZONTAL_INSET;
 
 const categoryCacheKey = (verse) =>
     `verse_category_${getDateKey()}_${verse.surah}_${verse.ayah}`;
@@ -50,6 +53,19 @@ const QuoteSlide = ({
             <Button
                 mode="outlined"
                 onPress={withPaywallCheck(
+                    () =>
+                        openChatWithPrompt(buildExplainVersePrompt(item)),
+                    paywallOpts,
+                )}
+                textColor="#fff"
+                icon="robot-outline"
+                style={styles.actionButton}
+            >
+                Ask QCB
+            </Button>
+            <Button
+                mode="outlined"
+                onPress={withPaywallCheck(
                     () => onShare(item, category),
                     paywallOpts,
                 )}
@@ -57,6 +73,7 @@ const QuoteSlide = ({
                 icon="share"
                 loading={sharing}
                 disabled={sharing}
+                style={styles.actionButton}
             >
                 Share
             </Button>
@@ -178,6 +195,8 @@ export const IslamicQuoteCard = ({ placement = null }) => {
                     snapToInterval={CARD_WIDTH}
                     decelerationRate="fast"
                     onMomentumScrollEnd={onScroll}
+                    style={styles.carousel}
+                    contentContainerStyle={styles.carouselContent}
                     renderItem={({ item }) => (
                         <QuoteSlide
                             item={item}
@@ -227,7 +246,13 @@ const styles = StyleSheet.create({
         color: "#fff",
     },
     slide: {
-        paddingRight: theme.spacing.sm,
+        width: CARD_WIDTH,
+    },
+    carousel: {
+        marginHorizontal: -theme.spacing.lg,
+    },
+    carouselContent: {
+        paddingHorizontal: theme.spacing.lg,
     },
     badge: {
         alignSelf: "flex-start",
@@ -259,13 +284,25 @@ const styles = StyleSheet.create({
         fontStyle: "italic",
         textAlign: "center",
         marginBottom: theme.spacing.sm,
+        flexShrink: 1,
+        width: "100%",
     },
     source: {
         textAlign: "center",
         color: theme.colors.secondary,
         marginBottom: theme.spacing.md,
+        width: "100%",
     },
-    actions: { alignItems: "center" },
+    actions: {
+        flexDirection: "row",
+        justifyContent: "center",
+        gap: theme.spacing.sm,
+        flexWrap: "wrap",
+        width: "100%",
+    },
+    actionButton: {
+        minWidth: 120,
+    },
     dots: {
         flexDirection: "row",
         justifyContent: "center",

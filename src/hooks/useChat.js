@@ -1,5 +1,5 @@
 // src/hooks/useChat.js
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { aiService } from "../services/aiService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -14,6 +14,11 @@ export const useChat = (userId = "default_user") => {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [historyLoaded, setHistoryLoaded] = useState(false);
+
+    useEffect(() => {
+        setHistoryLoaded(false);
+    }, [userId]);
 
     const saveMessages = useCallback(
         async (newMessages) => {
@@ -41,6 +46,9 @@ export const useChat = (userId = "default_user") => {
             }
         } catch (err) {
             console.error("Error loading chat history:", err);
+            setMessages([createWelcomeMessage()]);
+        } finally {
+            setHistoryLoaded(true);
         }
     }, [userId]);
 
@@ -55,7 +63,11 @@ export const useChat = (userId = "default_user") => {
                 timestamp: new Date(),
             };
 
-            setMessages((prev) => [...prev, userMessage]);
+            setMessages((prev) => {
+                const updated = [...prev, userMessage];
+                saveMessages(updated);
+                return updated;
+            });
             setLoading(true);
             setError(null);
 
@@ -127,5 +139,6 @@ export const useChat = (userId = "default_user") => {
         error,
         clearChat,
         loadChatHistory,
+        historyLoaded,
     };
 };

@@ -12,7 +12,7 @@ const FEATURES = [
     { icon: "book-open-page-variant", text: "Read & Listen to Quran" },
     { icon: "clock-outline", text: "Prayer Times & Reminders" },
     { icon: "head-question", text: "Daily Islamic Quiz" },
-    { icon: "message-text-outline", text: "AI Islamic Guidance" },
+    { icon: "message-text-outline", text: "Islamic Guidance" },
 ];
 
 export default function WelcomeScreen() {
@@ -24,13 +24,16 @@ export default function WelcomeScreen() {
                         <AppLogo size={96} />
                         <Text style={styles.appName}>Quran Chat Buddy</Text>
                         <Text style={styles.tagline}>
-                            Your AI Islamic Companion
+                            Your Islamic Companion
                         </Text>
                     </View>
 
                     <View style={styles.featuresContainer}>
                         {FEATURES.map((feature) => (
-                            <GlassSurface key={feature.text} style={styles.featureCard}>
+                            <GlassSurface
+                                key={feature.text}
+                                style={styles.featureCard}
+                            >
                                 <View style={styles.featureRow}>
                                     <MaterialCommunityIcons
                                         name={feature.icon}

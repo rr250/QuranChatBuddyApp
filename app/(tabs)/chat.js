@@ -23,12 +23,17 @@ import { ScreenHeader } from "../../src/components/navigation/ScreenHeader";
 import { glass } from "../../src/constants/glass";
 import { CHAT_BOTTOM_BAR_HEIGHT } from "../../src/constants/layout";
 import { AuthService } from "../../src/services/authService";
+import { MessageUsageService } from "../../src/services/messageUsageService";
 
 export default function ChatScreen() {
     const [paywallVisible, setPaywallVisible] = useState(false);
+    const [usageCount, setUsageCount] = useState(0);
     const { user } = useAuthStore();
     const insets = useSafeAreaInsets();
     const pendingMessage = useChatComposerStore((s) => s.pendingMessage);
+    const consumePendingMessage = useChatComposerStore(
+        (s) => s.consumePendingMessage,
+    );
     const queueMessage = useChatComposerStore((s) => s.queueMessage);
     const {
         messages,
@@ -37,11 +42,12 @@ export default function ChatScreen() {
         error,
         clearChat,
         loadChatHistory,
+        historyLoaded,
     } = useChat(user?.uid ?? "guest");
-    const userMessageCount = messages.filter((m) => m.isUser).length;
-    const { isPremium, canAccess, remainingFree } = usePremiumGate(userMessageCount);
+    const { isPremium, canAccess, remainingFree } = usePremiumGate(usageCount);
     const flatListRef = useRef(null);
     const processingRef = useRef(false);
+    const pendingHandledRef = useRef(false);
 
     const listBottomPadding =
         CHAT_BOTTOM_BAR_HEIGHT + insets.bottom + spacing.lg;
@@ -53,21 +59,39 @@ export default function ChatScreen() {
     }, []);
 
     useEffect(() => {
-        AuthService.ensureAuthenticated()
-            .then((authUser) => {
-                useAuthStore.getState().setUser(authUser);
+        let alive = true;
+
+        const bootstrap = async () => {
+            try {
+                const authUser = await AuthService.ensureAuthenticated();
                 if (authUser?.uid) {
-                    loadChatHistory();
+                    useAuthStore.getState().setUser(authUser);
                 }
-            })
-            .catch(() => {});
-    }, [loadChatHistory]);
+
+                const uid = authUser?.uid ?? user?.uid ?? "guest";
+                const count = await MessageUsageService.getCount(uid);
+                if (alive) {
+                    setUsageCount(count);
+                }
+                await loadChatHistory();
+            } catch (error) {
+                console.warn("Chat bootstrap failed:", error);
+                await loadChatHistory();
+            }
+        };
+
+        bootstrap();
+
+        return () => {
+            alive = false;
+        };
+    }, [loadChatHistory, user?.uid]);
 
     useEffect(() => {
-        if (user?.uid) {
-            loadChatHistory();
-        }
-    }, [user?.uid, loadChatHistory]);
+        if (!user?.uid) return;
+
+        MessageUsageService.getCount(user.uid).then(setUsageCount).catch(() => {});
+    }, [user?.uid]);
 
     useEffect(() => {
         if (messages.length > 0) {
@@ -83,29 +107,43 @@ export default function ChatScreen() {
     const submitMessage = useCallback(
         async (text) => {
             const trimmed = text?.trim();
-            if (!trimmed || loading || processingRef.current) return;
+            if (!trimmed || loading || processingRef.current) return false;
 
             if (!canAccess) {
                 setPaywallVisible(true);
-                return;
+                return false;
             }
 
             processingRef.current = true;
             try {
                 await sendMessage(trimmed);
+                const uid = user?.uid ?? "guest";
+                const newCount = await MessageUsageService.incrementCount(uid);
+                setUsageCount(newCount);
+                return true;
             } finally {
                 processingRef.current = false;
             }
         },
-        [canAccess, loading, sendMessage],
+        [canAccess, loading, sendMessage, user?.uid],
     );
 
     useEffect(() => {
-        if (pendingMessage) {
-            submitMessage(pendingMessage);
-            useChatComposerStore.getState().consumePendingMessage();
+        if (!historyLoaded || !pendingMessage || pendingHandledRef.current) {
+            return;
         }
-    }, [pendingMessage, submitMessage]);
+
+        pendingHandledRef.current = true;
+        submitMessage(pendingMessage)
+            .then((sent) => {
+                if (sent) {
+                    consumePendingMessage();
+                }
+            })
+            .finally(() => {
+                pendingHandledRef.current = false;
+            });
+    }, [historyLoaded, pendingMessage, submitMessage, consumePendingMessage]);
 
     const handleClearChat = () => {
         Alert.alert("Clear Chat", "Are you sure you want to clear all messages?", [
@@ -168,7 +206,7 @@ export default function ChatScreen() {
         <AppBackground>
             <SafeAreaView style={styles.container} edges={["top"]}>
                 <ScreenHeader
-                    title="AI Chat"
+                    title="QCB Chat"
                     subtitle="Your Islamic companion"
                     rightAction={
                         <TouchableOpacity onPress={handleClearChat} style={styles.clearButton}>

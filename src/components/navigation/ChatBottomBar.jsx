@@ -18,7 +18,7 @@ import { usePaywallAction } from "../../hooks/usePaywallAction";
 import { PAYWALL_PLACEMENTS } from "../../constants/paywallConfig";
 
 const MENU_ITEMS = [
-    { id: "chat", label: "AI Chat", icon: "message-text", route: "/(tabs)/chat" },
+    { id: "chat", label: "QCB Chat", icon: "message-text", route: "/(tabs)/chat" },
     { id: "prayer", label: "Prayer Times", icon: "clock-outline", route: "/(tabs)/prayer" },
     { id: "quran", label: "Quran", icon: "book-open-page-variant", route: "/(tabs)/quran" },
     { id: "quiz", label: "Daily Quiz", icon: "head-question", route: "/(tabs)/quiz" },

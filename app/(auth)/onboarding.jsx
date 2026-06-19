@@ -315,12 +315,18 @@ export default function Onboarding() {
         }, 180);
     };
 
+    const isQuestionInputReady = (question) => {
+        if (!question || !questionRevealed) return false;
+        return messages.some((message) => message.id === `question-${question.id}`);
+    };
+
     // Handle text input submit
     const handleTextSubmit = () => {
         if (!userInput.trim()) return;
 
         const question = ONBOARDING_QUESTIONS[currentQuestionIndex];
 
+        setQuestionRevealed(false);
         setMessages((prev) => [
             ...prev,
             {
@@ -349,6 +355,7 @@ export default function Onboarding() {
             setSelectedOptions(newSelected);
         } else {
             // Single choice
+            setQuestionRevealed(false);
             setMessages((prev) => [
                 ...prev,
                 {
@@ -376,6 +383,7 @@ export default function Onboarding() {
             .map((opt) => opt.label)
             .join(", ");
 
+        setQuestionRevealed(false);
         setMessages((prev) => [
             ...prev,
             {
@@ -555,7 +563,7 @@ export default function Onboarding() {
     // Render input area based on question type
     const renderInputArea = () => {
         const currentQuestion = ONBOARDING_QUESTIONS[currentQuestionIndex];
-        if (!currentQuestion || !questionRevealed) return null;
+        if (!isQuestionInputReady(currentQuestion)) return null;
 
         if (currentQuestion.type === "text") {
             return (
