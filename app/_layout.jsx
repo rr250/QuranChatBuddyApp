@@ -266,6 +266,11 @@ export default function RootLayout() {
                 );
                 await PrayerNotificationService.setupFaithReminders();
 
+                const { AndroidWidgetService } = await import(
+                    "../services/androidWidgetService"
+                );
+                AndroidWidgetService.syncPrayerWidget().catch(() => {});
+
                 const { NotificationService } = await import(
                     "../src/services/notificationService"
                 );

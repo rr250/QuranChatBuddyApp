@@ -1,6 +1,6 @@
 {
   "name": "quran-chat-buddy",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "2.0.0",
   "scripts": {
     "start": "expo start",
@@ -51,6 +51,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.4",
+    "react-native-android-widget": "^0.20.3",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-paper": "^5.14.5",
     "react-native-purchases": "^10.2.2",

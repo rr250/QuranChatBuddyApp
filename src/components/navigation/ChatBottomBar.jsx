@@ -6,7 +6,6 @@ import {
     TouchableOpacity,
     Modal,
     Pressable,
-    Platform,
 } from "react-native";
 import { Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -34,7 +33,7 @@ export const ChatBottomBar = () => {
     const { withPaywallCheck } = usePaywallAction();
 
     const isChatScreen = pathname?.includes("/chat");
-    const bottomPad = Math.max(insets.bottom, Platform.OS === "ios" ? 8 : 6);
+    const bottomPad = Math.max(insets.bottom, 12);
 
     const handleSubmit = () => {
         const message = draft.trim();
@@ -63,7 +62,7 @@ export const ChatBottomBar = () => {
     return (
         <>
             <View style={[styles.wrapper, { paddingBottom: bottomPad }]}>
-                <View style={styles.bar}>
+                <View style={styles.barRow}>
                     <View style={styles.inputShell}>
                         <MaterialCommunityIcons
                             name="message-text-outline"
@@ -82,13 +81,20 @@ export const ChatBottomBar = () => {
                         />
                         <TouchableOpacity
                             onPress={handleSubmit}
-                            style={styles.sendButton}
+                            style={[
+                                styles.sendButton,
+                                !draft.trim() && styles.sendButtonDisabled,
+                            ]}
                             disabled={!draft.trim()}
                         >
                             <MaterialCommunityIcons
                                 name="send"
                                 size={18}
-                                color={draft.trim() ? "#fff" : "rgba(255,255,255,0.35)"}
+                                color={
+                                    draft.trim()
+                                        ? "#fff"
+                                        : "rgba(255,255,255,0.35)"
+                                }
                             />
                         </TouchableOpacity>
                     </View>
@@ -100,7 +106,7 @@ export const ChatBottomBar = () => {
                     >
                         <MaterialCommunityIcons
                             name="dots-vertical"
-                            size={24}
+                            size={22}
                             color="#fff"
                         />
                     </TouchableOpacity>
@@ -142,32 +148,26 @@ const styles = StyleSheet.create({
     wrapper: {
         paddingHorizontal: theme.spacing.md,
         paddingTop: theme.spacing.sm,
-        backgroundColor: glass.barBackground,
-        borderTopWidth: 1,
-        borderTopColor: "rgba(255,255,255,0.1)",
+        backgroundColor: "rgba(7, 31, 23, 0.96)",
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: glass.borderSubtle,
     },
-    bar: {
+    barRow: {
         flexDirection: "row",
         alignItems: "center",
         gap: theme.spacing.sm,
-        borderRadius: glass.radiusLg,
-        borderWidth: 1,
-        borderColor: glass.cardBorder,
-        paddingHorizontal: theme.spacing.sm,
-        paddingVertical: theme.spacing.sm,
-        backgroundColor: "#1A4D38",
     },
     inputShell: {
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
-        backgroundColor: "rgba(0,0,0,0.2)",
-        borderRadius: 22,
-        paddingHorizontal: 12,
-        minHeight: 44,
+        backgroundColor: "rgba(255, 255, 255, 0.14)",
+        borderRadius: 24,
+        paddingHorizontal: 14,
+        minHeight: 48,
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.12)",
+        borderColor: glass.cardBorder,
     },
     input: {
         flex: 1,
@@ -183,13 +183,18 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         backgroundColor: theme.colors.primary,
     },
+    sendButtonDisabled: {
+        opacity: 0.6,
+    },
     menuButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "rgba(255,255,255,0.12)",
+        backgroundColor: "rgba(255, 255, 255, 0.14)",
+        borderWidth: 1,
+        borderColor: glass.cardBorder,
     },
     overlay: {
         flex: 1,

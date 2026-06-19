@@ -56,6 +56,11 @@ export const usePrayerTimesStore = create((set, get) => ({
             loading: false,
         });
         get().updatePrayerState();
+        import("../services/androidWidgetService")
+            .then(({ AndroidWidgetService }) =>
+                AndroidWidgetService.syncPrayerWidget(),
+            )
+            .catch(() => {});
         return true;
     },
 
@@ -116,6 +121,10 @@ export const usePrayerTimesStore = create((set, get) => ({
                 refreshing: false,
             });
             get().updatePrayerState();
+            const { AndroidWidgetService } = await import(
+                "../services/androidWidgetService"
+            );
+            AndroidWidgetService.syncPrayerWidget().catch(() => {});
         } catch (error) {
             console.error("Error loading prayer times:", error);
             set({ loading: false, refreshing: false });

@@ -82,6 +82,25 @@ module.exports = {
             ],
             "expo-apple-authentication",
             "expo-secure-store",
+            [
+                "react-native-android-widget",
+                {
+                    widgets: [
+                        {
+                            name: "PrayerTimes",
+                            label: "Prayer Times",
+                            description: "Today's prayer times at a glance",
+                            minWidth: "320dp",
+                            minHeight: "110dp",
+                            targetCellWidth: 4,
+                            targetCellHeight: 2,
+                            resizeMode: "horizontal|vertical",
+                            previewImage: "./assets/icon.png",
+                            updatePeriodMillis: 1800000,
+                        },
+                    ],
+                },
+            ],
         ],
         experiments: {
             typedRoutes: false,

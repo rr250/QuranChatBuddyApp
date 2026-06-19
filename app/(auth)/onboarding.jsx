@@ -562,45 +562,43 @@ export default function Onboarding() {
                 <View
                     style={[
                         styles.composerWrapper,
-                        { paddingBottom: Math.max(insets.bottom, 8) },
+                        { paddingBottom: Math.max(insets.bottom, 12) },
                     ]}
                 >
-                    <View style={styles.composerBar}>
-                        <View style={styles.composerInputShell}>
+                    <View style={styles.composerInputShell}>
+                        <MaterialCommunityIcons
+                            name="message-text-outline"
+                            size={18}
+                            color="rgba(255,255,255,0.75)"
+                        />
+                        <TextInput
+                            style={styles.composerInput}
+                            placeholder={currentQuestion.placeholder}
+                            placeholderTextColor="rgba(255,255,255,0.5)"
+                            value={userInput}
+                            onChangeText={setUserInput}
+                            onSubmitEditing={handleTextSubmit}
+                            returnKeyType="send"
+                        />
+                        <TouchableOpacity
+                            style={[
+                                styles.composerSendButton,
+                                !userInput.trim() &&
+                                    styles.composerSendButtonDisabled,
+                            ]}
+                            onPress={handleTextSubmit}
+                            disabled={!userInput.trim()}
+                        >
                             <MaterialCommunityIcons
-                                name="message-text-outline"
+                                name="send"
                                 size={18}
-                                color="rgba(255,255,255,0.75)"
+                                color={
+                                    userInput.trim()
+                                        ? "#fff"
+                                        : "rgba(255,255,255,0.35)"
+                                }
                             />
-                            <TextInput
-                                style={styles.composerInput}
-                                placeholder={currentQuestion.placeholder}
-                                placeholderTextColor="rgba(255,255,255,0.5)"
-                                value={userInput}
-                                onChangeText={setUserInput}
-                                onSubmitEditing={handleTextSubmit}
-                                returnKeyType="send"
-                            />
-                            <TouchableOpacity
-                                style={[
-                                    styles.composerSendButton,
-                                    !userInput.trim() &&
-                                        styles.composerSendButtonDisabled,
-                                ]}
-                                onPress={handleTextSubmit}
-                                disabled={!userInput.trim()}
-                            >
-                                <MaterialCommunityIcons
-                                    name="send"
-                                    size={18}
-                                    color={
-                                        userInput.trim()
-                                            ? "#fff"
-                                            : "rgba(255,255,255,0.35)"
-                                    }
-                                />
-                            </TouchableOpacity>
-                        </View>
+                        </TouchableOpacity>
                     </View>
                 </View>
             );
@@ -764,7 +762,7 @@ export default function Onboarding() {
                         style={styles.messagesContainer}
                         contentContainerStyle={[
                             styles.messagesContent,
-                            { paddingBottom: Math.max(insets.bottom, spacing.md) },
+                            { paddingBottom: spacing.md },
                         ]}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
@@ -796,9 +794,9 @@ export default function Onboarding() {
                                 }}
                             />
                         ) : null}
-
-                        {renderInputArea()}
                     </ScrollView>
+
+                    {renderInputArea()}
                 </KeyboardAvoidingView>
             </SafeAreaView>
             </AppBackground>
@@ -993,28 +991,19 @@ const styles = StyleSheet.create({
     composerWrapper: {
         paddingHorizontal: spacing.md,
         paddingTop: spacing.sm,
-        backgroundColor: glass.barBackground,
-        borderTopWidth: 1,
-        borderTopColor: "rgba(255,255,255,0.1)",
-    },
-    composerBar: {
-        borderRadius: glass.radiusLg,
-        borderWidth: 1,
-        borderColor: glass.cardBorder,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.sm,
-        backgroundColor: "#1A4D38",
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: glass.borderSubtle,
     },
     composerInputShell: {
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
-        backgroundColor: "rgba(0,0,0,0.2)",
-        borderRadius: 22,
-        paddingHorizontal: 12,
-        minHeight: 44,
+        backgroundColor: glass.backgroundStrong,
+        borderRadius: 24,
+        paddingHorizontal: 14,
+        minHeight: 48,
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.12)",
+        borderColor: glass.cardBorder,
     },
     composerInput: {
         flex: 1,
@@ -1036,14 +1025,13 @@ const styles = StyleSheet.create({
     optionsContainer: {
         paddingHorizontal: spacing.md,
         paddingTop: spacing.sm,
-        backgroundColor: glass.barBackground,
-        borderTopWidth: 1,
-        borderTopColor: "rgba(255,255,255,0.1)",
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: glass.borderSubtle,
     },
     optionButton: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "rgba(0,0,0,0.2)",
+        backgroundColor: glass.backgroundStrong,
         borderRadius: 16,
         padding: spacing.md,
         marginBottom: spacing.sm,
