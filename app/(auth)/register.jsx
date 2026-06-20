@@ -51,7 +51,9 @@ export default function RegisterScreen() {
                 formData.password,
                 formData.confirmPassword,
             ),
-            terms: acceptedTerms ? null : "You must accept the terms and conditions",
+            terms: acceptedTerms
+                ? null
+                : "You must accept the terms and conditions",
         };
         setErrors(newErrors);
         return !Object.values(newErrors).some(Boolean);
@@ -66,7 +68,11 @@ export default function RegisterScreen() {
             const trimmedName = displayName.trim();
 
             if (isAnonymous) {
-                await linkWithEmailPassword(trimmedEmail, password, trimmedName);
+                await linkWithEmailPassword(
+                    trimmedEmail,
+                    password,
+                    trimmedName,
+                );
             } else {
                 await signUpWithEmail(trimmedEmail, password, trimmedName);
             }
@@ -98,7 +104,9 @@ export default function RegisterScreen() {
                 <TextInput
                     label="Full Name"
                     value={formData.displayName}
-                    onChangeText={(value) => handleInputChange("displayName", value)}
+                    onChangeText={(value) =>
+                        handleInputChange("displayName", value)
+                    }
                     autoCapitalize="words"
                     autoComplete="name"
                     mode="outlined"
@@ -129,7 +137,9 @@ export default function RegisterScreen() {
                 <TextInput
                     label="Password"
                     value={formData.password}
-                    onChangeText={(value) => handleInputChange("password", value)}
+                    onChangeText={(value) =>
+                        handleInputChange("password", value)
+                    }
                     secureTextEntry={!showPassword}
                     autoComplete="password-new"
                     mode="outlined"
@@ -217,9 +227,9 @@ export default function RegisterScreen() {
                 </Button>
 
                 <Divider style={styles.divider} />
-                <Text style={styles.orText}>Or sign up with</Text>
+                {/* <Text style={styles.orText}>Or sign up with</Text>
 
-                <SocialLoginButtons mode={isAnonymous ? "link" : "signIn"} />
+                <SocialLoginButtons mode={isAnonymous ? "link" : "signIn"} /> */}
 
                 <View style={styles.linkRow}>
                     <Button mode="text" labelStyle={styles.linkText} disabled>

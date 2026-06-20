@@ -88,6 +88,9 @@ export const useChat = (userId = "default_user") => {
                     return allMessages;
                 });
             } catch (err) {
+                if (err?.code === "free-limit-reached") {
+                    throw err;
+                }
                 console.error("Error sending message:", err);
                 setError(
                     "Sorry, I could not process your request. Please check your internet connection and try again.",

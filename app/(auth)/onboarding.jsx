@@ -21,6 +21,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { useAuthStore } from "../../src/store/authStore";
+import { AuthService } from "../../src/services/authService";
 import { AppBackground } from "../../src/components/ui/Glass";
 import { AppLogo } from "../../src/components/common/AppLogo";
 import { MessageBubble } from "../../src/components/chat/MessageBubble";
@@ -514,6 +515,11 @@ export default function Onboarding() {
                 await soundRef.current.unloadAsync();
             }
 
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
+
+            await AsyncStorage.setItem("onboarding_data", JSON.stringify(userData));
             await AsyncStorage.setItem("onboarding_completed", "true");
             await AsyncStorage.setItem(
                 "onboarding_completed_date",
@@ -521,6 +527,24 @@ export default function Onboarding() {
             );
 
             useAuthStore.getState().setOnboarded(true);
+
+            let user = null;
+            try {
+                user = await AuthService.ensureAuthenticated();
+            } catch (authError) {
+                console.warn("Onboarding auth failed:", authError);
+                user = AuthService.getCurrentUser();
+            }
+
+            try {
+                if (user) {
+                    await AuthService.syncOnboardingData(user, userData);
+                    useAuthStore.getState().setUser(user);
+                }
+            } catch (syncError) {
+                console.warn("Onboarding profile sync failed:", syncError);
+            }
+
             const userName = userData.userName || "";
             router.replace("/(tabs)");
             setTimeout(() => {

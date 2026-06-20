@@ -75,7 +75,11 @@ export default function ChatScreen() {
                 }
                 await loadChatHistory();
             } catch (error) {
-                console.warn("Chat bootstrap failed:", error);
+                if (error?.code === "device-restore-unavailable") {
+                    console.warn("Chat bootstrap:", error.message);
+                } else {
+                    console.warn("Chat bootstrap failed:", error);
+                }
                 await loadChatHistory();
             }
         };
@@ -118,9 +122,15 @@ export default function ChatScreen() {
             try {
                 await sendMessage(trimmed);
                 const uid = user?.uid ?? "guest";
-                const newCount = await MessageUsageService.incrementCount(uid);
+                const newCount = await MessageUsageService.getCount(uid);
                 setUsageCount(newCount);
                 return true;
+            } catch (error) {
+                if (error?.code === "free-limit-reached") {
+                    setPaywallVisible(true);
+                    return false;
+                }
+                throw error;
             } finally {
                 processingRef.current = false;
             }

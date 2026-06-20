@@ -32,7 +32,18 @@ export const QuranDashboard = ({ onQuranPress }) => {
         try {
             setLoading(true);
             setError(null);
-            await AuthService.ensureAuthenticated();
+
+            try {
+                await AuthService.ensureAuthenticated();
+            } catch (authError) {
+                if (authError?.code !== "device-restore-unavailable") {
+                    throw authError;
+                }
+                console.warn(
+                    "Quran progress: using local data until device session restores.",
+                );
+            }
+
             await quranService.initializeUserProgress();
 
             const [stats, position] = await Promise.all([

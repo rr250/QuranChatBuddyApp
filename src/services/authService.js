@@ -19,6 +19,8 @@ import * as WebBrowser from "expo-web-browser";
 import { getGoogleRedirectUri } from "../utils/googleAuth";
 import { getFirebaseAuth, getFirebaseDatabase } from "./firebase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { DeviceIdentityService } from "./deviceIdentityService";
+import { DeviceAuthService } from "./deviceAuthService";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -162,20 +164,174 @@ export class AuthService {
     }
 
     static _ensureAuthPromise = null;
+    static _ensureDevicePromise = null;
 
-    // Anonymous Authentication
+    static async ensureDeviceLinked() {
+        this.initialize();
+        const user = this.getCurrentUser();
+        if (!user?.uid) return null;
+
+        const deviceHash = await DeviceIdentityService.getDeviceHash();
+        if (!deviceHash) return user;
+
+        if (!this._ensureDevicePromise) {
+            this._ensureDevicePromise = this.linkDeviceToCurrentUser(
+                user,
+                deviceHash,
+            ).finally(() => {
+                this._ensureDevicePromise = null;
+            });
+        }
+
+        return this._ensureDevicePromise;
+    }
+
+    static async linkDeviceToCurrentUser(user, deviceHash) {
+        try {
+            await DeviceAuthService.registerDeviceAccount(deviceHash);
+            return user;
+        } catch (error) {
+            const code = error?.code ?? "";
+            if (code === "functions/already-exists") {
+                const restored = await this.reconcileDeviceSession(
+                    user,
+                    deviceHash,
+                );
+                if (restored) return restored;
+
+                const check =
+                    await DeviceAuthService.checkDeviceRegistration(deviceHash);
+                throw this.buildDeviceRestoreError({
+                    linkedUid: check.linkedUid,
+                    restoreUnavailable: true,
+                    needsAnonymousSignIn: false,
+                });
+            }
+
+            console.warn(
+                "Device registration failed:",
+                error?.message ?? error,
+            );
+            return user;
+        }
+    }
+
+    static buildDeviceRestoreError(resolution) {
+        const err = new Error(
+            resolution?.restoreUnavailable
+                ? "This device is already registered but sign-in could not be restored. Redeploy Cloud Functions, then fully restart the app."
+                : "This device is already linked to an existing account.",
+        );
+        err.code = "device-restore-unavailable";
+        err.linkedUid = resolution?.linkedUid ?? null;
+        return err;
+    }
+
+    static async assertDeviceNotRegistered(deviceHash) {
+        if (!deviceHash) return;
+
+        const check = await DeviceAuthService.checkDeviceRegistration(deviceHash);
+        if (check.registered) {
+            throw this.buildDeviceRestoreError({
+                linkedUid: check.linkedUid,
+                restoreUnavailable: true,
+                needsAnonymousSignIn: false,
+            });
+        }
+    }
+
+    static async reconcileDeviceSession(user, deviceHash) {
+        if (!deviceHash) return user;
+
+        try {
+            const resolution = await DeviceAuthService.resolveDeviceAuth(
+                deviceHash,
+            );
+
+            if (!DeviceAuthService.isDeviceClaimed(resolution)) {
+                return user;
+            }
+
+            if (user?.uid === resolution.linkedUid) {
+                return user;
+            }
+
+            console.warn(
+                "Auth session mismatch; device linked to",
+                resolution.linkedUid,
+            );
+
+            if (resolution.customToken) {
+                const restored =
+                    await DeviceAuthService.signInWithResolvedToken(
+                        resolution.customToken,
+                    );
+                await this.createUserDocument(restored);
+                await this.updateUserPresence(restored);
+                return restored;
+            }
+
+            if (user) {
+                await signOut(this.auth);
+            }
+            throw this.buildDeviceRestoreError(resolution);
+        } catch (error) {
+            if (error?.code === "device-restore-unavailable") {
+                throw error;
+            }
+            console.warn(
+                "Device reconcile failed:",
+                error?.message ?? error,
+            );
+            return user;
+        }
+    }
+
+    // Anonymous Authentication (one Firebase user per physical device)
     static async signInAnonymously() {
         try {
             this.initialize();
+            const deviceHash = await DeviceIdentityService.getDeviceHash();
+
+            if (deviceHash) {
+                const resolution =
+                    await DeviceAuthService.resolveDeviceAuth(deviceHash);
+
+                if (resolution.customToken) {
+                    const restored =
+                        await DeviceAuthService.signInWithResolvedToken(
+                            resolution.customToken,
+                        );
+                    await this.createUserDocument(restored);
+                    await this.updateUserPresence(restored);
+                    return restored;
+                }
+
+                if (DeviceAuthService.isDeviceClaimed(resolution)) {
+                    const current = this.getCurrentUser();
+                    if (current?.uid === resolution.linkedUid) {
+                        return current;
+                    }
+                    if (current) {
+                        await signOut(this.auth);
+                    }
+                    throw this.buildDeviceRestoreError(resolution);
+                }
+            }
+
+            await this.assertDeviceNotRegistered(deviceHash);
+
             const userCredential = await signInAnonymously(this.auth);
+            const user = userCredential.user;
 
-            // Create a basic user document for anonymous users
-            await this.createUserDocument(userCredential.user);
+            await this.createUserDocument(user);
+            await this.updateUserPresence(user);
 
-            await this.updateUserPresence(userCredential.user);
-
-            return userCredential.user;
+            return user;
         } catch (error) {
+            if (error?.code === "device-restore-unavailable") {
+                throw error;
+            }
             console.error("Anonymous sign-in error:", error);
             throw this.handleAuthError(error);
         }
@@ -184,16 +340,47 @@ export class AuthService {
     /** Ensures a Firebase user exists (anonymous) without blocking the UI on sign-in screens. */
     static async ensureAuthenticated() {
         this.initialize();
-        const existing = this.getCurrentUser();
-        if (existing) return existing;
+        let user = this.getCurrentUser();
 
-        if (!this._ensureAuthPromise) {
-            this._ensureAuthPromise = this.signInAnonymously().finally(() => {
-                this._ensureAuthPromise = null;
-            });
+        try {
+            if (!user) {
+                const { useAuthStore } = await import("../store/authStore");
+                const { skipAnonymousSignIn, isOnboarded } =
+                    useAuthStore.getState();
+
+                if (skipAnonymousSignIn || !isOnboarded) {
+                    return null;
+                }
+
+                if (!this._ensureAuthPromise) {
+                    this._ensureAuthPromise = this.signInAnonymously().finally(
+                        () => {
+                            this._ensureAuthPromise = null;
+                        },
+                    );
+                }
+                user = await this._ensureAuthPromise;
+            }
+
+            if (!user) return null;
+
+            const deviceHash = await DeviceIdentityService.getDeviceHash();
+            if (deviceHash) {
+                user = await this.reconcileDeviceSession(user, deviceHash);
+            }
+
+            return (await this.ensureDeviceLinked()) ?? user;
+        } catch (error) {
+            if (error?.code === "device-restore-unavailable") {
+                await signOut(this.auth).catch(() => {});
+            }
+            throw error;
         }
+    }
 
-        return this._ensureAuthPromise;
+    static cancelPendingAuth() {
+        this._ensureAuthPromise = null;
+        this._ensureDevicePromise = null;
     }
 
     // Link Anonymous Account with Email/Password
@@ -379,6 +566,7 @@ export class AuthService {
     static async createUserDocument(user) {
         try {
             await this.mergeUserData(user);
+            await this.syncOnboardingData(user);
         } catch (error) {
             console.error("Error syncing user data:", error);
         }
@@ -445,30 +633,58 @@ export class AuthService {
         }
     }
 
-    static async syncOnboardingData(user) {
+    static async syncOnboardingData(user, onboardingData = null) {
         try {
-            const dataStr = await AsyncStorage.getItem("onboarding_data");
+            if (!user?.uid) return;
+
+            let userData = onboardingData;
+            if (!userData) {
+                const dataStr = await AsyncStorage.getItem("onboarding_data");
+                if (!dataStr) return;
+                userData = JSON.parse(dataStr);
+            }
+
             const locationStr = await AsyncStorage.getItem("user_location");
             const notificationsEnabled = await AsyncStorage.getItem(
                 "notifications_enabled",
             );
+            const completedDate = await AsyncStorage.getItem(
+                "onboarding_completed_date",
+            );
 
-            if (dataStr) {
-                const userData = JSON.parse(dataStr);
-                const onboardingRef = ref(
-                    this.database,
-                    `users/${user.uid}/profile/onboarding`,
-                );
+            const onboardingPayload = {
+                ...userData,
+                location: locationStr ? JSON.parse(locationStr) : null,
+                notificationsEnabled: notificationsEnabled === "true",
+                completedAt: completedDate || new Date().toISOString(),
+            };
 
-                await set(onboardingRef, {
-                    ...userData,
-                    location: locationStr ? JSON.parse(locationStr) : null,
-                    notificationsEnabled: notificationsEnabled === "true",
-                    completedAt: new Date().toISOString(),
-                });
+            const profileRef = ref(
+                this.database,
+                `users/${user.uid}/profile`,
+            );
 
-                await AsyncStorage.setItem("onboarding_synced", "true");
+            await set(profileRef, {
+                name: userData.userName?.trim() || null,
+                onboarding: onboardingPayload,
+                updatedAt: Date.now(),
+            });
+
+            if (userData.userName?.trim()) {
+                try {
+                    await updateProfile(user, {
+                        displayName: userData.userName.trim(),
+                    });
+                } catch (profileError) {
+                    console.warn(
+                        "Failed to update auth display name:",
+                        profileError?.message ?? profileError,
+                    );
+                }
             }
+
+            await userSyncService.pushToFirebase(user.uid);
+            await AsyncStorage.setItem("onboarding_synced", "true");
         } catch (error) {
             console.error("Error syncing onboarding data:", error);
         }

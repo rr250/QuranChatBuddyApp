@@ -33,7 +33,11 @@ export const useAuthStore = create(
 
             clearError: () => set({ error: null }),
 
-            setOnboarded: (isOnboarded) => set({ isOnboarded }),
+            setOnboarded: (isOnboarded) =>
+                set({
+                    isOnboarded,
+                    ...(isOnboarded ? { skipAnonymousSignIn: false } : {}),
+                }),
 
             syncOnboardingFlag: async () => {
                 const completed = await AsyncStorage.getItem(
@@ -50,6 +54,11 @@ export const useAuthStore = create(
                         authUnsubscribe();
                         authUnsubscribe = null;
                     }
+                    AuthService.cancelPendingAuth();
+                    const { useSubscriptionStore } = await import(
+                        "./subscriptionStore"
+                    );
+                    await useSubscriptionStore.getState().reset();
                     await AuthService.signOut().catch(() => {});
                     await AsyncStorage.clear();
                     set({
@@ -58,7 +67,7 @@ export const useAuthStore = create(
                         error: null,
                         isOnboarded: false,
                         isAnonymous: false,
-                        skipAnonymousSignIn: false,
+                        skipAnonymousSignIn: true,
                     });
                     await get().initialize();
                 } catch (error) {

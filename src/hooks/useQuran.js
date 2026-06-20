@@ -27,7 +27,13 @@ export const useQuran = () => {
 
     const loadUserProgress = useCallback(async () => {
         try {
-            await AuthService.ensureAuthenticated();
+            try {
+                await AuthService.ensureAuthenticated();
+            } catch (authError) {
+                if (authError?.code !== "device-restore-unavailable") {
+                    throw authError;
+                }
+            }
             const userProgress = await quranService.getUserProgress();
             setProgress(userProgress);
         } catch (error) {

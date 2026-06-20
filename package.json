@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "build:android": "eas build --platform android",
     "build:ios": "eas build --platform ios",
-    "submit": "eas submit"
+    "submit": "eas submit",
+    "deploy:functions": "npm run deploy --prefix functions"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -20,6 +21,7 @@
     "country-state-city": "^3.2.1",
     "expo": "^54.0.13",
     "expo-apple-authentication": "~8.0.7",
+    "expo-application": "~7.0.8",
     "expo-auth-session": "~7.0.8",
     "expo-av": "~16.0.7",
     "expo-background-fetch": "^14.0.7",

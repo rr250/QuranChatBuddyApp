@@ -1,18 +1,21 @@
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
 import { useAuthStore } from "../../store/authStore";
 
 export const DebugPanel = () => {
     const [isVisible, setIsVisible] = useState(false);
+    const router = useRouter();
     const resetForFreshStart = useAuthStore((s) => s.resetForFreshStart);
 
     const clearAsyncStorage = async () => {
         try {
             await resetForFreshStart();
+            router.replace("/(auth)/onboarding");
             Alert.alert(
                 "Success",
-                "Storage cleared. Onboarding will show on next navigation.",
+                "Storage cleared. Onboarding will start now.",
             );
         } catch (error) {
             Alert.alert("Error", "Failed to clear AsyncStorage");

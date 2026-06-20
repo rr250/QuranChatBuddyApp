@@ -3,6 +3,8 @@ import { Platform } from "react-native";
 import Purchases, { LOG_LEVEL } from "react-native-purchases";
 
 import { ENTITLEMENT_ID, OFFERING_ID } from "../constants/subscription";
+import { ref, set } from "firebase/database";
+import { getFirebaseDatabase } from "./firebase";
 
 
 
@@ -219,6 +221,27 @@ export const SubscriptionService = {
         } catch (error) {
 
             console.error("RevenueCat logIn error:", error);
+
+        }
+
+    },
+
+
+
+    async syncPremiumStatus(userId, isPremium) {
+
+        if (!userId) return;
+
+        try {
+
+            await set(
+                ref(getFirebaseDatabase(), `users/${userId}/subscription/isPremium`),
+                Boolean(isPremium),
+            );
+
+        } catch (error) {
+
+            console.warn("Failed to sync premium status:", error);
 
         }
 

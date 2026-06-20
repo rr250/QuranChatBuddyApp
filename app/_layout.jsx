@@ -119,7 +119,11 @@ export default function RootLayout() {
                         }
                         router.replace("/(tabs)");
                     } catch (error) {
-                        console.error("Anonymous sign-in error:", error);
+                        if (error?.code === "device-restore-unavailable") {
+                            console.warn("Anonymous sign-in blocked:", error.message);
+                        } else {
+                            console.error("Anonymous sign-in error:", error);
+                        }
                         router.replace("/(tabs)");
                     } finally {
                         setIsSigningInAnonymously(false);
@@ -266,10 +270,14 @@ export default function RootLayout() {
                 );
                 await PrayerNotificationService.setupFaithReminders();
 
-                const { AndroidWidgetService } = await import(
-                    "../services/androidWidgetService"
-                );
-                AndroidWidgetService.syncPrayerWidget().catch(() => {});
+                try {
+                    const { AndroidWidgetService } = await import(
+                        "../src/services/androidWidgetService"
+                    );
+                    AndroidWidgetService.syncPrayerWidget().catch(() => {});
+                } catch (widgetError) {
+                    console.warn("Android widget sync skipped:", widgetError);
+                }
 
                 const { NotificationService } = await import(
                     "../src/services/notificationService"

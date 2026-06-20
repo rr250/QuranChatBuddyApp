@@ -6,7 +6,8 @@
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
     "start": "npm run shell",
-    "deploy": "firebase deploy --only functions",
+    "deploy": "firebase deploy --only functions:qcb-app:chatCompletion,functions:qcb-app:verseCategory,functions:qcb-app:sendDailyQuizNotification,functions:qcb-app:resolveDeviceAuth,functions:qcb-app:registerDeviceAccount,functions:qcb-app:getMessageUsage,functions:qcb-app:checkDeviceRegistration",
+    "deploy:unsafe-all": "echo \"WARNING: may delete functions not in this repo\" && firebase deploy --only functions:qcb-app",
     "logs": "firebase functions:log"
   },
   "engines": {

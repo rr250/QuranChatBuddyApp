@@ -5,6 +5,8 @@ import { getIslamicSystemPrompt } from "../constants/ai";
 import { BaseService } from "./baseService";
 import { getFirebaseFunctions } from "./firebase";
 import { AuthService } from "./authService";
+import { DeviceIdentityService } from "./deviceIdentityService";
+import { MessageUsageService } from "./messageUsageService";
 
 const LOG_PREFIX = "[AI Service]";
 
@@ -17,6 +19,7 @@ class AIService extends BaseService {
     async callCloudFunction(name, data) {
         console.log(`${LOG_PREFIX} Calling Firebase function: ${name}`);
         try {
+            await AuthService.ensureAuthenticated();
             const functions = getFirebaseFunctions();
             const callable = httpsCallable(functions, name);
             const result = await callable(data);
@@ -29,6 +32,19 @@ class AIService extends BaseService {
             return result.data;
         } catch (error) {
             console.warn(`${LOG_PREFIX} Firebase call failed (${name}):`, error);
+            if (error?.code === "functions/resource-exhausted") {
+                const quotaError = new Error(
+                    "You have used all free messages. Upgrade to continue.",
+                );
+                quotaError.code = "free-limit-reached";
+                throw quotaError;
+            }
+            if (error?.code === "functions/failed-precondition") {
+                throw new Error(
+                    error.message ||
+                        "AI service is not configured on the server.",
+                );
+            }
             if (process.env.EXPO_PUBLIC_OPENAI_API_KEY) {
                 console.warn(
                     `${LOG_PREFIX} Falling back to direct OpenAI`,
@@ -156,21 +172,32 @@ class AIService extends BaseService {
                 { role: "user", content: message },
             ];
 
-            const { content: aiResponse } = await this.callCloudFunction(
-                "chatCompletion",
-                {
+            const deviceHash = await DeviceIdentityService.getDeviceHash();
+
+            const { content: aiResponse, aiMessageCount } =
+                await this.callCloudFunction("chatCompletion", {
                     messages,
+                    deviceHash,
                     model: "gpt-4",
                     max_tokens: 800,
                     temperature: 0.7,
                     presence_penalty: 0.1,
                     frequency_penalty: 0.1,
-                },
-            );
+                });
+
+            if (typeof aiMessageCount === "number") {
+                await MessageUsageService.applyServerCount(
+                    userId,
+                    aiMessageCount,
+                );
+            }
 
             await this.saveMessageToHistory(userId, message, aiResponse);
             return aiResponse;
         } catch (error) {
+            if (error?.code === "free-limit-reached") {
+                throw error;
+            }
             console.error("AI Service Error:", error);
             throw new Error("Failed to get AI response. Please try again.");
         }

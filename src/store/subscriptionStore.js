@@ -1,6 +1,14 @@
 import { create } from "zustand";
 import { SubscriptionService } from "../services/subscriptionService";
 import { ENTITLEMENT_ID } from "../constants/subscription";
+import { AuthService } from "../services/authService";
+
+const syncPremiumToServer = async (isPremium) => {
+    const userId = AuthService.getCurrentUser()?.uid;
+    if (userId) {
+        await SubscriptionService.syncPremiumStatus(userId, isPremium);
+    }
+};
 
 export const useSubscriptionStore = create((set, get) => ({
     isPremium: false,
@@ -50,6 +58,7 @@ export const useSubscriptionStore = create((set, get) => ({
                 loading: false,
                 error: null,
             });
+            await syncPremiumToServer(isPremium);
         } catch (error) {
             set({ error: error.message, loading: false });
         }
@@ -63,6 +72,7 @@ export const useSubscriptionStore = create((set, get) => ({
                 customerInfo.entitlements.active[ENTITLEMENT_ID],
             );
             set({ isPremium, loading: false });
+            await syncPremiumToServer(isPremium);
             return isPremium;
         } catch (error) {
             if (!error.userCancelled) {
@@ -82,6 +92,7 @@ export const useSubscriptionStore = create((set, get) => ({
                 customerInfo.entitlements.active[ENTITLEMENT_ID],
             );
             set({ isPremium, loading: false });
+            await syncPremiumToServer(isPremium);
             return isPremium;
         } catch (error) {
             set({ error: error.message, loading: false });

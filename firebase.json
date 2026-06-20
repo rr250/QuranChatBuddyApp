@@ -1,14 +1,8 @@
 {
-  "database": {
-    "rules": "database.rules.json"
-  },
-  "firestore": {
-    "rules": "firestore.rules"
-  },
   "functions": [
     {
       "source": "functions",
-      "codebase": "default",
+      "codebase": "qcb-app",
       "ignore": [
         "node_modules",
         ".git",

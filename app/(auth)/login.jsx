@@ -1,7 +1,13 @@
 import React, { useState } from "react";
 import { View } from "react-native";
 import { router } from "expo-router";
-import { Button, TextInput, Divider, HelperText, Text } from "react-native-paper";
+import {
+    Button,
+    TextInput,
+    Divider,
+    HelperText,
+    Text,
+} from "react-native-paper";
 import { useAuthStore } from "../../src/store/authStore";
 import { AuthScreenLayout } from "../../src/components/auth/AuthScreenLayout";
 import { authStyles as styles } from "../../src/components/auth/authStyles";
@@ -109,9 +115,9 @@ export default function LoginScreen() {
                 </Button>
 
                 <Divider style={styles.divider} />
-                <Text style={styles.orText}>Or continue with</Text>
+                {/* <Text style={styles.orText}>Or continue with</Text>
 
-                <SocialLoginButtons mode="signIn" />
+                <SocialLoginButtons mode="signIn" /> */}
 
                 <View style={styles.linkRow}>
                     <Button mode="text" labelStyle={styles.linkText} disabled>
