@@ -3,6 +3,7 @@ import { PrayerService } from "../services/prayerService";
 import { LocationService } from "../services/locationService";
 import { PRAYER_WIDGET_ITEMS } from "../constants/faithNotifications";
 import { DEFAULT_CITY } from "../constants/prayerOptions";
+import logger from "../services/logger";
 
 const PRAYER_CACHE_KEY = "prayer_times_cache_v1";
 const SETTINGS_KEY = "app_settings_v1";
@@ -12,7 +13,10 @@ const todayKey = () => new Date().toISOString().slice(0, 10);
 const deserializeTimes = (times) =>
     Object.fromEntries(
         Object.entries(times).map(([key, value]) => {
-            if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+            if (
+                typeof value === "string" &&
+                /^\d{4}-\d{2}-\d{2}T/.test(value)
+            ) {
                 return [key, new Date(value)];
             }
             return [key, value];
@@ -68,7 +72,7 @@ const readSettings = async () => {
             useManualLocation: Boolean(parsed.useManualLocation),
         };
     } catch (error) {
-        console.warn("Widget settings read failed:", error);
+        logger.warn("Widget settings read failed:", error);
         return {
             madhab: "shafi",
             calculationMethod: "MuslimWorldLeague",
@@ -112,7 +116,7 @@ export async function loadPrayerWidgetData() {
             const raw = await AsyncStorage.getItem(PRAYER_CACHE_KEY);
             if (raw) cache = JSON.parse(raw);
         } catch (error) {
-            console.warn("Widget prayer cache read failed:", error);
+            logger.warn("Widget prayer cache read failed:", error);
         }
 
         let prayerTimes = null;
@@ -157,7 +161,7 @@ export async function loadPrayerWidgetData() {
             })),
         };
     } catch (error) {
-        console.error("Widget prayer data failed:", error);
+        logger.error("Widget prayer data failed:", error);
         return {
             loading: false,
             error: "Open app to load prayer times",

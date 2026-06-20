@@ -14,9 +14,10 @@ import { useAuthStore } from "../src/store/authStore";
 import { useSubscriptionStore } from "../src/store/subscriptionStore";
 import { usePaywallStore } from "../src/store/paywallStore";
 import { PaywallGate } from "../src/components/subscription/PaywallGate";
-import { theme } from "../src/constants/theme";
+import { theme } from "../src/theme";
 import { LoadingScreen } from "../src/components/common/LoadingScreen";
 import { DebugPanel } from "../src/components/debug/DebugPanel";
+import logger from "../src/services/logger";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -59,12 +60,11 @@ export default function RootLayout() {
                 await NotificationService.initialize({
                     requestPermissions: false,
                 });
-                const { useSettingsStore } = await import(
-                    "../src/store/settingsStore"
-                );
+                const { useSettingsStore } =
+                    await import("../src/store/settingsStore");
                 await useSettingsStore.getState().hydrate();
             } catch (error) {
-                console.error("App initialization error:", error);
+                logger.error("App initialization error:", error);
             } finally {
                 if (alive) {
                     setIsAppInitialized(true);
@@ -89,7 +89,11 @@ export default function RootLayout() {
     }, []);
 
     useEffect(() => {
-        if (!isAppInitialized || !_hasHydrated || hasBootstrappedNavigation.current) {
+        if (
+            !isAppInitialized ||
+            !_hasHydrated ||
+            hasBootstrappedNavigation.current
+        ) {
             return;
         }
 
@@ -107,8 +111,9 @@ export default function RootLayout() {
                 if (!state.user && !state.skipAnonymousSignIn) {
                     setIsSigningInAnonymously(true);
                     try {
-                        const anonymousUser =
-                            await useAuthStore.getState().signInAnonymously();
+                        const anonymousUser = await useAuthStore
+                            .getState()
+                            .signInAnonymously();
                         if (anonymousUser?.uid) {
                             await useSubscriptionStore
                                 .getState()
@@ -120,9 +125,12 @@ export default function RootLayout() {
                         router.replace("/(tabs)");
                     } catch (error) {
                         if (error?.code === "device-restore-unavailable") {
-                            console.warn("Anonymous sign-in blocked:", error.message);
+                            logger.warn(
+                                "Anonymous sign-in blocked:",
+                                error.message,
+                            );
                         } else {
-                            console.error("Anonymous sign-in error:", error);
+                            logger.error("Anonymous sign-in error:", error);
                         }
                         router.replace("/(tabs)");
                     } finally {
@@ -150,7 +158,10 @@ export default function RootLayout() {
         const isAllowedAuthRoute =
             AUTH_ROUTES_ALLOWED_WHEN_SIGNED_IN.has(currentAuthRoute);
 
-        if (!isOnboarded && !(inAuthGroup && currentAuthRoute === "onboarding")) {
+        if (
+            !isOnboarded &&
+            !(inAuthGroup && currentAuthRoute === "onboarding")
+        ) {
             router.replace("/(auth)/onboarding");
             return;
         }
@@ -174,9 +185,8 @@ export default function RootLayout() {
 
         const ensureGuestSession = async () => {
             try {
-                const { AuthService } = await import(
-                    "../src/services/authService"
-                );
+                const { AuthService } =
+                    await import("../src/services/authService");
                 const authUser = await AuthService.ensureAuthenticated();
                 if (cancelled || !authUser?.uid) return;
 
@@ -184,7 +194,7 @@ export default function RootLayout() {
                 await useSubscriptionStore.getState().initialize(authUser.uid);
                 await useSubscriptionStore.getState().syncUser(authUser.uid);
             } catch (error) {
-                console.error("Background guest session error:", error);
+                logger.error("Background guest session error:", error);
             }
         };
 
@@ -201,7 +211,12 @@ export default function RootLayout() {
     }, [user?.uid]);
 
     useEffect(() => {
-        if (!isNavigationReady || isSigningInAnonymously || !isOnboarded || !user?.uid) {
+        if (
+            !isNavigationReady ||
+            isSigningInAnonymously ||
+            !isOnboarded ||
+            !user?.uid
+        ) {
             return;
         }
 
@@ -224,13 +239,15 @@ export default function RootLayout() {
     useEffect(() => {
         if (!isNavigationReady) return;
 
-        import("../src/store/settingsStore")
-            .then(({ useSettingsStore }) =>
-                useSettingsStore
+        (async () => {
+            try {
+                const { useSettingsStore } =
+                    await import("../src/store/settingsStore");
+                await useSettingsStore
                     .getState()
-                    .syncDetectedCity({ silent: true }),
-            )
-            .catch(() => {});
+                    .syncDetectedCity({ silent: true });
+            } catch {}
+        })();
     }, [isNavigationReady]);
 
     useEffect(() => {
@@ -265,30 +282,27 @@ export default function RootLayout() {
                     );
                 }
 
-                const { PrayerNotificationService } = await import(
-                    "../src/services/prayerNotificationService"
-                );
+                const { PrayerNotificationService } =
+                    await import("../src/services/prayerNotificationService");
                 await PrayerNotificationService.setupFaithReminders();
 
                 try {
-                    const { AndroidWidgetService } = await import(
-                        "../src/services/androidWidgetService"
-                    );
+                    const { AndroidWidgetService } =
+                        await import("../src/services/androidWidgetService");
                     AndroidWidgetService.syncPrayerWidget().catch(() => {});
                 } catch (widgetError) {
-                    console.warn("Android widget sync skipped:", widgetError);
+                    logger.warn("Android widget sync skipped:", widgetError);
                 }
 
-                const { NotificationService } = await import(
-                    "../src/services/notificationService"
-                );
+                const { NotificationService } =
+                    await import("../src/services/notificationService");
                 const pending =
                     await NotificationService.getPendingNotifications();
-                console.log(
+                logger.info(
                     `Faith reminders refreshed (${pending.length} scheduled)`,
                 );
             } catch (error) {
-                console.warn("Failed to refresh faith reminders:", error);
+                logger.warn("Failed to refresh faith reminders:", error);
             }
         };
 

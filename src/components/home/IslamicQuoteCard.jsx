@@ -1,16 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-    View,
-    StyleSheet,
-    FlatList,
-    Dimensions,
-} from "react-native";
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
+import logger from "../../services/logger";
+import { View, StyleSheet, FlatList, Dimensions } from "react-native";
 import { Text, Button, ActivityIndicator } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { theme } from "../../constants/theme";
+import { theme, glass } from "../../theme";
 import { GlassDashboardCard } from "../ui/GlassDashboardCard";
-import { glass } from "../../constants/glass";
 import { usePaywallAction } from "../../hooks/usePaywallAction";
 import { getDailyVerseBatch, getDateKey } from "../../utils/dailyQuran";
 import { aiService } from "../../services/aiService";
@@ -53,8 +54,7 @@ const QuoteSlide = ({
             <Button
                 mode="outlined"
                 onPress={withPaywallCheck(
-                    () =>
-                        openChatWithPrompt(buildExplainVersePrompt(item)),
+                    () => openChatWithPrompt(buildExplainVersePrompt(item)),
                     paywallOpts,
                 )}
                 textColor="#fff"
@@ -145,7 +145,7 @@ export const IslamicQuoteCard = ({ placement = null }) => {
                 category,
             });
         } catch (error) {
-            console.error("Error sharing reflection:", error);
+            logger.error("Error sharing reflection:", error);
         } finally {
             setSharing(false);
             setShareTarget(null);
@@ -182,7 +182,9 @@ export const IslamicQuoteCard = ({ placement = null }) => {
                             size={22}
                             color="#fff"
                         />
-                        <Text style={styles.title}>Today&apos;s Reflections</Text>
+                        <Text style={styles.title}>
+                            Today&apos;s Reflections
+                        </Text>
                     </View>
                 </View>
 
@@ -201,9 +203,12 @@ export const IslamicQuoteCard = ({ placement = null }) => {
                         <QuoteSlide
                             item={item}
                             category={
-                                categories[categoryCacheKey(item)] ?? "Quranic Wisdom"
+                                categories[categoryCacheKey(item)] ??
+                                "Quranic Wisdom"
                             }
-                            loadingCategory={!categories[categoryCacheKey(item)]}
+                            loadingCategory={
+                                !categories[categoryCacheKey(item)]
+                            }
                             paywallOpts={paywallOpts}
                             withPaywallCheck={withPaywallCheck}
                             onShare={handleShare}

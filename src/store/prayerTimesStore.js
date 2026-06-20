@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PrayerService } from "../services/prayerService";
 import { LocationService } from "../services/locationService";
 import { useSettingsStore } from "./settingsStore";
+import logger from "../services/logger";
 
 const CACHE_KEY = "prayer_times_cache_v1";
 const prayerService = PrayerService.getInstance();
@@ -20,7 +21,10 @@ const serializeTimes = (times) =>
 const deserializeTimes = (times) =>
     Object.fromEntries(
         Object.entries(times).map(([key, value]) => {
-            if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+            if (
+                typeof value === "string" &&
+                /^\d{4}-\d{2}-\d{2}T/.test(value)
+            ) {
                 return [key, new Date(value)];
             }
             return [key, value];
@@ -42,7 +46,10 @@ export const usePrayerTimesStore = create((set, get) => ({
 
         set({
             nextPrayer: prayerService.getNextPrayer(prayerTimes, location),
-            currentPrayer: prayerService.getCurrentPrayer(prayerTimes, location),
+            currentPrayer: prayerService.getCurrentPrayer(
+                prayerTimes,
+                location,
+            ),
         });
     },
 
@@ -74,7 +81,7 @@ export const usePrayerTimesStore = create((set, get) => ({
                 get().applyCache(JSON.parse(raw));
             }
         } catch (error) {
-            console.warn("Prayer cache hydrate failed:", error);
+            logger.warn("Prayer cache hydrate failed:", error);
         }
 
         await get().loadPrayerTimes(false);
@@ -121,12 +128,11 @@ export const usePrayerTimesStore = create((set, get) => ({
                 refreshing: false,
             });
             get().updatePrayerState();
-            const { AndroidWidgetService } = await import(
-                "../services/androidWidgetService"
-            );
+            const { AndroidWidgetService } =
+                await import("../services/androidWidgetService");
             AndroidWidgetService.syncPrayerWidget().catch(() => {});
         } catch (error) {
-            console.error("Error loading prayer times:", error);
+            logger.error("Error loading prayer times:", error);
             set({ loading: false, refreshing: false });
         }
     },

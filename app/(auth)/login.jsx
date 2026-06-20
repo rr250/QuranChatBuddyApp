@@ -14,6 +14,7 @@ import { authStyles as styles } from "../../src/components/auth/authStyles";
 import { LoadingOverlay } from "../../src/components/common/LoadingOverlay";
 import { SocialLoginButtons } from "../../src/components/auth/SocialLoginButtons";
 import { validateEmail, validatePassword } from "../../src/utils/validation";
+import logger from "../../src/services/logger";
 
 export default function LoginScreen() {
     const [email, setEmail] = useState("");
@@ -39,7 +40,7 @@ export default function LoginScreen() {
             await signInWithEmail(email.trim(), password);
             router.replace("/(tabs)");
         } catch (err) {
-            console.error("Login error:", err);
+            logger.error("Login error:", err);
         }
     };
 

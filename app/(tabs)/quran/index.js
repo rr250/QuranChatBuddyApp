@@ -10,9 +10,12 @@ import {
     ActivityIndicator,
     Alert,
 } from "react-native";
-import { ScreenShell, screenContentPadding } from "../../../src/components/navigation/ScreenShell";
-import { glass } from "../../../src/constants/glass";
-import { theme } from "../../../src/constants/theme";
+import {
+    ScreenShell,
+    screenContentPadding,
+} from "../../../src/components/navigation/ScreenShell";
+import { glass } from "../../../src/theme";
+import { theme } from "../../../src/theme";
 import { useQuran } from "../../../src/hooks/useQuran";
 import { useRouter } from "expo-router";
 
@@ -36,7 +39,7 @@ const QuranListScreen = () => {
                     surah.englishNameTranslation
                         .toLowerCase()
                         .includes(searchQuery.toLowerCase()) ||
-                    surah.number.toString().includes(searchQuery)
+                    surah.number.toString().includes(searchQuery),
             );
             setFilteredSurahs(filtered);
         }
@@ -124,7 +127,10 @@ const QuranListScreen = () => {
             <ScreenShell title="Holy Quran" subtitle="Something went wrong">
                 <View style={styles.errorContainer}>
                     <Text style={styles.errorText}>{error}</Text>
-                    <TouchableOpacity style={styles.retryButton} onPress={refreshSurahs}>
+                    <TouchableOpacity
+                        style={styles.retryButton}
+                        onPress={refreshSurahs}
+                    >
                         <Text style={styles.retryButtonText}>Retry</Text>
                     </TouchableOpacity>
                 </View>
@@ -140,7 +146,10 @@ const QuranListScreen = () => {
                 renderItem={renderSurahItem}
                 keyExtractor={(item) => item.number.toString()}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={[styles.listContent, screenContentPadding]}
+                contentContainerStyle={[
+                    styles.listContent,
+                    screenContentPadding,
+                ]}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
             />
         </ScreenShell>

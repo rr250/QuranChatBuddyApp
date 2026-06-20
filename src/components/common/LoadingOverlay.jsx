@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, Modal } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
-import { theme } from '../../constants/theme';
+import { theme } from '../../theme';
 
 export const LoadingOverlay = ({ visible, message = 'Loading...' }) => {
   if (!visible) return null;

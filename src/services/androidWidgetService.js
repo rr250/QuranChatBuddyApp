@@ -3,6 +3,7 @@ import { requestWidgetUpdate } from "react-native-android-widget";
 import { ANDROID_PRAYER_WIDGET_NAME } from "../constants/androidWidget";
 import { loadPrayerWidgetData } from "../widgets/prayerTimesWidgetData";
 import { buildPrayerTimesAndroidWidget } from "../widgets/PrayerTimesAndroidWidget";
+import logger from "./logger";
 
 export class AndroidWidgetService {
     static isSupported() {
@@ -24,7 +25,7 @@ export class AndroidWidgetService {
                 widgetNotFound: () => {},
             });
         } catch (error) {
-            console.warn("Android widget sync failed:", error);
+            logger.warn("Android widget sync failed:", error);
         }
     }
 }

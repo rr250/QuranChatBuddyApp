@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Image, ImageBackground, StyleSheet, Text } from "react-native";
 import { APP_SHARE_URL } from "../../constants/share";
-import { theme } from "../../constants/theme";
+import { theme } from "../../theme";
 
 const SHARE_WIDTH = 1080;
 const SHARE_HEIGHT = 1080;
@@ -27,13 +27,17 @@ export const VerseShareCard = React.forwardRef(({ verse, category }, ref) => {
 
                     <View style={styles.verseBlock}>
                         {category ? (
-                            <Text style={styles.category}>{category.toUpperCase()}</Text>
+                            <Text style={styles.category}>
+                                {category.toUpperCase()}
+                            </Text>
                         ) : null}
                         <Text style={styles.arabic}>{verse.arabicText}</Text>
                         <Text style={styles.translation}>
                             &quot;{verse.translation}&quot;
                         </Text>
-                        <Text style={styles.reference}>— {verse.reference}</Text>
+                        <Text style={styles.reference}>
+                            — {verse.reference}
+                        </Text>
                     </View>
 
                     <Text style={styles.url}>{APP_SHARE_URL}</Text>

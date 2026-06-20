@@ -1,8 +1,8 @@
-// src/hooks/useQuran.js - React hooks for Quran functionality
 import { useState, useEffect, useCallback } from "react";
 import { quranService } from "../services/quranService";
 import { AuthService } from "../services/authService";
 import { useAuthStore } from "../store/authStore";
+import logger from "../services/logger";
 
 export const useQuran = () => {
     const [surahs, setSurahs] = useState([]);
@@ -18,7 +18,7 @@ export const useQuran = () => {
             const surahList = await quranService.getAllSurahs();
             setSurahs(surahList);
         } catch (error) {
-            console.error("Error loading Surahs:", error);
+            logger.error("Error loading Surahs:", error);
             setError("Failed to load Surahs. Please check your connection.");
         } finally {
             setLoading(false);
@@ -37,7 +37,7 @@ export const useQuran = () => {
             const userProgress = await quranService.getUserProgress();
             setProgress(userProgress);
         } catch (error) {
-            console.error("Error loading user progress:", error);
+            logger.error("Error loading user progress:", error);
         }
     }, []);
 
@@ -87,7 +87,7 @@ export const useSurah = (surahNumber) => {
             setReadVerses(read);
             setFavoriteVerses(favorited);
         } catch (error) {
-            console.error("Error loading Surah:", error);
+            logger.error("Error loading Surah:", error);
             setError("Failed to load Surah. Please check your connection.");
         } finally {
             setLoading(false);
@@ -101,10 +101,10 @@ export const useSurah = (surahNumber) => {
                 await quranService.markVerseAsRead(surahNumber, verseNumber);
                 setReadVerses((prev) => new Set([...prev, verseNumber]));
             } catch (error) {
-                console.error("Error marking verse as read:", error);
+                logger.error("Error marking verse as read:", error);
             }
         },
-        [surahNumber]
+        [surahNumber],
     );
 
     // Toggle favorite verse
@@ -112,7 +112,7 @@ export const useSurah = (surahNumber) => {
         async (verseNumber) => {
             try {
                 const verse = surah?.verses.find(
-                    (v) => v.numberInSurah === verseNumber
+                    (v) => v.numberInSurah === verseNumber,
                 );
                 if (!verse) return;
 
@@ -121,7 +121,7 @@ export const useSurah = (surahNumber) => {
                 if (isFavorited) {
                     await quranService.removeFromFavorites(
                         surahNumber,
-                        verseNumber
+                        verseNumber,
                     );
                     setFavoriteVerses((prev) => {
                         const newSet = new Set(prev);
@@ -133,17 +133,17 @@ export const useSurah = (surahNumber) => {
                         surahNumber,
                         verseNumber,
                         verse.text,
-                        verse.translation
+                        verse.translation,
                     );
                     setFavoriteVerses(
-                        (prev) => new Set([...prev, verseNumber])
+                        (prev) => new Set([...prev, verseNumber]),
                     );
                 }
             } catch (error) {
-                console.error("Error toggling favorite verse:", error);
+                logger.error("Error toggling favorite verse:", error);
             }
         },
-        [surahNumber, surah, favoriteVerses]
+        [surahNumber, surah, favoriteVerses],
     );
 
     // Mark entire Surah as completed
@@ -155,7 +155,7 @@ export const useSurah = (surahNumber) => {
             setReadVerses(read);
             setFavoriteVerses(favorited);
         } catch (error) {
-            console.error("Error marking Surah as completed:", error);
+            logger.error("Error marking Surah as completed:", error);
         }
     }, [surahNumber]);
 
@@ -214,9 +214,9 @@ export const useQuranStats = () => {
             setHistory(historyData);
             setFavorites(favoritesData);
         } catch (error) {
-            console.error("Error loading Quran stats:", error);
+            logger.error("Error loading Quran stats:", error);
             setError(
-                "Failed to load statistics. Please check your connection."
+                "Failed to load statistics. Please check your connection.",
             );
         } finally {
             setLoading(false);
@@ -259,11 +259,11 @@ export const useQuranSearch = () => {
 
             const searchResults = await quranService.searchVerses(
                 searchQuery,
-                language
+                language,
             );
             setResults(searchResults);
         } catch (error) {
-            console.error("Error searching verses:", error);
+            logger.error("Error searching verses:", error);
             setError("Search failed. Please try again.");
             setResults({ count: 0, matches: [] });
         } finally {

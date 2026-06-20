@@ -14,7 +14,10 @@ import {
     Linking,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+    SafeAreaView,
+    useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Audio } from "expo-av";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -26,14 +29,15 @@ import { AppBackground } from "../../src/components/ui/Glass";
 import { AppLogo } from "../../src/components/common/AppLogo";
 import { MessageBubble } from "../../src/components/chat/MessageBubble";
 import { ScreenHeader } from "../../src/components/navigation/ScreenHeader";
-import { glass } from "../../src/constants/glass";
-import { theme, spacing } from "../../src/constants/theme";
+import { glass } from "../../src/theme";
+import { theme, spacing } from "../../src/theme";
 import { useSettingsStore } from "../../src/store/settingsStore";
 import { LocationService } from "../../src/services/locationService";
 import { NotificationService } from "../../src/services/notificationService";
 import { usePaywallStore } from "../../src/store/paywallStore";
 import { APP_LINKS } from "../../src/constants/appLinks";
 import { FaithReminderPreview } from "../../src/components/notifications/FaithReminderPreview";
+import logger from "../../src/services/logger";
 import { PrayerTimeWidget } from "../../src/components/prayer/PrayerTimeWidget";
 
 const ONBOARDING_INTRO = [
@@ -74,8 +78,7 @@ const ONBOARDING_QUESTIONS = [
     {
         id: "prayer_frequency",
         type: "choice",
-        message:
-            "Thank you for sharing. How often do you currently pray?",
+        message: "Thank you for sharing. How often do you currently pray?",
         options: [
             {
                 label: "All 5 daily prayers",
@@ -93,8 +96,7 @@ const ONBOARDING_QUESTIONS = [
     {
         id: "quran_reading",
         type: "choice",
-        message:
-            "And how often do you read or spend time with the Quran?",
+        message: "And how often do you read or spend time with the Quran?",
         options: [
             { label: "Regularly", value: "Regularly" },
             { label: "Occasionally", value: "Occasionally" },
@@ -136,7 +138,8 @@ export default function Onboarding() {
     const [introIndex, setIntroIndex] = useState(0);
     const [introComplete, setIntroComplete] = useState(false);
     const [questionRevealed, setQuestionRevealed] = useState(false);
-    const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
+    const [isRequestingPermissions, setIsRequestingPermissions] =
+        useState(false);
 
     // Audio state
     const [isMusicPlaying, setIsMusicPlaying] = useState(false);
@@ -222,7 +225,7 @@ export default function Onboarding() {
                 setIsMusicPlaying(true);
             }
         } catch (error) {
-            console.log("Error toggling music:", error);
+            logger.warn("Error toggling music:", error);
         }
     };
 
@@ -231,7 +234,14 @@ export default function Onboarding() {
         if (phase === "chat") {
             scrollChatToEnd();
         }
-    }, [messages, phase, questionRevealed, currentQuestionIndex, scrollChatToEnd, scrollToActiveQuestion]);
+    }, [
+        messages,
+        phase,
+        questionRevealed,
+        currentQuestionIndex,
+        scrollChatToEnd,
+        scrollToActiveQuestion,
+    ]);
 
     useEffect(() => {
         if (phase === "chat" && questionRevealed) {
@@ -318,7 +328,9 @@ export default function Onboarding() {
 
     const isQuestionInputReady = (question) => {
         if (!question || !questionRevealed) return false;
-        return messages.some((message) => message.id === `question-${question.id}`);
+        return messages.some(
+            (message) => message.id === `question-${question.id}`,
+        );
     };
 
     // Handle text input submit
@@ -422,13 +434,16 @@ export default function Onboarding() {
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = setTimeout(async () => {
             try {
-                await AsyncStorage.setItem("onboarding_data", JSON.stringify(data));
+                await AsyncStorage.setItem(
+                    "onboarding_data",
+                    JSON.stringify(data),
+                );
                 await AsyncStorage.setItem(
                     "onboarding_timestamp",
                     new Date().toISOString(),
                 );
             } catch (error) {
-                console.error("Error saving data:", error);
+                logger.error("Error saving data:", error);
             }
         }, 300);
     };
@@ -448,10 +463,12 @@ export default function Onboarding() {
                 await AsyncStorage.setItem(
                     "user_location",
                     JSON.stringify({
-                        latitude: location.coords?.latitude ?? location.latitude,
-                        longitude: location.coords?.longitude ?? location.longitude,
+                        latitude:
+                            location.coords?.latitude ?? location.latitude,
+                        longitude:
+                            location.coords?.longitude ?? location.longitude,
                         timestamp: new Date().toISOString(),
-                    })
+                    }),
                 );
                 await useSettingsStore.getState().applyDeviceLocation(location);
             } else {
@@ -459,7 +476,7 @@ export default function Onboarding() {
                 await useSettingsStore.getState().setUseManualLocation(true);
             }
         } catch (error) {
-            console.error("Error requesting location:", error);
+            logger.error("Error requesting location:", error);
             setLocationStatus("denied");
             await useSettingsStore.getState().setUseManualLocation(true);
         }
@@ -474,24 +491,26 @@ export default function Onboarding() {
             if (granted) {
                 setNotificationStatus("granted");
                 await AsyncStorage.setItem("notifications_enabled", "true");
-                await AsyncStorage.setItem("prayerNotificationsEnabled", "true");
+                await AsyncStorage.setItem(
+                    "prayerNotificationsEnabled",
+                    "true",
+                );
                 await AsyncStorage.setItem("verseNotificationsEnabled", "true");
 
                 NotificationService.registerForPushNotifications().catch(
                     (error) =>
-                        console.warn("Push token registration failed:", error),
+                        logger.warn("Push token registration failed:", error),
                 );
 
-                const { PrayerNotificationService } = await import(
-                    "../../src/services/prayerNotificationService"
-                );
+                const { PrayerNotificationService } =
+                    await import("../../src/services/prayerNotificationService");
                 await PrayerNotificationService.setupFaithReminders();
             } else {
                 setNotificationStatus("denied");
                 await AsyncStorage.setItem("notifications_enabled", "false");
             }
         } catch (error) {
-            console.error("Error requesting notifications:", error);
+            logger.error("Error requesting notifications:", error);
             setNotificationStatus("denied");
         }
     };
@@ -519,7 +538,10 @@ export default function Onboarding() {
                 clearTimeout(saveTimeoutRef.current);
             }
 
-            await AsyncStorage.setItem("onboarding_data", JSON.stringify(userData));
+            await AsyncStorage.setItem(
+                "onboarding_data",
+                JSON.stringify(userData),
+            );
             await AsyncStorage.setItem("onboarding_completed", "true");
             await AsyncStorage.setItem(
                 "onboarding_completed_date",
@@ -532,7 +554,7 @@ export default function Onboarding() {
             try {
                 user = await AuthService.ensureAuthenticated();
             } catch (authError) {
-                console.warn("Onboarding auth failed:", authError);
+                logger.warn("Onboarding auth failed:", authError);
                 user = AuthService.getCurrentUser();
             }
 
@@ -542,7 +564,7 @@ export default function Onboarding() {
                     useAuthStore.getState().setUser(user);
                 }
             } catch (syncError) {
-                console.warn("Onboarding profile sync failed:", syncError);
+                logger.warn("Onboarding profile sync failed:", syncError);
             }
 
             const userName = userData.userName || "";
@@ -551,7 +573,7 @@ export default function Onboarding() {
                 usePaywallStore.getState().showOnboardingPaywall(userName);
             }, 400);
         } catch (error) {
-            console.log("Error completing onboarding:", error);
+            logger.error("Error completing onboarding:", error);
         }
     };
 
@@ -717,33 +739,35 @@ export default function Onboarding() {
     if (phase === "welcome") {
         return (
             <AppBackground>
-            <SafeAreaView style={styles.container}>
-                <StatusBar style="light" />
+                <SafeAreaView style={styles.container}>
+                    <StatusBar style="light" />
 
-                <View style={styles.welcomeContent}>
-                    <AppLogo size={88} />
-                    <Text style={styles.welcomeEyebrow}>Welcome to</Text>
-                    <Text style={styles.title}>Quran Chat Buddy</Text>
-                </View>
+                    <View style={styles.welcomeContent}>
+                        <AppLogo size={88} />
+                        <Text style={styles.welcomeEyebrow}>Welcome to</Text>
+                        <Text style={styles.title}>Quran Chat Buddy</Text>
+                    </View>
 
-                <View style={styles.welcomeFooter}>
-                    <TouchableOpacity
-                        style={styles.primaryCtaButton}
-                        onPress={startPermissions}
-                    >
-                        <Text style={styles.primaryCtaButtonText}>Continue</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.termsText}>
-                        By continuing you agree to our{" "}
-                        <Text
-                            style={styles.termsLink}
-                            onPress={() => Linking.openURL(APP_LINKS.terms)}
+                    <View style={styles.welcomeFooter}>
+                        <TouchableOpacity
+                            style={styles.primaryCtaButton}
+                            onPress={startPermissions}
                         >
-                            Terms & Conditions
+                            <Text style={styles.primaryCtaButtonText}>
+                                Continue
+                            </Text>
+                        </TouchableOpacity>
+                        <Text style={styles.termsText}>
+                            By continuing you agree to our{" "}
+                            <Text
+                                style={styles.termsLink}
+                                onPress={() => Linking.openURL(APP_LINKS.terms)}
+                            >
+                                Terms & Conditions
+                            </Text>
                         </Text>
-                    </Text>
-                </View>
-            </SafeAreaView>
+                    </View>
+                </SafeAreaView>
             </AppBackground>
         );
     }
@@ -752,85 +776,90 @@ export default function Onboarding() {
     if (phase === "chat") {
         return (
             <AppBackground>
-            <SafeAreaView style={styles.container} edges={["top"]}>
-                <StatusBar style="light" />
+                <SafeAreaView style={styles.container} edges={["top"]}>
+                    <StatusBar style="light" />
 
-                <ScreenHeader
-                    title="Meet Quran Chat Buddy"
-                    subtitle={
-                        introComplete
-                            ? `Question ${Math.min(
-                                  currentQuestionIndex + 1,
-                                  ONBOARDING_QUESTIONS.length,
-                              )} of ${ONBOARDING_QUESTIONS.length}`
-                            : "Getting started"
-                    }
-                    showHome={false}
-                    leftAction={
-                        <TouchableOpacity
-                            style={styles.headerIconButton}
-                            onPress={toggleMusic}
-                        >
-                            <Ionicons
-                                name={
-                                    isMusicPlaying
-                                        ? "volume-high"
-                                        : "volume-mute"
-                                }
-                                size={20}
-                                color="#fff"
-                            />
-                        </TouchableOpacity>
-                    }
-                />
+                    <ScreenHeader
+                        title="Meet Quran Chat Buddy"
+                        subtitle={
+                            introComplete
+                                ? `Question ${Math.min(
+                                      currentQuestionIndex + 1,
+                                      ONBOARDING_QUESTIONS.length,
+                                  )} of ${ONBOARDING_QUESTIONS.length}`
+                                : "Getting started"
+                        }
+                        showHome={false}
+                        leftAction={
+                            <TouchableOpacity
+                                style={styles.headerIconButton}
+                                onPress={toggleMusic}
+                            >
+                                <Ionicons
+                                    name={
+                                        isMusicPlaying
+                                            ? "volume-high"
+                                            : "volume-mute"
+                                    }
+                                    size={20}
+                                    color="#fff"
+                                />
+                            </TouchableOpacity>
+                        }
+                    />
 
-                <KeyboardAvoidingView
-                    style={styles.chatContent}
-                    behavior="padding"
-                    keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
-                >
-                    <ScrollView
-                        ref={scrollViewRef}
-                        style={styles.messagesContainer}
-                        contentContainerStyle={[
-                            styles.messagesContent,
-                            { paddingBottom: spacing.md },
-                        ]}
-                        showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
-                        keyboardDismissMode="interactive"
-                        onContentSizeChange={() => {
-                            if (questionRevealed) {
-                                scrollToActiveQuestion();
-                            } else {
-                                scrollChatToEnd();
-                            }
-                        }}
+                    <KeyboardAvoidingView
+                        style={styles.chatContent}
+                        behavior="padding"
+                        keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
                     >
-                        {messages.map((message, index) =>
-                            renderMessage(message, index)
-                        )}
+                        <ScrollView
+                            ref={scrollViewRef}
+                            style={styles.messagesContainer}
+                            contentContainerStyle={[
+                                styles.messagesContent,
+                                { paddingBottom: spacing.md },
+                            ]}
+                            showsVerticalScrollIndicator={false}
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="interactive"
+                            onContentSizeChange={() => {
+                                if (questionRevealed) {
+                                    scrollToActiveQuestion();
+                                } else {
+                                    scrollChatToEnd();
+                                }
+                            }}
+                        >
+                            {messages.map((message, index) =>
+                                renderMessage(message, index),
+                            )}
 
-                        {isTyping ? (
-                            <View style={styles.typingContainer}>
-                                <ActivityIndicator size="small" color="#fff" />
-                                <Text style={styles.typingText}>Thinking...</Text>
-                            </View>
-                        ) : null}
+                            {isTyping ? (
+                                <View style={styles.typingContainer}>
+                                    <ActivityIndicator
+                                        size="small"
+                                        color="#fff"
+                                    />
+                                    <Text style={styles.typingText}>
+                                        Thinking...
+                                    </Text>
+                                </View>
+                            ) : null}
 
-                        {questionRevealed ? (
-                            <View
-                                onLayout={(event) => {
-                                    activeQuestionAnchorY.current =
-                                        event.nativeEvent.layout.y;
-                                }}
-                            />
-                        ) : null}
-                    </ScrollView>
+                            {questionRevealed ? (
+                                <View
+                                    onLayout={(event) => {
+                                        activeQuestionAnchorY.current =
+                                            event.nativeEvent.layout.y;
+                                    }}
+                                />
+                            ) : null}
+                        </ScrollView>
 
-                    {renderInputArea()}
-                </KeyboardAvoidingView>
-            </SafeAreaView>
+                        {renderInputArea()}
+                    </KeyboardAvoidingView>
+                </SafeAreaView>
             </AppBackground>
         );
     }
@@ -839,58 +868,63 @@ export default function Onboarding() {
     if (phase === "permissions") {
         return (
             <AppBackground>
-            <SafeAreaView style={styles.container} edges={["top"]}>
-                <StatusBar style="light" />
+                <SafeAreaView style={styles.container} edges={["top"]}>
+                    <StatusBar style="light" />
 
-                <ScrollView
-                    style={styles.permissionsScroll}
-                    contentContainerStyle={[
-                        styles.permissionsContent,
-                        { paddingBottom: spacing.lg },
-                    ]}
-                    showsVerticalScrollIndicator={false}
-                >
-                    <Text style={styles.permissionsHeadline}>
-                        Enable notifications and location permission to get the
-                        most out of Quran Chat Buddy
-                    </Text>
-
-                    <Text style={styles.previewSectionTitle}>
-                        Faith Reminders
-                    </Text>
-                    <FaithReminderPreview />
-
-                    <Text style={styles.previewSectionTitle}>
-                        Prayer Time Widget
-                    </Text>
-                    <PrayerTimeWidget preview />
-                </ScrollView>
-
-                <View
-                    style={[
-                        styles.permissionsFooter,
-                        { paddingBottom: Math.max(insets.bottom, spacing.md) },
-                    ]}
-                >
-                    <TouchableOpacity
-                        style={[
-                            styles.primaryCtaButton,
-                            isRequestingPermissions &&
-                                styles.primaryCtaButtonDisabled,
+                    <ScrollView
+                        style={styles.permissionsScroll}
+                        contentContainerStyle={[
+                            styles.permissionsContent,
+                            { paddingBottom: spacing.lg },
                         ]}
-                        onPress={handlePermissionsContinue}
-                        disabled={isRequestingPermissions}
+                        showsVerticalScrollIndicator={false}
                     >
-                        {isRequestingPermissions ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <Text style={styles.primaryCtaButtonText}>
-                                Continue
-                            </Text>
-                        )}
-                    </TouchableOpacity>
-                </View>
-            </SafeAreaView>
+                        <Text style={styles.permissionsHeadline}>
+                            Enable notifications and location permission to get
+                            the most out of Quran Chat Buddy
+                        </Text>
+
+                        <Text style={styles.previewSectionTitle}>
+                            Faith Reminders
+                        </Text>
+                        <FaithReminderPreview />
+
+                        <Text style={styles.previewSectionTitle}>
+                            Prayer Time Widget
+                        </Text>
+                        <PrayerTimeWidget preview />
+                    </ScrollView>
+
+                    <View
+                        style={[
+                            styles.permissionsFooter,
+                            {
+                                paddingBottom: Math.max(
+                                    insets.bottom,
+                                    spacing.md,
+                                ),
+                            },
+                        ]}
+                    >
+                        <TouchableOpacity
+                            style={[
+                                styles.primaryCtaButton,
+                                isRequestingPermissions &&
+                                    styles.primaryCtaButtonDisabled,
+                            ]}
+                            onPress={handlePermissionsContinue}
+                            disabled={isRequestingPermissions}
+                        >
+                            {isRequestingPermissions ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.primaryCtaButtonText}>
+                                    Continue
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
             </AppBackground>
         );
     }

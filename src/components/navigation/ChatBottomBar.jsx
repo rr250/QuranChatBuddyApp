@@ -11,8 +11,7 @@ import { Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, usePathname } from "expo-router";
-import { glass } from "../../constants/glass";
-import { theme } from "../../constants/theme";
+import { glass, theme } from "../../theme";
 import { useChatComposerStore } from "../../store/chatComposerStore";
 import { usePaywallAction } from "../../hooks/usePaywallAction";
 import { PAYWALL_PLACEMENTS } from "../../constants/paywallConfig";
@@ -162,7 +161,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
-        backgroundColor: "rgba(255, 255, 255, 0.14)",
+        backgroundColor: glass.background,
         borderRadius: 24,
         paddingHorizontal: 14,
         minHeight: 48,
@@ -171,7 +170,7 @@ const styles = StyleSheet.create({
     },
     input: {
         flex: 1,
-        color: "#fff",
+        color: theme.colors.onPrimary,
         fontSize: 15,
         paddingVertical: 8,
     },
@@ -192,7 +191,7 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "rgba(255, 255, 255, 0.14)",
+        backgroundColor: glass.background,
         borderWidth: 1,
         borderColor: glass.cardBorder,
     },
@@ -206,7 +205,7 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.5)",
     },
     menuSheet: {
-        backgroundColor: "rgba(255,255,255,0.97)",
+        backgroundColor: theme.colors.surface,
         borderRadius: glass.radiusLg,
         padding: theme.spacing.lg,
         borderWidth: 1,

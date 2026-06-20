@@ -8,6 +8,7 @@ import {
 } from "firebase/remote-config";
 import { getFirebaseApp } from "./firebase";
 import { createNativeRemoteConfigClient } from "./remoteConfigNative";
+import logger from "./logger";
 import {
     DEFAULT_REMOTE_CONFIG_VALUES,
     REMOTE_CONFIG_KEYS,
@@ -86,7 +87,7 @@ const getValueSources = () => {
     }
     if (!remoteConfig) {
         return Object.fromEntries(
-            Object.values(REMOTE_CONFIG_KEYS).map((key) => [key, "default"])
+            Object.values(REMOTE_CONFIG_KEYS).map((key) => [key, "default"]),
         );
     }
 
@@ -95,24 +96,27 @@ const getValueSources = () => {
         Object.values(REMOTE_CONFIG_KEYS).map((key) => [
             key,
             all[key]?.getSource?.() ?? "default",
-        ])
+        ]),
     );
 };
 
-const logRemoteConfigStatus = (event, { activated = null, error = null } = {}) => {
+const logRemoteConfigStatus = (
+    event,
+    { activated = null, error = null } = {},
+) => {
     const values = buildRawValues();
     const sources = getValueSources();
     const remoteKeyCount = Object.values(sources).filter(
-        (source) => source === "remote"
+        (source) => source === "remote",
     ).length;
 
     if (error) {
-        console.warn(`${LOG_PREFIX} ${event} failed:`, error);
-        console.warn(
-            `${LOG_PREFIX} Using in-app defaults until Remote Config is available`
+        logger.warn(`${LOG_PREFIX} ${event} failed:`, error);
+        logger.warn(
+            `${LOG_PREFIX} Using in-app defaults until Remote Config is available`,
         );
     } else {
-        console.log(`${LOG_PREFIX} ${event} succeeded`);
+        logger.info(`${LOG_PREFIX} ${event} succeeded`);
         const status = nativeClient
             ? nativeClient.getStatus()
             : remoteConfig
@@ -122,7 +126,7 @@ const logRemoteConfigStatus = (event, { activated = null, error = null } = {}) =
                 }
               : null;
 
-        console.log(`${LOG_PREFIX} Connection:`, {
+        logger.info(`${LOG_PREFIX} Connection:`, {
             platform: Platform.OS,
             transport: useWebSdk ? "firebase-web-sdk" : "firebase-rest-api",
             ...status,
@@ -132,19 +136,22 @@ const logRemoteConfigStatus = (event, { activated = null, error = null } = {}) =
         });
     }
 
-    console.log(`${LOG_PREFIX} Active values:`, values);
-    console.log(`${LOG_PREFIX} Value sources:`, sources);
+    logger.info(`${LOG_PREFIX} Active values:`, values);
+    logger.info(`${LOG_PREFIX} Value sources:`, sources);
 };
 
 const initializeWebRemoteConfig = async () => {
     const supported = await isSupported();
     if (!supported) {
-        throw new Error("Firebase web Remote Config is not supported in this environment");
+        throw new Error(
+            "Firebase web Remote Config is not supported in this environment",
+        );
     }
 
     const app = getFirebaseApp();
     remoteConfig = getRemoteConfig(app);
-    remoteConfig.settings.minimumFetchIntervalMillis = getMinimumFetchInterval();
+    remoteConfig.settings.minimumFetchIntervalMillis =
+        getMinimumFetchInterval();
     remoteConfig.defaultConfig = DEFAULT_REMOTE_CONFIG_VALUES;
 
     return fetchAndActivate(remoteConfig);

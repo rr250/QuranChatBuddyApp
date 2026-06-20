@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
 import { Text, Card } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { theme } from "../../constants/theme";
+import { theme } from "../../theme";
 
 const { width } = Dimensions.get("window");
 

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import * as Google from "expo-auth-session/providers/google";
 import { getGoogleRedirectUri } from "../utils/googleAuth";
+import logger from "../services/logger";
 
 /**
  * Google Sign-In via expo-auth-session (ID token for Firebase).
@@ -23,8 +24,8 @@ export const useGoogleAuth = () => {
 
     useEffect(() => {
         if (__DEV__) {
-            console.log("[Google Auth] redirect URI:", redirectUri);
-            console.log("[Google Auth] request ready:", Boolean(request));
+            logger.debug("[Google Auth] redirect URI:", redirectUri);
+            logger.debug("[Google Auth] request ready:", Boolean(request));
         }
     }, [redirectUri, request]);
 

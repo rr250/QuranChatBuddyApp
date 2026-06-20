@@ -1,4 +1,3 @@
-// app/(tabs)/prayer.jsx - Full Prayer Times page with Qibla compass
 import React, { useState, useEffect } from "react";
 import {
     View,
@@ -9,19 +8,19 @@ import {
     TouchableOpacity,
     RefreshControl,
 } from "react-native";
-import { ScreenShell, screenContentPadding } from "../../src/components/navigation/ScreenShell";
-import { GlassSurface } from "../../src/components/ui/Glass";
 import {
-    Text,
-    ProgressBar,
-} from "react-native-paper";
+    ScreenShell,
+    screenContentPadding,
+} from "../../src/components/navigation/ScreenShell";
+import { GlassSurface } from "../../src/components/ui/Glass";
+import { Text, ProgressBar } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { PrayerService } from "../../src/services/prayerService";
 import { PrayerNotificationService } from "../../src/services/prayerNotificationService";
 import { usePrayerTimes } from "../../src/hooks/usePrayerTimes";
-import { theme } from "../../src/constants/theme";
-import { glass } from "../../src/constants/glass";
+import { theme, glass } from "../../src/theme";
 import { Magnetometer } from "expo-sensors";
+import logger from "../../src/services/logger";
 
 const { width } = Dimensions.get("window");
 
@@ -60,8 +59,8 @@ export default function PrayerScreen() {
         if (lastScheduledDayRef.current === scheduleKey) return;
 
         lastScheduledDayRef.current = scheduleKey;
-        PrayerNotificationService.setupFaithReminders().catch(
-            (err) => console.warn("Prayer notification schedule failed:", err),
+        PrayerNotificationService.setupFaithReminders().catch((err) =>
+            logger.warn("Prayer notification schedule failed:", err),
         );
     }, [prayerTimes]);
 
@@ -118,7 +117,7 @@ export default function PrayerScreen() {
     const currentPrayerLabel =
         typeof currentPrayer === "string"
             ? currentPrayer
-            : currentPrayer?.name ?? "—";
+            : (currentPrayer?.name ?? "—");
 
     const allPrayers = prayerTimes
         ? [
@@ -164,7 +163,9 @@ export default function PrayerScreen() {
                         size={48}
                         color="#fff"
                     />
-                    <Text style={styles.loadingText}>Loading prayer times...</Text>
+                    <Text style={styles.loadingText}>
+                        Loading prayer times...
+                    </Text>
                 </View>
             </ScreenShell>
         );
@@ -173,7 +174,9 @@ export default function PrayerScreen() {
     return (
         <ScreenShell
             title="Prayer Times"
-            subtitle={location?.city ? `${location.city}` : "Salah schedule & Qibla"}
+            subtitle={
+                location?.city ? `${location.city}` : "Salah schedule & Qibla"
+            }
             rightAction={
                 <TouchableOpacity
                     onPress={loadPrayerTimes}
@@ -257,7 +260,7 @@ export default function PrayerScreen() {
                                                                 "0deg",
                                                                 "360deg",
                                                             ],
-                                                        }
+                                                        },
                                                     ),
                                                 },
                                             ],
@@ -459,12 +462,10 @@ export default function PrayerScreen() {
                                             )}
                                         </View>
                                     </View>
-                                    <View
-                                        style={styles.prayerTimeBadge}
-                                    >
+                                    <View style={styles.prayerTimeBadge}>
                                         <Text style={styles.prayerTime}>
                                             {prayerService.formatPrayerTime(
-                                                prayer.time
+                                                prayer.time,
                                             )}
                                         </Text>
                                     </View>
@@ -476,7 +477,9 @@ export default function PrayerScreen() {
 
                 {location && (
                     <GlassSurface style={styles.locationCard}>
-                        <View style={[styles.cardContent, styles.locationContent]}>
+                        <View
+                            style={[styles.cardContent, styles.locationContent]}
+                        >
                             <MaterialCommunityIcons
                                 name="map-marker"
                                 size={20}

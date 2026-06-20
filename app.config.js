@@ -8,9 +8,12 @@ export default {
         icon: "./assets/icon.png",
         userInterfaceStyle: "light",
         splash: {
-            image: "./assets/icon.png",
-            resizeMode: "contain",
-            backgroundColor: "#2E8B57",
+            image: "./assets/splash.png",
+            resizeMode: "cover",
+            backgroundColor: "#FFFFFF",
+        },
+        web: {
+            favicon: "./assets/favicon.png",
         },
         assetBundlePatterns: ["**/*"],
         ios: {
@@ -32,39 +35,41 @@ export default {
             softwareKeyboardLayoutMode: "resize",
             adaptiveIcon: {
                 foregroundImage: "./assets/icon.png",
-                backgroundColor: "#2E8B57",
+                backgroundColor: "#FFFFFF",
             },
             package: "com.quranchatbuddy.meccatime",
             googleServicesFile:
                 process.env.EXPO_PUBLIC_GOOGLE_SERVICES_JSON ??
                 "./google-services.json",
             permissions: [
-                "ACCESS_COARSE_LOCATION",
-                "ACCESS_FINE_LOCATION",
-                "RECEIVE_BOOT_COMPLETED",
-                "VIBRATE",
-                "WAKE_LOCK",
                 "android.permission.ACCESS_COARSE_LOCATION",
                 "android.permission.ACCESS_FINE_LOCATION",
                 "android.permission.ACCESS_BACKGROUND_LOCATION",
                 "android.permission.FOREGROUND_SERVICE",
                 "android.permission.FOREGROUND_SERVICE_LOCATION",
                 "android.permission.POST_NOTIFICATIONS",
-                "android.permission.SCHEDULE_EXACT_ALARM",
+                "android.permission.RECEIVE_BOOT_COMPLETED",
                 "android.permission.USE_EXACT_ALARM",
+                "android.permission.VIBRATE",
+                "android.permission.WAKE_LOCK",
                 "com.android.vending.BILLING",
             ],
-        },
-        web: {
-            favicon: "./assets/favicon.png",
         },
         plugins: [
             "expo-router",
             [
+                "expo-splash-screen",
+                {
+                    image: "./assets/splash.png",
+                    resizeMode: "cover",
+                    backgroundColor: "#FFFFFF",
+                },
+            ],
+            [
                 "expo-notifications",
                 {
                     icon: "./assets/notification-icon.png",
-                    color: "#2E8B57",
+                    color: "#0C3227",
                     defaultChannel: "default",
                 },
             ],
@@ -72,11 +77,11 @@ export default {
                 "expo-location",
                 {
                     locationAlwaysAndWhenInUsePermission:
-                        "Calculate accurate prayer times...",
+                        "Quran Chat Buddy uses your location to calculate accurate prayer times and Qibla direction.",
                     locationAlwaysPermission:
-                        "Send prayer reminders in background...",
+                        "Quran Chat Buddy needs background location access to send prayer time reminders.",
                     locationWhenInUsePermission:
-                        "Calculate prayer times and Qibla direction...",
+                        "Quran Chat Buddy uses your location to calculate prayer times and Qibla direction.",
                     isAndroidBackgroundLocationEnabled: true,
                 },
             ],

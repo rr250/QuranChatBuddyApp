@@ -4,6 +4,7 @@ import * as Location from "expo-location";
 import { DEFAULT_CITY } from "../constants/prayerOptions";
 import { PrayerService } from "../services/prayerService";
 import { LocationService } from "../services/locationService";
+import logger from "../services/logger";
 
 const STORAGE_KEY = "app_settings_v1";
 
@@ -40,7 +41,7 @@ export const useSettingsStore = create((set, get) => ({
                 set({ hydrated: true });
             }
         } catch (error) {
-            console.warn("Settings hydrate failed:", error);
+            logger.warn("Settings hydrate failed:", error);
             set({ hydrated: true });
         }
     },
@@ -105,7 +106,7 @@ export const useSettingsStore = create((set, get) => ({
             return get().applyDeviceLocation(location);
         } catch (error) {
             if (!silent) {
-                console.warn("Could not sync detected city:", error);
+                logger.warn("Could not sync detected city:", error);
             }
             return null;
         }

@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import logger from "./logger";
 import { NotificationService } from "./notificationService";
 import { getDailyVerse } from "../utils/dailyQuran";
 import {
@@ -20,7 +21,7 @@ export class VerseNotificationService {
             }
             return onboardingPref === "true" || versePref !== "false";
         } catch (error) {
-            console.error("Error checking verse notification settings:", error);
+            logger.error("Error checking verse notification settings:", error);
             return false;
         }
     }
@@ -40,7 +41,7 @@ export class VerseNotificationService {
         try {
             const enabled = await this.areNotificationsEnabled();
             if (!enabled) {
-                console.log("Verse notifications are disabled");
+                logger.info("Verse notifications are disabled");
                 return;
             }
 
@@ -53,7 +54,7 @@ export class VerseNotificationService {
             await this.scheduleVerseNotificationForDate(today);
             await this.scheduleVerseNotificationForDate(tomorrow);
         } catch (error) {
-            console.error("Error setting up verse notifications:", error);
+            logger.error("Error setting up verse notifications:", error);
         }
     }
 
@@ -82,7 +83,7 @@ export class VerseNotificationService {
                 await NotificationService.cancelVerseNotifications();
             }
         } catch (error) {
-            console.error("Error setting verse notifications:", error);
+            logger.error("Error setting verse notifications:", error);
         }
     }
 }

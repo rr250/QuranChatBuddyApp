@@ -10,7 +10,7 @@ import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { theme } from "../../src/constants/theme";
+import { theme, glass } from "../../src/theme";
 import { PrayerTimesCardMini } from "../../src/components/prayer/PrayerTimesCardMini";
 import { QuizDashboard } from "../../src/components/quiz/QuizDashboard";
 import { QuranDashboard } from "../../src/components/quran/QuranDashboard";
@@ -18,7 +18,6 @@ import { QuranVerseCard } from "../../src/components/quran/QuranVerseCard";
 import { IslamicQuoteCard } from "../../src/components/home/IslamicQuoteCard";
 import { AppBackground, GlassSurface } from "../../src/components/ui/Glass";
 import { ScreenHeader } from "../../src/components/navigation/ScreenHeader";
-import { glass } from "../../src/constants/glass";
 import { usePaywallAction } from "../../src/hooks/usePaywallAction";
 import { PAYWALL_PLACEMENTS } from "../../src/constants/paywallConfig";
 
@@ -88,7 +87,10 @@ export default function HomeScreen() {
                     style={styles.content}
                     contentContainerStyle={{ paddingBottom: theme.spacing.lg }}
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                        />
                     }
                     showsVerticalScrollIndicator={false}
                 >
@@ -113,23 +115,31 @@ export default function HomeScreen() {
                     <GlassSurface style={styles.sectionCard}>
                         <View style={styles.sectionContent}>
                             <Text style={styles.arabicGreeting}>
-                                السَّلاَمُ عَلَيْكُمْ وَرَحْمَةُ اللهِ وَبَرَكَاتُهُ
+                                السَّلاَمُ عَلَيْكُمْ وَرَحْمَةُ اللهِ
+                                وَبَرَكَاتُهُ
                             </Text>
                             <Text style={styles.greetingTranslation}>
-                                Peace be upon you and Allah&apos;s mercy and blessings
+                                Peace be upon you and Allah&apos;s mercy and
+                                blessings
                             </Text>
                         </View>
                     </GlassSurface>
                     <PrayerTimesCardMini />
-                    <QuranVerseCard placement={PAYWALL_PLACEMENTS.DAILY_VERSE_CLICK} />
+                    <QuranVerseCard
+                        placement={PAYWALL_PLACEMENTS.DAILY_VERSE_CLICK}
+                    />
                     <QuizDashboard
                         onQuizPress={withPaywallCheck(
                             () => router.push("/(tabs)/quiz"),
                             { placement: PAYWALL_PLACEMENTS.QUIZ_START },
                         )}
                     />
-                    <QuranDashboard onQuranPress={() => router.push("/(tabs)/quran")} />
-                    <IslamicQuoteCard placement={PAYWALL_PLACEMENTS.TODAYS_TOPIC_CLICK} />
+                    <QuranDashboard
+                        onQuranPress={() => router.push("/(tabs)/quran")}
+                    />
+                    <IslamicQuoteCard
+                        placement={PAYWALL_PLACEMENTS.TODAYS_TOPIC_CLICK}
+                    />
                 </ScrollView>
             </SafeAreaView>
         </AppBackground>

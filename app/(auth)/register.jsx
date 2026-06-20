@@ -21,6 +21,7 @@ import {
     validateConfirmPassword,
 } from "../../src/utils/validation";
 import { APP_LINKS } from "../../src/constants/appLinks";
+import logger from "../../src/services/logger";
 
 export default function RegisterScreen() {
     const [formData, setFormData] = useState({
@@ -78,7 +79,7 @@ export default function RegisterScreen() {
             }
             router.replace("/(tabs)");
         } catch (err) {
-            console.error("Sign up error:", err);
+            logger.error("Sign up error:", err);
         }
     };
 

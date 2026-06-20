@@ -3,6 +3,7 @@ import { PrayerService } from "./prayerService";
 import { LocationService } from "./locationService";
 import { VerseNotificationService } from "./verseNotificationService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import logger from "./logger";
 import { formatPrayerNotification } from "../constants/faithNotifications";
 
 const PRAYER_KEYS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
@@ -23,9 +24,9 @@ export class PrayerNotificationService {
     static async initialize() {
         try {
             await this.setupDailyPrayerNotifications();
-            console.log("Prayer notification service initialized");
+            logger.info("Prayer notification service initialized");
         } catch (error) {
-            console.error(
+            logger.error(
                 "Prayer notification service initialization error:",
                 error,
             );
@@ -43,7 +44,7 @@ export class PrayerNotificationService {
         try {
             const notificationsEnabled = await this.areNotificationsEnabled();
             if (!notificationsEnabled) {
-                console.log("Prayer notifications are disabled");
+                logger.info("Prayer notifications are disabled");
                 return;
             }
 
@@ -54,7 +55,7 @@ export class PrayerNotificationService {
                 allowFreshGps: false,
             });
             if (!location) {
-                console.log("Location not available for prayer notifications");
+                logger.info("Location not available for prayer notifications");
                 return;
             }
 
@@ -77,11 +78,11 @@ export class PrayerNotificationService {
             await this.scheduleTomorrowPrayerNotifications(tomorrowPrayers);
 
             const pending = await NotificationService.getPendingNotifications();
-            console.log(
+            logger.info(
                 `Prayer notifications scheduled (${pending.length} total pending)`,
             );
         } catch (error) {
-            console.error("Error setting up prayer notifications:", error);
+            logger.error("Error setting up prayer notifications:", error);
         }
     }
 
@@ -125,7 +126,7 @@ export class PrayerNotificationService {
             }
             return onboardingPref === "true" || prayerPref === "true";
         } catch (error) {
-            console.error("Error checking notification settings:", error);
+            logger.error("Error checking notification settings:", error);
             return false;
         }
     }
@@ -155,7 +156,7 @@ export class PrayerNotificationService {
                 }
             }
         } catch (error) {
-            console.error("Error setting prayer notifications:", error);
+            logger.error("Error setting prayer notifications:", error);
         }
     }
 
@@ -169,7 +170,7 @@ export class PrayerNotificationService {
                 copy.body,
             );
         } catch (error) {
-            console.error("Error scheduling Adhan notification:", error);
+            logger.error("Error scheduling Adhan notification:", error);
         }
     }
 }

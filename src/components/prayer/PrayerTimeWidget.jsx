@@ -3,7 +3,7 @@ import { View, StyleSheet } from "react-native";
 import { Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { GlassSurface } from "../ui/Glass";
-import { theme } from "../../constants/theme";
+import { theme } from "../../theme";
 import {
     PRAYER_WIDGET_ITEMS,
     PRAYER_WIDGET_PREVIEW_TIMES,

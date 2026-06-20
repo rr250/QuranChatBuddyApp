@@ -5,7 +5,8 @@ import { router } from "expo-router";
 import { AuthService } from "../../services/authService";
 import { useAuthStore } from "../../store/authStore";
 import { useGoogleAuth } from "../../hooks/useGoogleAuth";
-import { theme } from "../../constants/theme";
+import { theme } from "../../theme";
+import logger from "../../services/logger";
 
 export const SocialLoginButtons = ({ mode = "signIn" }) => {
     const {
@@ -56,7 +57,7 @@ export const SocialLoginButtons = ({ mode = "signIn" }) => {
             setUser(user);
             navigateHome();
         } catch (error) {
-            console.error("Google auth error:", error);
+            logger.error("Google auth error:", error);
             setError(error.message);
             Alert.alert("Google Sign-In Failed", error.message);
         } finally {
@@ -85,7 +86,7 @@ export const SocialLoginButtons = ({ mode = "signIn" }) => {
         try {
             await promptAsync();
         } catch (error) {
-            console.error("Google sign-in initiation error:", error);
+            logger.error("Google sign-in initiation error:", error);
             Alert.alert("Error", "Failed to start Google sign-in");
         }
     };

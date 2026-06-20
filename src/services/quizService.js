@@ -2,6 +2,7 @@ import { AuthService } from "./authService";
 import { localDataStore } from "../storage/localDataStore";
 import { userSyncService } from "./userSyncService";
 import { quizQuestionBankService } from "./quizQuestionBankService";
+import logger from "./logger";
 import {
     shuffleQuestionOptions,
     pickUnseenQuestions,
@@ -66,26 +67,41 @@ class QuizService {
     async ensureQuizData(userId) {
         const existing = await localDataStore.get(userId, "quiz");
         if (!existing) {
-            await localDataStore.set(userId, "quiz", userSyncService.defaultQuizLocal());
+            await localDataStore.set(
+                userId,
+                "quiz",
+                userSyncService.defaultQuizLocal(),
+            );
         }
     }
 
     async getQuestionHistory(userId) {
         const stored =
-            (await localDataStore.getNested(userId, "quiz", "questionHistory")) ??
-            {};
+            (await localDataStore.getNested(
+                userId,
+                "quiz",
+                "questionHistory",
+            )) ?? {};
         let seenIds = Array.isArray(stored.seenIds) ? stored.seenIds : [];
 
         if (!seenIds.length) {
             const quizResults =
-                (await localDataStore.getNested(userId, "quiz", "quizResults")) ??
-                {};
+                (await localDataStore.getNested(
+                    userId,
+                    "quiz",
+                    "quizResults",
+                )) ?? {};
             seenIds = collectSeenIdsFromQuizResults(quizResults);
             if (seenIds.length) {
-                await localDataStore.setNested(userId, "quiz", "questionHistory", {
-                    seenIds,
-                    backfilledAt: new Date().toISOString(),
-                });
+                await localDataStore.setNested(
+                    userId,
+                    "quiz",
+                    "questionHistory",
+                    {
+                        seenIds,
+                        backfilledAt: new Date().toISOString(),
+                    },
+                );
             }
         }
 
@@ -133,11 +149,7 @@ class QuizService {
         await this.ensureQuizData(userId);
 
         const cacheKey = `dailyQuestions_v3/${today}`;
-        const cached = await localDataStore.getNested(
-            userId,
-            "quiz",
-            cacheKey,
-        );
+        const cached = await localDataStore.getNested(userId, "quiz", cacheKey);
         if (cached) return cached;
 
         const todayQuestions = await this.selectDailyQuestions(
@@ -185,7 +197,8 @@ class QuizService {
         const userId = this.getUserId();
         const today = this.getTodayDateString();
         const normalizedAnswers = answers.filter(Boolean);
-        const totalQuestions = normalizedAnswers.length || this.DAILY_QUESTIONS_COUNT;
+        const totalQuestions =
+            normalizedAnswers.length || this.DAILY_QUESTIONS_COUNT;
         const finalScore =
             typeof score === "number"
                 ? score
@@ -202,7 +215,12 @@ class QuizService {
             percentage: Math.round((finalScore / totalQuestions) * 100),
         };
 
-        await localDataStore.setNested(userId, "quiz", `quizResults/${today}`, result);
+        await localDataStore.setNested(
+            userId,
+            "quiz",
+            `quizResults/${today}`,
+            result,
+        );
         await this.updateSeenIdsFromAnswers(userId, normalizedAnswers);
         await this.updateStreak(score > 0);
         await this.updateUserStats(result);
@@ -214,7 +232,11 @@ class QuizService {
         try {
             const userId = this.getUserId();
             await this.ensureQuizData(userId);
-            const streak = await localDataStore.getNested(userId, "quiz", "stats/streak");
+            const streak = await localDataStore.getNested(
+                userId,
+                "quiz",
+                "stats/streak",
+            );
             return streak ?? { ...EMPTY_STREAK };
         } catch {
             return { ...EMPTY_STREAK };
@@ -240,7 +262,12 @@ class QuizService {
                 quizPassed,
                 this.getTodayDateString(),
             );
-            await localDataStore.setNested(userId, "quiz", "stats/streak", updatedStreak);
+            await localDataStore.setNested(
+                userId,
+                "quiz",
+                "stats/streak",
+                updatedStreak,
+            );
             userSyncService.scheduleSync(userId);
             return updatedStreak;
         } catch {
@@ -251,10 +278,13 @@ class QuizService {
     async updateUserStats(result) {
         try {
             const userId = this.getUserId();
-            const stats =
-                (await localDataStore.getNested(userId, "quiz", "stats")) ?? {
-                    ...DEFAULT_STATS,
-                };
+            const stats = (await localDataStore.getNested(
+                userId,
+                "quiz",
+                "stats",
+            )) ?? {
+                ...DEFAULT_STATS,
+            };
 
             stats.totalQuizzes += 1;
             stats.totalScore += result.score;
@@ -263,7 +293,8 @@ class QuizService {
                 stats.totalScore / stats.totalQuizzes
             ).toFixed(1);
             stats.averagePercentage = Math.round(
-                (stats.totalScore / (stats.totalQuizzes * this.DAILY_QUESTIONS_COUNT)) *
+                (stats.totalScore /
+                    (stats.totalQuizzes * this.DAILY_QUESTIONS_COUNT)) *
                     100,
             );
             stats.lastUpdated = new Date().toISOString();
@@ -272,7 +303,7 @@ class QuizService {
             userSyncService.scheduleSync(userId);
             return stats;
         } catch (error) {
-            console.error("Error updating user stats:", error);
+            logger.error("Error updating user stats:", error);
             throw error;
         }
     }
@@ -281,7 +312,11 @@ class QuizService {
         try {
             const userId = this.getUserId();
             const quizResults =
-                (await localDataStore.getNested(userId, "quiz", "quizResults")) ?? {};
+                (await localDataStore.getNested(
+                    userId,
+                    "quiz",
+                    "quizResults",
+                )) ?? {};
             return sortByDateDesc(Object.values(quizResults)).slice(0, limit);
         } catch {
             return [];
@@ -292,7 +327,11 @@ class QuizService {
         try {
             const userId = this.getUserId();
             await this.ensureQuizData(userId);
-            const stats = await localDataStore.getNested(userId, "quiz", "stats");
+            const stats = await localDataStore.getNested(
+                userId,
+                "quiz",
+                "stats",
+            );
             if (!stats) return { ...DEFAULT_QUIZ_STATS };
 
             return {
@@ -313,10 +352,14 @@ class QuizService {
     async clearUserData() {
         try {
             const userId = this.getUserId();
-            await localDataStore.set(userId, "quiz", userSyncService.defaultQuizLocal());
+            await localDataStore.set(
+                userId,
+                "quiz",
+                userSyncService.defaultQuizLocal(),
+            );
             userSyncService.scheduleSync(userId);
         } catch (error) {
-            console.error("Error clearing user data:", error);
+            logger.error("Error clearing user data:", error);
             throw error;
         }
     }
@@ -328,7 +371,7 @@ class QuizService {
         try {
             await this.ensureQuestionBank();
         } catch (error) {
-            console.warn(
+            logger.warn(
                 "Quiz question bank load failed, bundled fallback may be in use:",
                 error?.message ?? error,
             );

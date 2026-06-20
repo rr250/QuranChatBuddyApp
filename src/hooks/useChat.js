@@ -1,7 +1,7 @@
-// src/hooks/useChat.js
 import { useState, useCallback, useEffect } from "react";
 import { aiService } from "../services/aiService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import logger from "../services/logger";
 
 const createWelcomeMessage = () => ({
     id: Date.now().toString(),
@@ -23,13 +23,12 @@ export const useChat = (userId = "default_user") => {
     const saveMessages = useCallback(
         async (newMessages) => {
             try {
-                const historyKey = `chat_messages_${userId}`;
                 await AsyncStorage.setItem(
-                    historyKey,
+                    `chat_messages_${userId}`,
                     JSON.stringify(newMessages),
                 );
             } catch (err) {
-                console.error("Error saving messages:", err);
+                logger.error("Error saving messages:", err);
             }
         },
         [userId],
@@ -37,15 +36,10 @@ export const useChat = (userId = "default_user") => {
 
     const loadChatHistory = useCallback(async () => {
         try {
-            const historyKey = `chat_messages_${userId}`;
-            const savedMessages = await AsyncStorage.getItem(historyKey);
-            if (savedMessages) {
-                setMessages(JSON.parse(savedMessages));
-            } else {
-                setMessages([createWelcomeMessage()]);
-            }
+            const saved = await AsyncStorage.getItem(`chat_messages_${userId}`);
+            setMessages(saved ? JSON.parse(saved) : [createWelcomeMessage()]);
         } catch (err) {
-            console.error("Error loading chat history:", err);
+            logger.error("Error loading chat history:", err);
             setMessages([createWelcomeMessage()]);
         } finally {
             setHistoryLoaded(true);
@@ -54,11 +48,12 @@ export const useChat = (userId = "default_user") => {
 
     const sendMessage = useCallback(
         async (text) => {
-            if (!text.trim()) return;
+            const trimmed = text?.trim();
+            if (!trimmed) return;
 
             const userMessage = {
                 id: Date.now().toString(),
-                text: text.trim(),
+                text: trimmed,
                 isUser: true,
                 timestamp: new Date(),
             };
@@ -72,7 +67,7 @@ export const useChat = (userId = "default_user") => {
             setError(null);
 
             try {
-                const aiResponse = await aiService.sendMessage(text.trim());
+                const aiResponse = await aiService.sendMessage(trimmed);
 
                 const aiMessage = {
                     id: (Date.now() + 1).toString(),
@@ -83,31 +78,31 @@ export const useChat = (userId = "default_user") => {
                 };
 
                 setMessages((prev) => {
-                    const allMessages = [...prev, aiMessage];
-                    saveMessages(allMessages);
-                    return allMessages;
+                    const all = [...prev, aiMessage];
+                    saveMessages(all);
+                    return all;
                 });
             } catch (err) {
                 if (err?.code === "free-limit-reached") {
                     throw err;
                 }
-                console.error("Error sending message:", err);
+                logger.error("Error sending message:", err);
                 setError(
                     "Sorry, I could not process your request. Please check your internet connection and try again.",
                 );
 
                 const errorMessage = {
                     id: (Date.now() + 1).toString(),
-                    text: "Sorry, I'm having trouble connecting right now. Please check your internet connection and try again. In the meantime, remember that Allah is always with you.",
+                    text: "Sorry, I'm having trouble connecting right now. Please check your internet connection and try again.",
                     isUser: false,
                     timestamp: new Date(),
                     isError: true,
                 };
 
                 setMessages((prev) => {
-                    const messagesWithError = [...prev, errorMessage];
-                    saveMessages(messagesWithError);
-                    return messagesWithError;
+                    const withError = [...prev, errorMessage];
+                    saveMessages(withError);
+                    return withError;
                 });
             } finally {
                 setLoading(false);
@@ -118,20 +113,19 @@ export const useChat = (userId = "default_user") => {
 
     const clearChat = useCallback(async () => {
         try {
-            const historyKey = `chat_messages_${userId}`;
-            await AsyncStorage.removeItem(historyKey);
+            await AsyncStorage.removeItem(`chat_messages_${userId}`);
             await aiService.clearConversationHistory(userId);
-
-            const welcomeMessage = {
-                id: Date.now().toString(),
-                text: "Assalamu Alaikum! How may I assist you today?",
-                isUser: false,
-                timestamp: new Date(),
-            };
-            setMessages([welcomeMessage]);
+            setMessages([
+                {
+                    id: Date.now().toString(),
+                    text: "Assalamu Alaikum! How may I assist you today?",
+                    isUser: false,
+                    timestamp: new Date(),
+                },
+            ]);
             setError(null);
         } catch (err) {
-            console.error("Error clearing chat:", err);
+            logger.error("Error clearing chat:", err);
         }
     }, [userId]);
 

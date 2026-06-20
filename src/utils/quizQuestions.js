@@ -1,4 +1,5 @@
 import { seededShuffle } from "./array";
+import logger from "../services/logger";
 
 export const normalizeQuizPayload = (payload) => {
     if (Array.isArray(payload)) return payload;
@@ -41,14 +42,14 @@ export const shuffleQuestionOptions = (question, seed) => {
 
 export const transformQuestions = (questionsArray) => {
     if (!Array.isArray(questionsArray)) {
-        console.error("Questions data is not an array:", questionsArray);
+        logger.error("Questions data is not an array:", questionsArray);
         return [];
     }
 
     return questionsArray
         .map((question, index) => {
             if (!question?.options || !Array.isArray(question.options)) {
-                console.error(`Invalid question at index ${index}:`, question);
+                logger.error(`Invalid question at index ${index}:`, question);
                 return null;
             }
 
@@ -57,7 +58,7 @@ export const transformQuestions = (questionsArray) => {
             );
 
             if (correctOptionIndex === -1) {
-                console.error(
+                logger.error(
                     `No matching correct option found for question ${question.id}:`,
                     question,
                 );

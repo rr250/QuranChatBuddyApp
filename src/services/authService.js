@@ -21,6 +21,7 @@ import { getFirebaseAuth, getFirebaseDatabase } from "./firebase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DeviceIdentityService } from "./deviceIdentityService";
 import { DeviceAuthService } from "./deviceAuthService";
+import logger from "./logger";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -35,7 +36,6 @@ export class AuthService {
         }
     }
 
-    // Email/Password Authentication
     static async signInWithEmail(email, password) {
         try {
             this.initialize();
@@ -49,7 +49,7 @@ export class AuthService {
             await this.mergeUserData(userCredential.user);
             return userCredential.user;
         } catch (error) {
-            console.error("Email sign-in error:", error);
+            logger.error("Email sign-in error:", error);
             throw this.handleAuthError(error);
         }
     }
@@ -64,21 +64,14 @@ export class AuthService {
             );
             const user = userCredential.user;
 
-            // Update user profile
             await updateProfile(user, { displayName });
-
-            // Create user document in Realtime Database
             await this.createUserDocument(user);
-
-            // Update presence
             await this.updateUserPresence(user);
-
-            // Sync onboarding data
             await this.syncOnboardingData(user);
 
             return user;
         } catch (error) {
-            console.error("Email sign-up error:", error);
+            logger.error("Email sign-up error:", error);
             throw this.handleAuthError(error);
         }
     }
@@ -94,7 +87,6 @@ export class AuthService {
         );
     }
 
-    // Process Google Sign-in Response
     static async processGoogleSignIn(response) {
         try {
             this.initialize();
@@ -117,12 +109,11 @@ export class AuthService {
 
             return userCredential.user;
         } catch (error) {
-            console.error("Google sign-in error:", error);
+            logger.error("Google sign-in error:", error);
             throw this.handleAuthError(error);
         }
     }
 
-    // Apple Authentication
     static async signInWithApple() {
         try {
             this.initialize();
@@ -158,7 +149,7 @@ export class AuthService {
 
             return userCredential.user;
         } catch (error) {
-            console.error("Apple sign-in error:", error);
+            logger.error("Apple sign-in error:", error);
             throw error;
         }
     }
@@ -208,10 +199,7 @@ export class AuthService {
                 });
             }
 
-            console.warn(
-                "Device registration failed:",
-                error?.message ?? error,
-            );
+            logger.warn("Device registration failed:", error?.message ?? error);
             return user;
         }
     }
@@ -230,7 +218,8 @@ export class AuthService {
     static async assertDeviceNotRegistered(deviceHash) {
         if (!deviceHash) return;
 
-        const check = await DeviceAuthService.checkDeviceRegistration(deviceHash);
+        const check =
+            await DeviceAuthService.checkDeviceRegistration(deviceHash);
         if (check.registered) {
             throw this.buildDeviceRestoreError({
                 linkedUid: check.linkedUid,
@@ -244,9 +233,8 @@ export class AuthService {
         if (!deviceHash) return user;
 
         try {
-            const resolution = await DeviceAuthService.resolveDeviceAuth(
-                deviceHash,
-            );
+            const resolution =
+                await DeviceAuthService.resolveDeviceAuth(deviceHash);
 
             if (!DeviceAuthService.isDeviceClaimed(resolution)) {
                 return user;
@@ -256,7 +244,7 @@ export class AuthService {
                 return user;
             }
 
-            console.warn(
+            logger.warn(
                 "Auth session mismatch; device linked to",
                 resolution.linkedUid,
             );
@@ -279,15 +267,11 @@ export class AuthService {
             if (error?.code === "device-restore-unavailable") {
                 throw error;
             }
-            console.warn(
-                "Device reconcile failed:",
-                error?.message ?? error,
-            );
+            logger.warn("Device reconcile failed:", error?.message ?? error);
             return user;
         }
     }
 
-    // Anonymous Authentication (one Firebase user per physical device)
     static async signInAnonymously() {
         try {
             this.initialize();
@@ -332,7 +316,7 @@ export class AuthService {
             if (error?.code === "device-restore-unavailable") {
                 throw error;
             }
-            console.error("Anonymous sign-in error:", error);
+            logger.error("Anonymous sign-in error:", error);
             throw this.handleAuthError(error);
         }
     }
@@ -383,7 +367,6 @@ export class AuthService {
         this._ensureDevicePromise = null;
     }
 
-    // Link Anonymous Account with Email/Password
     static async linkWithEmailPassword(email, password, displayName) {
         try {
             this.initialize();
@@ -397,16 +380,12 @@ export class AuthService {
                 throw new Error("Current user is not an anonymous account");
             }
 
-            // Create email credential
             const credential = EmailAuthProvider.credential(email, password);
-
-            // Link the credential to the anonymous account
             const userCredential = await linkWithCredential(
                 currentUser,
                 credential,
             );
 
-            // Update user profile with display name
             if (displayName) {
                 await updateProfile(userCredential.user, { displayName });
             }
@@ -416,12 +395,11 @@ export class AuthService {
 
             return userCredential.user;
         } catch (error) {
-            console.error("Error linking with email/password:", error);
+            logger.error("Error linking with email/password:", error);
             throw this.handleAuthError(error);
         }
     }
 
-    // Link Anonymous Account with Google
     static async linkWithGoogle(idToken) {
         try {
             this.initialize();
@@ -435,10 +413,7 @@ export class AuthService {
                 throw new Error("Current user is not an anonymous account");
             }
 
-            // Create Google credential
             const credential = GoogleAuthProvider.credential(idToken);
-
-            // Link the credential to the anonymous account
             const userCredential = await linkWithCredential(
                 currentUser,
                 credential,
@@ -449,12 +424,11 @@ export class AuthService {
 
             return userCredential.user;
         } catch (error) {
-            console.error("Error linking with Google:", error);
+            logger.error("Error linking with Google:", error);
             throw this.handleAuthError(error);
         }
     }
 
-    // Link Anonymous Account with Apple
     static async linkWithApple() {
         try {
             this.initialize();
@@ -482,7 +456,6 @@ export class AuthService {
                 idToken: identityToken,
             });
 
-            // Link the credential to the anonymous account
             const userCredential = await linkWithCredential(
                 currentUser,
                 credential,
@@ -500,12 +473,11 @@ export class AuthService {
 
             return userCredential.user;
         } catch (error) {
-            console.error("Error linking with Apple:", error);
+            logger.error("Error linking with Apple:", error);
             throw this.handleAuthError(error);
         }
     }
 
-    // Process Google Sign-in Response for Linking
     static async processGoogleLinking(response) {
         try {
             const idToken = this.extractGoogleIdToken(response);
@@ -514,7 +486,7 @@ export class AuthService {
             }
             return await this.linkWithGoogle(idToken);
         } catch (error) {
-            console.error("Google linking error:", error);
+            logger.error("Google linking error:", error);
             throw this.handleAuthError(error);
         }
     }
@@ -523,18 +495,16 @@ export class AuthService {
         return `Add this redirect URI in Google Cloud Console (Web OAuth client):\n${getGoogleRedirectUri()}`;
     }
 
-    // Password Reset
     static async resetPassword(email) {
         try {
             this.initialize();
             await sendPasswordResetEmail(this.auth, email);
         } catch (error) {
-            console.error("Password reset error:", error);
+            logger.error("Password reset error:", error);
             throw this.handleAuthError(error);
         }
     }
 
-    // Sign Out
     static async signOut() {
         try {
             this.initialize();
@@ -546,12 +516,11 @@ export class AuthService {
 
             await signOut(this.auth);
         } catch (error) {
-            console.error("Sign-out error:", error);
+            logger.error("Sign-out error:", error);
             throw error;
         }
     }
 
-    // Auth State Observer
     static onAuthStateChanged(callback) {
         this.initialize();
         return onAuthStateChanged(this.auth, callback);
@@ -562,17 +531,15 @@ export class AuthService {
         await userSyncService.mergeOnLogin(user.uid);
     }
 
-    // Ensures local data is merged with compact cloud sync blob only
     static async createUserDocument(user) {
         try {
             await this.mergeUserData(user);
             await this.syncOnboardingData(user);
         } catch (error) {
-            console.error("Error syncing user data:", error);
+            logger.error("Error syncing user data:", error);
         }
     }
 
-    // User Presence Management
     static async updateUserPresence(user, isOnline = true) {
         try {
             if (!user) return;
@@ -584,24 +551,19 @@ export class AuthService {
             };
 
             if (isOnline) {
-                // Set user as online
                 await set(presenceRef, presenceData);
-
-                // Set user as offline when they disconnect
                 onDisconnect(presenceRef).set({
                     online: false,
                     lastSeen: Date.now(),
                 });
             } else {
-                // Manually set user as offline
                 await set(presenceRef, presenceData);
             }
         } catch (error) {
-            console.error("Error updating user presence:", error);
+            logger.error("Error updating user presence:", error);
         }
     }
 
-    // Update user statistics
     static async updateUserStats(userId, statType, value) {
         try {
             const statsRef = ref(
@@ -610,25 +572,23 @@ export class AuthService {
             );
             await set(statsRef, value);
 
-            // Also update lastUpdated timestamp
             const lastUpdatedRef = ref(
                 this.database,
                 `users/${userId}/stats/lastUpdated`,
             );
             await set(lastUpdatedRef, new Date().toISOString());
         } catch (error) {
-            console.error("Error updating user stats:", error);
+            logger.error("Error updating user stats:", error);
         }
     }
 
-    // Get user data
     static async getUserData(userId) {
         try {
             const userRef = ref(this.database, `users/${userId}`);
             const snapshot = await get(userRef);
             return snapshot.exists() ? snapshot.val() : null;
         } catch (error) {
-            console.error("Error getting user data:", error);
+            logger.error("Error getting user data:", error);
             return null;
         }
     }
@@ -659,10 +619,7 @@ export class AuthService {
                 completedAt: completedDate || new Date().toISOString(),
             };
 
-            const profileRef = ref(
-                this.database,
-                `users/${user.uid}/profile`,
-            );
+            const profileRef = ref(this.database, `users/${user.uid}/profile`);
 
             await set(profileRef, {
                 name: userData.userName?.trim() || null,
@@ -676,7 +633,7 @@ export class AuthService {
                         displayName: userData.userName.trim(),
                     });
                 } catch (profileError) {
-                    console.warn(
+                    logger.warn(
                         "Failed to update auth display name:",
                         profileError?.message ?? profileError,
                     );
@@ -686,11 +643,10 @@ export class AuthService {
             await userSyncService.pushToFirebase(user.uid);
             await AsyncStorage.setItem("onboarding_synced", "true");
         } catch (error) {
-            console.error("Error syncing onboarding data:", error);
+            logger.error("Error syncing onboarding data:", error);
         }
     }
 
-    // Error Handling
     static handleAuthError(error) {
         const errorMessages = {
             "auth/user-not-found": "No account found with this email address.",
@@ -716,13 +672,11 @@ export class AuthService {
         return new Error(message);
     }
 
-    // Get Current User
     static getCurrentUser() {
         this.initialize();
         return this.auth.currentUser;
     }
 
-    // Check if user is authenticated
     static isAuthenticated() {
         this.initialize();
         return !!this.auth.currentUser;

@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { glass, gradients } from "../../constants/glass";
+import { glass, gradients } from "../../theme";
 
 export const AppBackground = ({ children, style }) => (
     <View style={[styles.root, style]}>

@@ -2,9 +2,14 @@ import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text } from "react-native-paper";
 import { GlassSurface } from "./Glass";
-import { theme } from "../../constants/theme";
+import { theme } from "../../theme";
 
-export const GlassDashboardCard = ({ onPress, children, style, disabled = false }) => {
+export const GlassDashboardCard = ({
+    onPress,
+    children,
+    style,
+    disabled = false,
+}) => {
     const content = (
         <GlassSurface style={[styles.card, style]}>
             <View style={styles.content}>{children}</View>

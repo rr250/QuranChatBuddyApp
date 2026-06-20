@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AppBackground, GlassSurface } from "../../src/components/ui/Glass";
 import { AppLogo } from "../../src/components/common/AppLogo";
-import { theme } from "../../src/constants/theme";
+import { theme } from "../../src/theme";
 
 const FEATURES = [
     { icon: "book-open-page-variant", text: "Read & Listen to Quran" },

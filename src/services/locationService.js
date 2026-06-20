@@ -1,24 +1,23 @@
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert, Platform } from "react-native";
+import logger from "./logger";
 
 export class LocationService {
     static currentLocation = null;
 
     static async requestPermissions() {
         try {
-            // Check if location services are enabled
             const isEnabled = await Location.hasServicesEnabledAsync();
             if (!isEnabled) {
                 Alert.alert(
                     "Location Services Disabled",
                     "Please enable location services in your device settings to calculate prayer times.",
-                    [{ text: "OK", style: "default" }]
+                    [{ text: "OK", style: "default" }],
                 );
                 return false;
             }
 
-            // Request foreground permissions first
             let { status } = await Location.requestForegroundPermissionsAsync();
 
             if (status !== "granted") {
@@ -32,34 +31,32 @@ export class LocationService {
                             onPress: () =>
                                 Location.requestForegroundPermissionsAsync(),
                         },
-                    ]
+                    ],
                 );
                 return false;
             }
 
-            console.log("Foreground location permission granted");
+            logger.debug("Foreground location permission granted");
 
-            // For iOS, request background permissions if needed
             if (Platform.OS === "ios") {
                 const backgroundStatus =
                     await Location.requestBackgroundPermissionsAsync();
                 if (backgroundStatus.status !== "granted") {
-                    console.log(
-                        "Background location permission not granted, but foreground is available"
+                    logger.debug(
+                        "Background location permission not granted, but foreground is available",
                     );
-                    // Don't block the app, background is optional
                 } else {
-                    console.log("Background location permission granted");
+                    logger.debug("Background location permission granted");
                 }
             }
 
             return true;
         } catch (error) {
-            console.error("Error requesting location permissions:", error);
+            logger.error("Error requesting location permissions:", error);
             Alert.alert(
                 "Permission Error",
                 "Failed to request location permissions. Please try again or check your device settings.",
-                [{ text: "OK", style: "default" }]
+                [{ text: "OK", style: "default" }],
             );
             return false;
         }
@@ -73,7 +70,7 @@ export class LocationService {
                 return override;
             }
         } catch (error) {
-            console.warn("Could not read manual location settings:", error);
+            logger.warn("Could not read manual location settings:", error);
         }
         return null;
     }
@@ -83,9 +80,7 @@ export class LocationService {
             useCache = true,
             skipPermissionPrompt = false,
             allowFreshGps = true,
-        } = typeof options === "boolean"
-            ? { useCache: options }
-            : options;
+        } = typeof options === "boolean" ? { useCache: options } : options;
 
         try {
             const manualLocation = await this.getManualLocation();
@@ -94,13 +89,12 @@ export class LocationService {
                 return manualLocation;
             }
 
-            // Return cached location if available and not too old
             if (useCache && this.currentLocation) {
                 const age = Date.now() - this.currentLocation.timestamp;
                 const maxAge = 30 * 60 * 1000; // 30 minutes
 
                 if (age < maxAge) {
-                    console.log("Using cached location");
+                    logger.debug("Using cached location");
                     return this.currentLocation;
                 }
             }
@@ -111,7 +105,6 @@ export class LocationService {
                 return lastKnown;
             }
 
-            // Check permissions first
             const hasPermission = skipPermissionPrompt
                 ? await this.isLocationAvailable()
                 : await this.requestPermissions();
@@ -121,26 +114,28 @@ export class LocationService {
 
                 const stored = await this.getLastKnownLocation();
                 if (stored) {
-                    console.log("No permission, using last known location");
+                    logger.debug("No permission, using last known location");
                     return stored;
                 }
 
-                console.log("No location permission, using default location");
+                logger.debug("No location permission, using default location");
                 return this.getDefaultLocation();
             }
 
             if (!allowFreshGps) {
                 const stored = await this.getLastKnownLocation();
                 if (stored) {
-                    console.log("Using stored location (GPS fetch skipped)");
+                    logger.debug("Using stored location (GPS fetch skipped)");
                     this.currentLocation = stored;
                     return stored;
                 }
-                console.log("No cached location available, skipping GPS fetch");
+                logger.debug(
+                    "No cached location available, skipping GPS fetch",
+                );
                 return this.getDefaultLocation();
             }
 
-            console.log("Getting current location...");
+            logger.debug("Getting current location...");
 
             const location = await Promise.race([
                 Location.getCurrentPositionAsync({
@@ -162,9 +157,8 @@ export class LocationService {
                 accuracy: location.coords.accuracy,
             };
 
-            console.log("Location obtained:", locationData);
+            logger.debug("Location obtained:", locationData);
 
-            // Get address information
             try {
                 const address = await Location.reverseGeocodeAsync({
                     latitude: location.coords.latitude,
@@ -182,38 +176,37 @@ export class LocationService {
                     locationData.postalCode = address[0].postalCode;
                 }
             } catch (addressError) {
-                console.log("Could not get address information:", addressError);
-                // This is not critical, continue without address
+                logger.debug(
+                    "Could not get address information:",
+                    addressError,
+                );
             }
 
             this.currentLocation = locationData;
 
-            // Save to storage
             try {
                 await AsyncStorage.setItem(
                     "lastKnownLocation",
-                    JSON.stringify(locationData)
+                    JSON.stringify(locationData),
                 );
             } catch (storageError) {
-                console.log(
+                logger.debug(
                     "Could not save location to storage:",
-                    storageError
+                    storageError,
                 );
             }
 
             return locationData;
         } catch (error) {
-            console.error("Error getting current location:", error);
+            logger.error("Error getting current location:", error);
 
-            // Try to return last known location
             const lastKnown = await this.getLastKnownLocation();
             if (lastKnown) {
-                console.log("Using last known location");
+                logger.debug("Using last known location");
                 return lastKnown;
             }
 
-            // Return default location (Mecca) as fallback
-            console.log("Using default location (Mecca)");
+            logger.debug("Using default location (Mecca)");
             return this.getDefaultLocation();
         }
     }
@@ -223,7 +216,6 @@ export class LocationService {
             const stored = await AsyncStorage.getItem("lastKnownLocation");
             if (stored) {
                 const location = JSON.parse(stored);
-                // Check if location is not too old (1 day)
                 const age = Date.now() - location.timestamp;
                 const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -232,13 +224,12 @@ export class LocationService {
                 }
             }
         } catch (error) {
-            console.error("Error getting last known location:", error);
+            logger.error("Error getting last known location:", error);
         }
         return null;
     }
 
     static getDefaultLocation() {
-        // Mecca coordinates as default
         return {
             latitude: 21.4225,
             longitude: 39.8262,
@@ -273,10 +264,10 @@ export class LocationService {
 
                     this.currentLocation = locationData;
                     callback(locationData);
-                }
+                },
             );
         } catch (error) {
-            console.error("Error watching location:", error);
+            logger.error("Error watching location:", error);
             return null;
         }
     }
@@ -299,7 +290,7 @@ export class LocationService {
                     : "Unknown Location";
             }
         } catch (error) {
-            console.error("Error getting location name:", error);
+            logger.error("Error getting location name:", error);
         }
 
         return "Unknown Location";
@@ -342,7 +333,6 @@ export class LocationService {
         return radians * (180 / Math.PI);
     }
 
-    // Get Qibla direction from current location
     static getQiblaDirection(location) {
         const meccaLat = 21.4225;
         const meccaLng = 39.8262;
@@ -351,18 +341,17 @@ export class LocationService {
             location.latitude,
             location.longitude,
             meccaLat,
-            meccaLng
+            meccaLng,
         );
     }
 
-    // Check if location is available
     static async isLocationAvailable() {
         try {
             const isEnabled = await Location.hasServicesEnabledAsync();
             const { status } = await Location.getForegroundPermissionsAsync();
             return isEnabled && status === "granted";
         } catch (error) {
-            console.error("Error checking location availability:", error);
+            logger.error("Error checking location availability:", error);
             return false;
         }
     }

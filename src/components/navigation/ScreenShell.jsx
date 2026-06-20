@@ -3,7 +3,7 @@ import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppBackground } from "../ui/Glass";
 import { ScreenHeader } from "../navigation/ScreenHeader";
-import { theme } from "../../constants/theme";
+import { theme } from "../../theme";
 
 export const ScreenShell = ({
     title,

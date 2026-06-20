@@ -3,7 +3,7 @@ import { View, StyleSheet } from "react-native";
 import { Text } from "react-native-paper";
 import { GlassSurface } from "../ui/Glass";
 import { AppLogo } from "../common/AppLogo";
-import { theme } from "../../constants/theme";
+import { theme } from "../../theme";
 import { FAITH_REMINDER_PREVIEWS } from "../../constants/faithNotifications";
 
 export const FaithReminderPreview = ({ items = FAITH_REMINDER_PREVIEWS }) => (

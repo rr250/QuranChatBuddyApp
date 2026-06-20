@@ -1,7 +1,7 @@
-// src/hooks/useQuizStats.js - UPDATED for Firebase Realtime Database
 import { useState, useEffect, useCallback } from "react";
 import { quizService } from "../services/quizService";
 import { AuthService } from "../services/authService";
+import logger from "../services/logger";
 
 export const useQuizStats = () => {
     const [stats, setStats] = useState({
@@ -31,9 +31,9 @@ export const useQuizStats = () => {
             setStats(statsData);
             setHistory(historyData);
         } catch (error) {
-            console.error("Error loading quiz stats:", error);
+            logger.error("Error loading quiz stats:", error);
             setError(
-                "Failed to load statistics. Please check your connection and try again."
+                "Failed to load statistics. Please check your connection and try again.",
             );
         } finally {
             setLoading(false);
@@ -48,7 +48,7 @@ export const useQuizStats = () => {
     const getStatsForPeriod = useCallback(
         (days) => {
             const cutoffDate = new Date(
-                Date.now() - days * 24 * 60 * 60 * 1000
+                Date.now() - days * 24 * 60 * 60 * 1000,
             );
             const periodHistory = history.filter((result) => {
                 const resultDate = new Date(result.date);
@@ -65,22 +65,22 @@ export const useQuizStats = () => {
 
             const totalScore = periodHistory.reduce(
                 (sum, result) => sum + result.score,
-                0
+                0,
             );
             const totalPercentage = periodHistory.reduce(
                 (sum, result) => sum + result.percentage,
-                0
+                0,
             );
 
             return {
                 totalQuizzes: periodHistory.length,
                 averageScore: (totalScore / periodHistory.length).toFixed(1),
                 averagePercentage: Math.round(
-                    totalPercentage / periodHistory.length
+                    totalPercentage / periodHistory.length,
                 ),
             };
         },
-        [history]
+        [history],
     );
 
     // Get weekly statistics

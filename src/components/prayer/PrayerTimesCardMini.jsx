@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { usePrayerTimes } from "../../hooks/usePrayerTimes";
 import { usePaywallAction } from "../../hooks/usePaywallAction";
 import { PAYWALL_PLACEMENTS } from "../../constants/paywallConfig";
-import { theme } from "../../constants/theme";
+import { theme } from "../../theme";
 import { PrayerTimeWidget } from "./PrayerTimeWidget";
 
 export const PrayerTimesCardMini = () => {

@@ -1,6 +1,6 @@
 import React from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
-import { colors } from "../../constants/theme";
+import { colors } from "../../theme";
 
 export const LoadingSpinner = ({
     size = "large",

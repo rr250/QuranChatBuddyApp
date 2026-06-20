@@ -1,16 +1,10 @@
 import React from "react";
-import {
-    Modal,
-    View,
-    StyleSheet,
-    Pressable,
-    ScrollView,
-} from "react-native";
+import { Modal, View, StyleSheet, Pressable, ScrollView } from "react-native";
 import { Text } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { theme } from "../../constants/theme";
-import { glass } from "../../constants/glass";
+import { theme } from "../../theme";
+import { glass } from "../../theme";
 
 export const PickerSheetShell = ({
     visible,
@@ -91,7 +85,12 @@ export const PickerOptionRow = ({
                 <View style={styles.leadingIcon}>{leadingIcon}</View>
             ) : null}
             <View style={styles.rowText}>
-                <Text style={[styles.rowLabel, selected && styles.rowLabelSelected]}>
+                <Text
+                    style={[
+                        styles.rowLabel,
+                        selected && styles.rowLabelSelected,
+                    ]}
+                >
                     {label}
                 </Text>
                 {subtitle ? (

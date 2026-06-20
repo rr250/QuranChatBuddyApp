@@ -1,4 +1,3 @@
-// src/components/quran/QuranDashboard.js - Home page Quran widget
 import React, { useState } from "react";
 import {
     View,
@@ -10,10 +9,10 @@ import {
 import { GlassDashboardCard } from "../ui/GlassDashboardCard";
 import { useFocusEffect } from "@react-navigation/native";
 import { quranService } from "../../services/quranService";
-import { theme } from "../../constants/theme";
-import { glass } from "../../constants/glass";
+import { theme, glass } from "../../theme";
 import { useRouter } from "expo-router";
 import { AuthService } from "../../services/authService";
+import logger from "../../services/logger";
 
 export const QuranDashboard = ({ onQuranPress }) => {
     const router = useRouter();
@@ -39,7 +38,7 @@ export const QuranDashboard = ({ onQuranPress }) => {
                 if (authError?.code !== "device-restore-unavailable") {
                     throw authError;
                 }
-                console.warn(
+                logger.warn(
                     "Quran progress: using local data until device session restores.",
                 );
             }
@@ -59,7 +58,7 @@ export const QuranDashboard = ({ onQuranPress }) => {
                 startVerse: position.verseNumber,
             });
         } catch (err) {
-            console.error("Error loading Quran data:", err);
+            logger.error("Error loading Quran data:", err);
             setError("Failed to load Quran progress. Please try again.");
         } finally {
             setLoading(false);
@@ -148,7 +147,9 @@ export const QuranDashboard = ({ onQuranPress }) => {
                 <Text style={styles.icon}>📖</Text>
                 <View style={styles.headerText}>
                     <Text style={styles.title}>Holy Quran</Text>
-                    <Text style={styles.subtitle}>{getMotivationalMessage()}</Text>
+                    <Text style={styles.subtitle}>
+                        {getMotivationalMessage()}
+                    </Text>
                 </View>
                 <View style={styles.streakContainer}>
                     <Text style={styles.streakIcon}>🔥</Text>
@@ -186,7 +187,7 @@ export const QuranDashboard = ({ onQuranPress }) => {
                         {
                             width: `${Math.min(
                                 readingStats?.completionPercentage || 0,
-                                100
+                                100,
                             )}%`,
                         },
                     ]}
@@ -200,11 +201,15 @@ export const QuranDashboard = ({ onQuranPress }) => {
                     activeOpacity={0.8}
                 >
                     <View style={styles.continueContent}>
-                        <Text style={styles.continueLabel}>Continue reading</Text>
-                        <Text style={styles.continueName}>{nextSurah.englishName}</Text>
+                        <Text style={styles.continueLabel}>
+                            Continue reading
+                        </Text>
+                        <Text style={styles.continueName}>
+                            {nextSurah.englishName}
+                        </Text>
                         <Text style={styles.continueMeta}>
-                            {nextSurah.name} · Verse {nextSurah.startVerse ?? 1} ·{" "}
-                            {nextSurah.numberOfAyahs} verses
+                            {nextSurah.name} · Verse {nextSurah.startVerse ?? 1}{" "}
+                            · {nextSurah.numberOfAyahs} verses
                         </Text>
                     </View>
                     <Text style={styles.continueArrow}>→</Text>

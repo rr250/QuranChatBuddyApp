@@ -10,12 +10,15 @@ import {
     Animated,
     Dimensions,
 } from "react-native";
-import { ScreenShell, screenContentPadding } from "../../../src/components/navigation/ScreenShell";
+import {
+    ScreenShell,
+    screenContentPadding,
+} from "../../../src/components/navigation/ScreenShell";
 import { GlassSurface } from "../../../src/components/ui/Glass";
 import { useQuiz } from "../../../src/hooks/useQuiz";
 import { LoadingSpinner } from "../../../src/components/common/LoadingSpinner";
-import { theme } from "../../../src/constants/theme";
-import { glass } from "../../../src/constants/glass";
+import { theme } from "../../../src/theme";
+import { glass } from "../../../src/theme";
 import { useRouter } from "expo-router";
 
 const { width } = Dimensions.get("window");
@@ -116,7 +119,7 @@ const QuizScreen = ({}) => {
                 [
                     { text: "Review Answers", style: "cancel" },
                     { text: "Complete Quiz", onPress: nextQuestion },
-                ]
+                ],
             );
         } else {
             nextQuestion();

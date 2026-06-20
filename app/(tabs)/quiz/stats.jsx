@@ -8,12 +8,15 @@ import {
     TouchableOpacity,
     FlatList,
 } from "react-native";
-import { ScreenShell, screenContentPadding } from "../../../src/components/navigation/ScreenShell";
+import {
+    ScreenShell,
+    screenContentPadding,
+} from "../../../src/components/navigation/ScreenShell";
 import { GlassSection } from "../../../src/components/ui/GlassDashboardCard";
 import { useQuizStats } from "../../../src/hooks/useQuizStats";
 import { LoadingSpinner } from "../../../src/components/common/LoadingSpinner";
-import { theme } from "../../../src/constants/theme";
-import { glass } from "../../../src/constants/glass";
+import { theme } from "../../../src/theme";
+import { glass } from "../../../src/theme";
 
 const QuizStatsScreen = ({}) => {
     const { stats, history, loading, refreshStats } = useQuizStats();
@@ -49,8 +52,8 @@ const QuizStatsScreen = ({}) => {
                                 item.percentage >= 70
                                     ? theme.colors.primary
                                     : item.percentage >= 50
-                                    ? theme.colors.secondary
-                                    : theme.colors.error,
+                                      ? theme.colors.secondary
+                                      : theme.colors.error,
                         },
                     ]}
                 >
@@ -75,8 +78,8 @@ const QuizStatsScreen = ({}) => {
                                 item.percentage >= 70
                                     ? theme.colors.primary
                                     : item.percentage >= 50
-                                    ? theme.colors.secondary
-                                    : theme.colors.error,
+                                      ? theme.colors.secondary
+                                      : theme.colors.error,
                         },
                     ]}
                 />

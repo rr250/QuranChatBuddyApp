@@ -1,7 +1,8 @@
 // src/components/chat/MessageBubble.js
 import React, { useState } from "react";
+import logger from "../../services/logger";
 import { View, Text, StyleSheet, TouchableOpacity, Share } from "react-native";
-import { colors } from "../../constants/theme";
+import { colors } from "../../theme";
 import { TypewriterText } from "../common/TypewriterText";
 
 export const MessageBubble = ({ message, onShare, onTypewriterComplete }) => {
@@ -22,7 +23,7 @@ export const MessageBubble = ({ message, onShare, onTypewriterComplete }) => {
                     title: "Islamic Guidance from Quran Chat Buddy",
                 });
             } catch (error) {
-                console.error("Error sharing message:", error);
+                logger.error("Error sharing message:", error);
             }
         }
     };
@@ -131,7 +132,7 @@ const styles = StyleSheet.create({
         borderRadius: 20,
     },
     userContent: {
-        backgroundColor: colors?.primary || "#2E8B57",
+        backgroundColor: colors.primary,
         borderBottomRightRadius: 8,
     },
     aiContent: {

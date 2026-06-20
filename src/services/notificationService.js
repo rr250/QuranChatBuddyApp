@@ -7,6 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getFirebaseDatabase } from "./firebase";
 import { ref, update } from "firebase/database";
 import { AuthService } from "./authService";
+import logger from "./logger";
 
 // Configure notifications with updated API
 Notifications.setNotificationHandler({
@@ -23,23 +24,14 @@ export class NotificationService {
 
     static async initialize({ requestPermissions = false } = {}) {
         try {
-            console.log("Initializing notification service...");
-            console.log("Running in Expo Go:", this.isExpoGo);
-
             await this.setupNotificationChannels();
             this.setupNotificationListeners();
 
             if (requestPermissions) {
                 await this.ensurePermissions();
-            } else {
-                console.log(
-                    "Notification permissions deferred until onboarding"
-                );
             }
-
-            console.log("Notification service initialized");
         } catch (error) {
-            console.error("Failed to initialize notifications:", error);
+            logger.error("Failed to initialize notifications:", error);
         }
     }
 
@@ -50,26 +42,23 @@ export class NotificationService {
             let finalStatus = existingStatus;
 
             if (existingStatus !== "granted") {
-                const { status } =
-                    await Notifications.requestPermissionsAsync({
-                        ios: {
-                            allowAlert: true,
-                            allowBadge: true,
-                            allowSound: true,
-                        },
-                    });
+                const { status } = await Notifications.requestPermissionsAsync({
+                    ios: {
+                        allowAlert: true,
+                        allowBadge: true,
+                        allowSound: true,
+                    },
+                });
                 finalStatus = status;
             }
 
             if (finalStatus !== "granted") {
-                console.log("Notification permissions denied");
                 return false;
             }
 
-            console.log("Notification permissions granted");
             return true;
         } catch (error) {
-            console.error("Error requesting notification permissions:", error);
+            logger.error("Error requesting notification permissions:", error);
             return false;
         }
     }
@@ -83,7 +72,7 @@ export class NotificationService {
 
             if (!this.isExpoGo) {
                 this.registerForPushNotifications().catch((error) => {
-                    console.warn(
+                    logger.warn(
                         "Push token registration failed (local notifications still work):",
                         error,
                     );
@@ -92,7 +81,7 @@ export class NotificationService {
 
             return true;
         } catch (error) {
-            console.error("Failed to ensure notification permissions:", error);
+            logger.error("Failed to ensure notification permissions:", error);
             return false;
         }
     }
@@ -105,26 +94,22 @@ export class NotificationService {
                 Constants.manifest?.projectId;
 
             if (!projectId) {
-                console.warn("No project ID found for push notifications");
+                logger.warn("No project ID found for push notifications");
                 return;
             }
 
             const token = (
-                await Notifications.getExpoPushTokenAsync({
-                    projectId,
-                })
+                await Notifications.getExpoPushTokenAsync({ projectId })
             ).data;
 
-            console.log("Push token:", token);
             await this.savePushToken(token);
         } catch (error) {
-            console.error("Error registering for push notifications:", error);
+            logger.error("Error registering for push notifications:", error);
         }
     }
 
     static async savePushToken(token) {
         try {
-            // Save to local storage
             await AsyncStorage.setItem("pushToken", token);
 
             AuthService.initialize();
@@ -137,10 +122,8 @@ export class NotificationService {
                     pushTokenUpdatedAt: new Date().toISOString(),
                 });
             }
-
-            console.log("Push token saved to Realtime Database");
         } catch (error) {
-            console.error("Error saving push token:", error);
+            logger.error("Error saving push token:", error);
         }
     }
 
@@ -154,19 +137,16 @@ export class NotificationService {
                     importance: Notifications.AndroidImportance.HIGH,
                     vibrationPattern: [0, 250, 250, 250],
                     sound: "default",
-                }
-            );
-
-            await Notifications.setNotificationChannelAsync(
-                "faith-reminders",
-                {
-                    name: "Faith Reminders",
-                    description: "Daily verse and spiritual reminders",
-                    importance: Notifications.AndroidImportance.HIGH,
-                    vibrationPattern: [0, 250, 250, 250],
-                    sound: "default",
                 },
             );
+
+            await Notifications.setNotificationChannelAsync("faith-reminders", {
+                name: "Faith Reminders",
+                description: "Daily verse and spiritual reminders",
+                importance: Notifications.AndroidImportance.HIGH,
+                vibrationPattern: [0, 250, 250, 250],
+                sound: "default",
+            });
 
             await Notifications.setNotificationChannelAsync(
                 "local-notifications",
@@ -175,32 +155,29 @@ export class NotificationService {
                     description: "General app notifications",
                     importance: Notifications.AndroidImportance.DEFAULT,
                     sound: "default",
-                }
+                },
             );
         }
     }
 
     static setupNotificationListeners() {
-        Notifications.addNotificationReceivedListener((notification) => {
-            console.log("Notification received:", notification);
-        });
+        Notifications.addNotificationReceivedListener(() => {});
 
         Notifications.addNotificationResponseReceivedListener((response) => {
-            console.log("Notification tapped:", response);
             this.handleNotificationTap(response);
         });
     }
 
     static handleNotificationTap(response) {
         const { data } = response.notification.request.content;
-        console.log("Notification data:", data);
+        logger.debug("Notification tapped:", data);
     }
 
     static async schedulePrayerNotification(
         prayerName,
         prayerTime,
         title,
-        body
+        body,
     ) {
         try {
             const when = new Date(prayerTime);
@@ -229,12 +206,9 @@ export class NotificationService {
                     },
                 });
 
-            console.log(
-                `✅ Scheduled local notification for ${prayerName} at ${when.toLocaleString()}`
-            );
             return notificationId;
         } catch (error) {
-            console.error("Error scheduling local notification:", error);
+            logger.error("Error scheduling local notification:", error);
             return null;
         }
     }
@@ -266,17 +240,13 @@ export class NotificationService {
                     },
                 });
 
-            console.log(
-                `✅ Scheduled verse notification for ${date.toLocaleString()}`,
-            );
             return notificationId;
         } catch (error) {
-            console.error("Error scheduling verse notification:", error);
+            logger.error("Error scheduling verse notification:", error);
             return null;
         }
     }
 
-    // Send immediate local notification
     static async sendLocalNotification(title, body, data = {}) {
         try {
             await Notifications.presentNotificationAsync({
@@ -291,32 +261,28 @@ export class NotificationService {
                     ? { channelId: "local-notifications" }
                     : {}),
             });
-
-            console.log("✅ Local notification sent:", title);
         } catch (error) {
-            console.error("Error sending local notification:", error);
+            logger.error("Error sending local notification:", error);
         }
     }
 
-    // Test notification
     static async sendTestNotification() {
         try {
             await this.sendLocalNotification(
                 "🕌 Quran Chat Buddy",
                 "Test notification from your Islamic companion!",
-                { type: "test" }
+                { type: "test" },
             );
         } catch (error) {
-            console.error("Error sending test notification:", error);
+            logger.error("Error sending test notification:", error);
         }
     }
 
     static async cancelAllNotifications() {
         try {
             await Notifications.cancelAllScheduledNotificationsAsync();
-            console.log("All notifications cancelled");
         } catch (error) {
-            console.error("Error cancelling notifications:", error);
+            logger.error("Error cancelling notifications:", error);
         }
     }
 
@@ -324,7 +290,7 @@ export class NotificationService {
         try {
             return await Notifications.getAllScheduledNotificationsAsync();
         } catch (error) {
-            console.error("Error getting pending notifications:", error);
+            logger.error("Error getting pending notifications:", error);
             return [];
         }
     }
@@ -333,7 +299,7 @@ export class NotificationService {
         try {
             await Notifications.cancelScheduledNotificationAsync(identifier);
         } catch (error) {
-            console.error("Error cancelling notification:", error);
+            logger.error("Error cancelling notification:", error);
         }
     }
 
@@ -344,15 +310,15 @@ export class NotificationService {
                 .filter(
                     (n) =>
                         n.identifier?.startsWith("prayer-") ||
-                        n.content?.data?.type === "prayer"
+                        n.content?.data?.type === "prayer",
                 )
                 .map((n) => n.identifier);
 
             await Promise.all(
-                prayerIds.map((id) => this.cancelNotification(id))
+                prayerIds.map((id) => this.cancelNotification(id)),
             );
         } catch (error) {
-            console.error("Error cancelling prayer notifications:", error);
+            logger.error("Error cancelling prayer notifications:", error);
         }
     }
 
@@ -367,9 +333,11 @@ export class NotificationService {
                 )
                 .map((n) => n.identifier);
 
-            await Promise.all(verseIds.map((id) => this.cancelNotification(id)));
+            await Promise.all(
+                verseIds.map((id) => this.cancelNotification(id)),
+            );
         } catch (error) {
-            console.error("Error cancelling verse notifications:", error);
+            logger.error("Error cancelling verse notifications:", error);
         }
     }
 

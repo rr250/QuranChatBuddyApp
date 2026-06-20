@@ -7,6 +7,7 @@ import { getFirebaseFunctions } from "./firebase";
 import { AuthService } from "./authService";
 import { DeviceIdentityService } from "./deviceIdentityService";
 import { MessageUsageService } from "./messageUsageService";
+import logger from "./logger";
 
 const LOG_PREFIX = "[AI Service]";
 
@@ -17,21 +18,20 @@ class AIService extends BaseService {
     }
 
     async callCloudFunction(name, data) {
-        console.log(`${LOG_PREFIX} Calling Firebase function: ${name}`);
+        logger.debug(`${LOG_PREFIX} Calling Firebase function: ${name}`);
         try {
             await AuthService.ensureAuthenticated();
             const functions = getFirebaseFunctions();
             const callable = httpsCallable(functions, name);
             const result = await callable(data);
             const content = result.data?.content ?? "";
-            console.log(`${LOG_PREFIX} Firebase response received (${name})`, {
-                source: "firebase-functions",
+            logger.debug(`${LOG_PREFIX} Firebase response received (${name})`, {
                 contentLength: content.length,
-                preview: content.slice(0, 120),
             });
             return result.data;
         } catch (error) {
-            console.warn(`${LOG_PREFIX} Firebase call failed (${name}):`, error);
+            logger.warn(`${LOG_PREFIX} Firebase call failed (${name}):`, error);
+
             if (error?.code === "functions/resource-exhausted") {
                 const quotaError = new Error(
                     "You have used all free messages. Upgrade to continue.",
@@ -39,30 +39,46 @@ class AIService extends BaseService {
                 quotaError.code = "free-limit-reached";
                 throw quotaError;
             }
+
             if (error?.code === "functions/failed-precondition") {
                 throw new Error(
                     error.message ||
                         "AI service is not configured on the server.",
                 );
             }
-            if (process.env.EXPO_PUBLIC_OPENAI_API_KEY) {
-                console.warn(
-                    `${LOG_PREFIX} Falling back to direct OpenAI`,
+
+            // Direct OpenAI fallback is only available in development builds.
+            // EXPO_PUBLIC_OPENAI_API_KEY must never be set in production EAS secrets
+            // — EXPO_PUBLIC_ variables are inlined into the JS bundle at build time
+            // and are trivially extractable from any APK/AAB.
+            if (__DEV__ && process.env.EXPO_PUBLIC_OPENAI_API_KEY) {
+                logger.warn(
+                    `${LOG_PREFIX} DEV fallback: calling OpenAI directly`,
                 );
-                return this.callOpenAIDirect(name, data);
+                return this._devCallOpenAIDirect(name, data);
             }
+
             throw error;
         }
     }
 
-    async callOpenAIDirect(name, data) {
-        const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-        if (!apiKey) {
-            throw new Error("OpenAI API key not configured");
+    /**
+     * Direct OpenAI call used only in development when Cloud Functions are unavailable.
+     * This method is unreachable in production builds because it is gated on __DEV__.
+     */
+    async _devCallOpenAIDirect(name, data) {
+        if (!__DEV__) {
+            throw new Error(
+                "Direct OpenAI access is not available in production.",
+            );
         }
 
-        if (name === "verseCategory") {
-            const { translation, reference } = data;
+        const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+        if (!apiKey) {
+            throw new Error("EXPO_PUBLIC_OPENAI_API_KEY not set in .env");
+        }
+
+        const makeRequest = async (body) => {
             const response = await fetch(
                 "https://api.openai.com/v1/chat/completions",
                 {
@@ -71,62 +87,49 @@ class AIService extends BaseService {
                         Authorization: `Bearer ${apiKey}`,
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify({
-                        model: "gpt-4o-mini",
-                        messages: [
-                            {
-                                role: "system",
-                                content:
-                                    "Categorize Quran verses with a short Islamic theme label (2-4 words). Examples: Trust in Allah, Patience, Gratitude, Mercy. Reply with only the label, no quotes or punctuation.",
-                            },
-                            {
-                                role: "user",
-                                content: `Verse translation: ${translation}\nReference: ${reference}`,
-                            },
-                        ],
-                        max_tokens: 24,
-                        temperature: 0.3,
-                    }),
+                    body: JSON.stringify(body),
                 },
             );
-            const completion = await response.json();
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`OpenAI API error ${response.status}: ${text}`);
+            }
+            return response.json();
+        };
+
+        if (name === "verseCategory") {
+            const { translation, reference } = data;
+            const completion = await makeRequest({
+                model: "gpt-4o-mini",
+                messages: [
+                    {
+                        role: "system",
+                        content:
+                            "Categorize Quran verses with a short Islamic theme label (2-4 words). Examples: Trust in Allah, Patience, Gratitude, Mercy. Reply with only the label, no quotes or punctuation.",
+                    },
+                    {
+                        role: "user",
+                        content: `Verse translation: ${translation}\nReference: ${reference}`,
+                    },
+                ],
+                max_tokens: 24,
+                temperature: 0.3,
+            });
             const content =
                 completion.choices?.[0]?.message?.content?.trim() ||
                 "Quranic Wisdom";
-            console.log(`${LOG_PREFIX} Direct OpenAI response (${name})`, {
-                source: "openai-direct-dev",
-                contentLength: content.length,
-                preview: content.slice(0, 120),
-            });
             return { content };
         }
 
-        const response = await fetch(
-            "https://api.openai.com/v1/chat/completions",
-            {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${apiKey}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    model: data.model,
-                    messages: data.messages,
-                    max_tokens: data.max_tokens,
-                    temperature: data.temperature,
-                    presence_penalty: data.presence_penalty,
-                    frequency_penalty: data.frequency_penalty,
-                }),
-            },
-        );
-        const completion = await response.json();
-        const content =
-            completion.choices?.[0]?.message?.content?.trim() || "";
-        console.log(`${LOG_PREFIX} Direct OpenAI response (${name})`, {
-            source: "openai-direct-dev",
-            contentLength: content.length,
-            preview: content.slice(0, 120),
+        const completion = await makeRequest({
+            model: data.model,
+            messages: data.messages,
+            max_tokens: data.max_tokens,
+            temperature: data.temperature,
+            presence_penalty: data.presence_penalty,
+            frequency_penalty: data.frequency_penalty,
         });
+        const content = completion.choices?.[0]?.message?.content?.trim() || "";
         return { content };
     }
 
@@ -137,7 +140,7 @@ class AIService extends BaseService {
                 return JSON.parse(stored);
             }
         } catch (error) {
-            console.warn("Error reading local onboarding data:", error);
+            logger.warn("Error reading local onboarding data:", error);
         }
 
         try {
@@ -152,7 +155,7 @@ class AIService extends BaseService {
             const snapshot = await get(onboardingRef);
             return snapshot.exists() ? snapshot.val() : null;
         } catch (error) {
-            console.error("Error fetching onboarding data:", error);
+            logger.error("Error fetching onboarding data:", error);
             return null;
         }
     }
@@ -198,7 +201,7 @@ class AIService extends BaseService {
             if (error?.code === "free-limit-reached") {
                 throw error;
             }
-            console.error("AI Service Error:", error);
+            logger.error("AI Service Error:", error);
             throw new Error("Failed to get AI response. Please try again.");
         }
     }
@@ -207,27 +210,30 @@ class AIService extends BaseService {
         if (!userId) return [];
 
         try {
-            const historyKey = `conversation_${userId}`;
-            const history = await AsyncStorage.getItem(historyKey);
+            const history = await AsyncStorage.getItem(
+                `conversation_${userId}`,
+            );
             return history ? JSON.parse(history) : [];
         } catch (error) {
-            console.error("Error loading conversation history:", error);
+            logger.error("Error loading conversation history:", error);
             return [];
         }
     }
 
     async saveMessageToHistory(userId, userMessage, aiResponse) {
         try {
-            const historyKey = `conversation_${userId}`;
             const history = await this.getConversationHistory(userId);
             const newHistory = [
                 ...history.slice(-6),
                 { role: "user", content: userMessage },
                 { role: "assistant", content: aiResponse },
             ];
-            await AsyncStorage.setItem(historyKey, JSON.stringify(newHistory));
+            await AsyncStorage.setItem(
+                `conversation_${userId}`,
+                JSON.stringify(newHistory),
+            );
         } catch (error) {
-            console.error("Error saving conversation history:", error);
+            logger.error("Error saving conversation history:", error);
         }
     }
 
@@ -235,7 +241,7 @@ class AIService extends BaseService {
         try {
             await AsyncStorage.removeItem(`conversation_${userId}`);
         } catch (error) {
-            console.error("Error clearing conversation history:", error);
+            logger.error("Error clearing conversation history:", error);
         }
     }
 
@@ -247,7 +253,7 @@ class AIService extends BaseService {
             );
             return label || "Quranic Wisdom";
         } catch (error) {
-            console.error("Verse category error:", error);
+            logger.error("Verse category error:", error);
             return "Quranic Wisdom";
         }
     }

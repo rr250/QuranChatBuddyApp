@@ -3,8 +3,7 @@ import { View, StyleSheet, TouchableOpacity } from "react-native";
 import { Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { glass } from "../../constants/glass";
-import { theme } from "../../constants/theme";
+import { glass, theme } from "../../theme";
 
 export const ScreenHeader = ({
     title,
@@ -21,7 +20,7 @@ export const ScreenHeader = ({
                     style={styles.iconButton}
                     onPress={() => router.push("/(tabs)")}
                 >
-                    <MaterialCommunityIcons name="home-variant" size={20} color="#fff" />
+                    <MaterialCommunityIcons name="home-variant" size={20} color={theme.colors.onPrimary} />
                 </TouchableOpacity>
             ) : null}
             <View>
@@ -61,11 +60,11 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 22,
         fontWeight: "700",
-        color: "#fff",
+        color: theme.colors.onPrimary,
     },
     subtitle: {
         fontSize: 13,
-        color: "rgba(255,255,255,0.75)",
+        color: glass.border,
         marginTop: 2,
     },
 });

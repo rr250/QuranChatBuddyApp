@@ -3,6 +3,7 @@ import { AuthService } from "./authService";
 import { localDataStore } from "../storage/localDataStore";
 import { userSyncService } from "./userSyncService";
 import { getTodayDateString, sortByDateDesc } from "../utils/date";
+import logger from "./logger";
 import { calculateConsecutiveDayStreak } from "../utils/streak";
 
 const TOTAL_QURAN_VERSES = 6236;
@@ -37,7 +38,11 @@ class QuranService {
     async ensureQuranData(userId) {
         const existing = await localDataStore.get(userId, "quran");
         if (!existing) {
-            await localDataStore.set(userId, "quran", userSyncService.defaultQuranLocal());
+            await localDataStore.set(
+                userId,
+                "quran",
+                userSyncService.defaultQuranLocal(),
+            );
         }
     }
 
@@ -62,7 +67,7 @@ class QuranService {
             const userId = this.getUserId();
             await this.ensureQuranData(userId);
         } catch (error) {
-            console.error("Error initializing user progress:", error);
+            logger.error("Error initializing user progress:", error);
         }
     }
 
@@ -71,18 +76,23 @@ class QuranService {
             const userId = this.getUserId();
             const verseKey = `${surahNumber}:${verseNumber}`;
 
-            await localDataStore.setNested(userId, "quran", `versesRead/${verseKey}`, {
-                surahNumber,
-                verseNumber,
-                readAt: new Date().toISOString(),
-            });
+            await localDataStore.setNested(
+                userId,
+                "quran",
+                `versesRead/${verseKey}`,
+                {
+                    surahNumber,
+                    verseNumber,
+                    readAt: new Date().toISOString(),
+                },
+            );
 
             await this.updateDailySession(userId, surahNumber, verseNumber);
             await this.updateReadingPosition(userId, surahNumber, verseNumber);
             await this.updateUserProgress(userId);
             userSyncService.scheduleSync(userId);
         } catch (error) {
-            console.error("Error marking verse as read:", error);
+            logger.error("Error marking verse as read:", error);
         }
     }
 
@@ -117,15 +127,22 @@ class QuranService {
                 (await localDataStore.getNested(userId, "quran", "profile")) ??
                 createInitialProfile();
             const versesRead =
-                (await localDataStore.getNested(userId, "quran", "versesRead")) ?? {};
+                (await localDataStore.getNested(
+                    userId,
+                    "quran",
+                    "versesRead",
+                )) ?? {};
 
             const startSurah = profile.currentSurah ?? 1;
             const startVerse = profile.currentVerse ?? 1;
 
-            for (let surahNumber = startSurah; surahNumber <= 114; surahNumber += 1) {
+            for (
+                let surahNumber = startSurah;
+                surahNumber <= 114;
+                surahNumber += 1
+            ) {
                 const surah = await QuranApi.getSurah(surahNumber);
-                const firstVerse =
-                    surahNumber === startSurah ? startVerse : 1;
+                const firstVerse = surahNumber === startSurah ? startVerse : 1;
 
                 for (
                     let verseNumber = firstVerse;
@@ -141,7 +158,7 @@ class QuranService {
 
             return { surahNumber: 1, verseNumber: 1 };
         } catch (error) {
-            console.error("Error getting continue reading position:", error);
+            logger.error("Error getting continue reading position:", error);
             return { surahNumber: 1, verseNumber: 1 };
         }
     }
@@ -193,37 +210,54 @@ class QuranService {
             await this.updateUserProgress(userId);
             userSyncService.scheduleSync(userId);
         } catch (error) {
-            console.error("Error marking Surah as completed:", error);
+            logger.error("Error marking Surah as completed:", error);
         }
     }
 
     async updateDailySession(userId, surahNumber, verseNumber) {
         const today = getTodayDateString();
         const verseKey = `${surahNumber}:${verseNumber}`;
-        const session =
-            (await localDataStore.getNested(userId, "quran", `dailySessions/${today}`)) ?? {
-                date: today,
-                startTime: new Date().toISOString(),
-                versesRead: [],
-                totalTime: 0,
-            };
+        const session = (await localDataStore.getNested(
+            userId,
+            "quran",
+            `dailySessions/${today}`,
+        )) ?? {
+            date: today,
+            startTime: new Date().toISOString(),
+            versesRead: [],
+            totalTime: 0,
+        };
 
         if (session.versesRead.includes(verseKey)) return;
 
-        await localDataStore.setNested(userId, "quran", `dailySessions/${today}`, {
-            ...session,
-            versesRead: [...session.versesRead, verseKey],
-            lastReadTime: new Date().toISOString(),
-        });
+        await localDataStore.setNested(
+            userId,
+            "quran",
+            `dailySessions/${today}`,
+            {
+                ...session,
+                versesRead: [...session.versesRead, verseKey],
+                lastReadTime: new Date().toISOString(),
+            },
+        );
     }
 
     async updateUserProgress(userId) {
         const versesRead =
-            (await localDataStore.getNested(userId, "quran", "versesRead")) ?? {};
+            (await localDataStore.getNested(userId, "quran", "versesRead")) ??
+            {};
         const completedSurahs =
-            (await localDataStore.getNested(userId, "quran", "completedSurahs")) ?? {};
+            (await localDataStore.getNested(
+                userId,
+                "quran",
+                "completedSurahs",
+            )) ?? {};
         const sessions =
-            (await localDataStore.getNested(userId, "quran", "dailySessions")) ?? {};
+            (await localDataStore.getNested(
+                userId,
+                "quran",
+                "dailySessions",
+            )) ?? {};
 
         const totalVersesRead = Object.keys(versesRead).length;
         const totalSurahsCompleted = Object.keys(completedSurahs).length;
@@ -248,10 +282,14 @@ class QuranService {
         try {
             const userId = this.getUserId();
             await this.ensureQuranData(userId);
-            const progress = await localDataStore.getNested(userId, "quran", "profile");
+            const progress = await localDataStore.getNested(
+                userId,
+                "quran",
+                "profile",
+            );
             return progress ?? createInitialProfile();
         } catch (error) {
-            console.error("Error getting user progress:", error);
+            logger.error("Error getting user progress:", error);
             return null;
         }
     }
@@ -260,10 +298,14 @@ class QuranService {
         try {
             const userId = this.getUserId();
             const sessions =
-                (await localDataStore.getNested(userId, "quran", "dailySessions")) ?? {};
+                (await localDataStore.getNested(
+                    userId,
+                    "quran",
+                    "dailySessions",
+                )) ?? {};
             return sortByDateDesc(Object.values(sessions)).slice(0, limit);
         } catch (error) {
-            console.error("Error getting reading history:", error);
+            logger.error("Error getting reading history:", error);
             return [];
         }
     }
@@ -284,7 +326,7 @@ class QuranService {
                 },
             );
         } catch (error) {
-            console.error("Error adding to favorites:", error);
+            logger.error("Error adding to favorites:", error);
         }
     }
 
@@ -297,7 +339,7 @@ class QuranService {
                 `favorites/${surahNumber}_${verseNumber}`,
             );
         } catch (error) {
-            console.error("Error removing from favorites:", error);
+            logger.error("Error removing from favorites:", error);
         }
     }
 
@@ -305,10 +347,14 @@ class QuranService {
         try {
             const userId = this.getUserId();
             const favorites =
-                (await localDataStore.getNested(userId, "quran", "favorites")) ?? {};
+                (await localDataStore.getNested(
+                    userId,
+                    "quran",
+                    "favorites",
+                )) ?? {};
             return sortByDateDesc(Object.values(favorites), "addedAt");
         } catch (error) {
-            console.error("Error getting favorite verses:", error);
+            logger.error("Error getting favorite verses:", error);
             return [];
         }
     }
@@ -335,7 +381,9 @@ class QuranService {
                 longestStreak: progress?.readingStreak?.longest ?? 0,
                 averageVersesPerDay:
                     sessionDates.length > 0
-                        ? Math.round(totalVersesInSessions / sessionDates.length)
+                        ? Math.round(
+                              totalVersesInSessions / sessionDates.length,
+                          )
                         : 0,
                 daysActive: sessionDates.length,
                 completionPercentage: Math.round(
@@ -343,7 +391,7 @@ class QuranService {
                 ),
             };
         } catch (error) {
-            console.error("Error getting reading stats:", error);
+            logger.error("Error getting reading stats:", error);
             return { ...DEFAULT_READING_STATS };
         }
     }
@@ -403,7 +451,7 @@ class QuranService {
 
             return { read, favorited };
         } catch (error) {
-            console.error("Error loading surah verse status:", error);
+            logger.error("Error loading surah verse status:", error);
             return { read: new Set(), favorited: new Set() };
         }
     }

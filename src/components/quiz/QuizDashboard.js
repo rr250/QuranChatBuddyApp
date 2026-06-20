@@ -1,4 +1,3 @@
-// src/components/quiz/QuizDashboard.js - UPDATED for Firebase
 import { useState, useCallback } from "react";
 import {
     View,
@@ -10,9 +9,10 @@ import {
 import { GlassDashboardCard } from "../ui/GlassDashboardCard";
 import { useFocusEffect } from "@react-navigation/native";
 import { quizService } from "../../services/quizService";
-import { theme } from "../../constants/theme";
+import { theme } from "../../theme";
 import { useRouter } from "expo-router";
 import { AuthService } from "../../services/authService";
+import logger from "../../services/logger";
 
 export const QuizDashboard = ({ onQuizPress }) => {
     const router = useRouter();
@@ -39,7 +39,10 @@ export const QuizDashboard = ({ onQuizPress }) => {
             }
             await quizService.ensureQuizData(userId);
             void quizService.ensureQuestionBank().catch((bankError) => {
-                console.warn("Quiz bank preload failed:", bankError?.message ?? bankError);
+                logger.warn(
+                    "Quiz bank preload failed:",
+                    bankError?.message ?? bankError,
+                );
             });
 
             const [completed, todayResult, currentStreak] = await Promise.all([
@@ -52,7 +55,7 @@ export const QuizDashboard = ({ onQuizPress }) => {
             setResult(todayResult);
             setStreak(currentStreak);
         } catch (error) {
-            console.error("Error loading quiz status:", error);
+            logger.error("Error loading quiz status:", error);
             setError("Failed to load quiz. Please check your connection.");
         } finally {
             setLoading(false);
@@ -114,7 +117,9 @@ export const QuizDashboard = ({ onQuizPress }) => {
                 <View style={styles.headerText}>
                     <Text style={styles.title}>Daily Islamic Quiz</Text>
                     <Text style={styles.subtitle}>
-                        {isCompleted ? "Completed for today!" : "Test your knowledge"}
+                        {isCompleted
+                            ? "Completed for today!"
+                            : "Test your knowledge"}
                     </Text>
                 </View>
                 <View style={styles.streakContainer}>
@@ -132,7 +137,9 @@ export const QuizDashboard = ({ onQuizPress }) => {
                         <Text style={styles.statLabel}>Score</Text>
                     </View>
                     <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{result.percentage}%</Text>
+                        <Text style={styles.statValue}>
+                            {result.percentage}%
+                        </Text>
                         <Text style={styles.statLabel}>Accuracy</Text>
                     </View>
                     <View style={styles.statItem}>
@@ -144,7 +151,9 @@ export const QuizDashboard = ({ onQuizPress }) => {
                 </View>
             ) : (
                 <View style={styles.pendingBlock}>
-                    <Text style={styles.bodyText}>5 questions waiting for you</Text>
+                    <Text style={styles.bodyText}>
+                        5 questions waiting for you
+                    </Text>
                     <Text style={styles.subtitle}>
                         {streak.current > 0
                             ? `Keep your ${streak.current}-day streak!`

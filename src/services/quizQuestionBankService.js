@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import bundledQuestions from "../constants/islamic_quiz_500_real.json";
+import logger from "./logger";
 import {
     dedupeRawQuestions,
     normalizeQuizPayload,
@@ -40,7 +41,7 @@ const SOURCE_LABELS = {
 const logQuizBankSource = (source, questionCount) => {
     const origin = SOURCE_LABELS[source] ?? source;
     const isRemote = source === "remote";
-    console.log(
+    logger.info(
         `${LOG_PREFIX} Questions loaded from ${isRemote ? "remote" : "local"} — ${origin}`,
         { source, questionCount },
     );
@@ -100,7 +101,7 @@ class QuizQuestionBankService {
                 }),
             );
         } catch (error) {
-            console.warn("Quiz question cache write failed:", error);
+            logger.warn("Quiz question cache write failed:", error);
         }
     }
 
@@ -150,7 +151,7 @@ class QuizQuestionBankService {
         try {
             await this.refreshFromRemote();
         } catch (error) {
-            console.warn(
+            logger.warn(
                 "Background quiz refresh skipped:",
                 error?.message ?? error,
             );
@@ -194,7 +195,7 @@ class QuizQuestionBankService {
         try {
             return await this.refreshFromRemote();
         } catch (remoteError) {
-            console.warn(
+            logger.warn(
                 "Remote quiz bank unavailable, using fallback:",
                 remoteError?.message ?? remoteError,
             );

@@ -1,6 +1,7 @@
 import { Coordinates, PrayerTimes, CalculationMethod, Madhab } from "adhan";
 import moment from "moment";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import logger from "./logger";
 
 export class PrayerService {
     static instance = null;
@@ -25,7 +26,7 @@ export class PrayerService {
             tomorrow.setDate(tomorrow.getDate() + 1);
             const tomorrowPrayerTimes = this.calculatePrayerTimes(
                 location,
-                tomorrow
+                tomorrow,
             );
 
             return {
@@ -50,8 +51,7 @@ export class PrayerService {
             : CalculationMethod.MuslimWorldLeague();
 
         const madhabKey = (settings.madhab || "shafi").toLowerCase();
-        params.madhab =
-            madhabKey === "hanafi" ? Madhab.Hanafi : Madhab.Shafi;
+        params.madhab = madhabKey === "hanafi" ? Madhab.Hanafi : Madhab.Shafi;
 
         return params;
     }
@@ -60,7 +60,7 @@ export class PrayerService {
         try {
             const coordinates = new Coordinates(
                 location.latitude,
-                location.longitude
+                location.longitude,
             );
             const params = this.getCalculationParams(settings || {});
 
@@ -75,11 +75,11 @@ export class PrayerService {
                 isha: prayerTimes.isha,
                 qiyam: this.calculateQiyamTime(
                     prayerTimes.maghrib,
-                    prayerTimes.fajr
+                    prayerTimes.fajr,
                 ),
             };
         } catch (error) {
-            console.error("Error calculating prayer times:", error);
+            logger.error("Error calculating prayer times:", error);
             throw error;
         }
     }
@@ -123,14 +123,14 @@ export class PrayerService {
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 const tomorrowPrayerTimes = this.calculatePrayerTimes(
                     location,
-                    tomorrow
+                    tomorrow,
                 );
 
                 return {
                     name: "Fajr",
                     time: tomorrowPrayerTimes.fajr,
                     timeString: moment(tomorrowPrayerTimes.fajr).format(
-                        "h:mm A"
+                        "h:mm A",
                     ),
                     timestamp: tomorrowPrayerTimes.fajr,
                     icon: "🌅",
@@ -139,7 +139,7 @@ export class PrayerService {
             } catch (error) {
                 console.error(
                     "Error calculating tomorrow's prayer times:",
-                    error
+                    error,
                 );
                 // Fallback to simple date addition
                 const tomorrowFajr = moment(prayerTimes.fajr)
@@ -211,7 +211,7 @@ export class PrayerService {
                     tomorrow.setDate(tomorrow.getDate() + 1);
                     const tomorrowPrayerTimes = this.calculatePrayerTimes(
                         location,
-                        tomorrow
+                        tomorrow,
                     );
 
                     // If current time is before tomorrow's Fajr, we're in post-Isha period
@@ -219,9 +219,9 @@ export class PrayerService {
                         return "Post-Isha";
                     }
                 } catch (error) {
-                    console.error(
+                    logger.error(
                         "Error calculating tomorrow's prayer times:",
-                        error
+                        error,
                     );
                 }
             }
@@ -261,10 +261,10 @@ export class PrayerService {
         try {
             await AsyncStorage.setItem(
                 "prayerSettings",
-                JSON.stringify(settings)
+                JSON.stringify(settings),
             );
         } catch (error) {
-            console.error("Error saving prayer settings:", error);
+            logger.error("Error saving prayer settings:", error);
         }
     }
 
@@ -275,7 +275,7 @@ export class PrayerService {
                 return JSON.parse(settings);
             }
         } catch (error) {
-            console.error("Error getting prayer settings:", error);
+            logger.error("Error getting prayer settings:", error);
         }
 
         // Return default settings
@@ -355,7 +355,7 @@ export class PrayerService {
             await AsyncStorage.setItem("lastPrayerCheck", now.toISOString());
             return missedPrayers;
         } catch (error) {
-            console.error("Error checking missed prayers:", error);
+            logger.error("Error checking missed prayers:", error);
             return [];
         }
     }

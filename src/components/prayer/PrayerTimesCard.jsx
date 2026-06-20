@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
+import logger from "../../services/logger";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
 import { Card, Text, ProgressBar, Chip, IconButton } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { PrayerService } from "../../services/prayerService";
 import { LocationService } from "../../services/locationService";
-import { theme } from "../../constants/theme";
+import { theme } from "../../theme";
 import moment from "moment";
 
 export const PrayerTimesCard = () => {
@@ -34,7 +35,7 @@ export const PrayerTimesCard = () => {
 
             updatePrayerState(times);
         } catch (error) {
-            console.error("Error loading prayer times:", error);
+            logger.error("Error loading prayer times:", error);
         } finally {
             setLoading(false);
         }
@@ -226,7 +227,7 @@ export const PrayerTimesCard = () => {
                                     ]}
                                 >
                                     {prayerService.formatPrayerTime(
-                                        prayer.time
+                                        prayer.time,
                                     )}
                                 </Text>
                             </View>

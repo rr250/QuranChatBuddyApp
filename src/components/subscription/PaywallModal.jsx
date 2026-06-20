@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from "react";
+import logger from "../../services/logger";
 import {
     View,
     StyleSheet,
@@ -11,7 +12,7 @@ import { Text, Button, ActivityIndicator } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSubscriptionStore } from "../../store/subscriptionStore";
-import { theme } from "../../constants/theme";
+import { theme } from "../../theme";
 import { APP_LINKS } from "../../constants/appLinks";
 
 const PAYWALL_QUOTE = {
@@ -75,7 +76,7 @@ export const PaywallModal = ({
             if (success) onSuccess?.();
         } catch (purchaseError) {
             if (!purchaseError.userCancelled) {
-                console.error("Purchase failed:", purchaseError);
+                logger.error("Purchase failed:", purchaseError);
             }
         }
     };
@@ -85,7 +86,7 @@ export const PaywallModal = ({
             const success = await restore();
             if (success) onSuccess?.();
         } catch (restoreError) {
-            console.error("Restore failed:", restoreError);
+            logger.error("Restore failed:", restoreError);
         }
     };
 
@@ -134,7 +135,9 @@ export const PaywallModal = ({
 
                         <View style={styles.personalizedCard}>
                             {userName ? (
-                                <Text style={styles.greeting}>Dear {userName}</Text>
+                                <Text style={styles.greeting}>
+                                    Dear {userName}
+                                </Text>
                             ) : null}
                             <Text style={styles.personalizedText}>
                                 Thank you for taking a moment to share about
@@ -166,7 +169,9 @@ export const PaywallModal = ({
                                 <>
                                     <Text style={styles.planPrice}>
                                         {selectedPackage.product.priceString}
-                                        <Text style={styles.planPeriod}>/yr</Text>
+                                        <Text style={styles.planPeriod}>
+                                            /yr
+                                        </Text>
                                     </Text>
                                     {monthlyEstimate ? (
                                         <Text style={styles.planSubtext}>
@@ -221,7 +226,9 @@ export const PaywallModal = ({
                             <Text style={styles.footerDot}>·</Text>
                             <Button
                                 mode="text"
-                                onPress={() => Linking.openURL(APP_LINKS.privacy)}
+                                onPress={() =>
+                                    Linking.openURL(APP_LINKS.privacy)
+                                }
                                 labelStyle={styles.footerLabel}
                             >
                                 Privacy

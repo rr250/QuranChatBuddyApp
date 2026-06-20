@@ -7,6 +7,7 @@ import { AuthScreenLayout } from "../../src/components/auth/AuthScreenLayout";
 import { authStyles as styles } from "../../src/components/auth/authStyles";
 import { LoadingOverlay } from "../../src/components/common/LoadingOverlay";
 import { validateEmail } from "../../src/utils/validation";
+import logger from "../../src/services/logger";
 
 export default function ForgotPasswordScreen() {
     const [email, setEmail] = useState("");
@@ -23,7 +24,7 @@ export default function ForgotPasswordScreen() {
             await resetPassword(email.trim());
             setSent(true);
         } catch (err) {
-            console.error("Password reset error:", err);
+            logger.error("Password reset error:", err);
         }
     };
 

@@ -13,8 +13,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { AppBackground, GlassSurface } from "../ui/Glass";
 import { AppLogo } from "../common/AppLogo";
-import { theme } from "../../constants/theme";
-import { glass } from "../../constants/glass";
+import { theme } from "../../theme";
+import { glass } from "../../theme";
 
 export const AuthScreenLayout = ({
     title,

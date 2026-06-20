@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthService } from "../services/authService";
 import { userSyncService } from "../services/userSyncService";
+import logger from "../services/logger";
 
 let authUnsubscribe = null;
 
@@ -55,9 +56,8 @@ export const useAuthStore = create(
                         authUnsubscribe = null;
                     }
                     AuthService.cancelPendingAuth();
-                    const { useSubscriptionStore } = await import(
-                        "./subscriptionStore"
-                    );
+                    const { useSubscriptionStore } =
+                        await import("./subscriptionStore");
                     await useSubscriptionStore.getState().reset();
                     await AuthService.signOut().catch(() => {});
                     await AsyncStorage.clear();
@@ -71,7 +71,7 @@ export const useAuthStore = create(
                     });
                     await get().initialize();
                 } catch (error) {
-                    console.error("Reset for fresh start error:", error);
+                    logger.error("Reset for fresh start error:", error);
                     throw error;
                 }
             },
@@ -125,7 +125,7 @@ export const useAuthStore = create(
                     });
                     return user;
                 } catch (error) {
-                    console.error("Auth initialization error:", error);
+                    logger.error("Auth initialization error:", error);
                     set({
                         error: error.message,
                         loading: false,
@@ -138,7 +138,11 @@ export const useAuthStore = create(
 
             signInWithEmail: async (email, password) => {
                 try {
-                    set({ loading: true, error: null, skipAnonymousSignIn: false });
+                    set({
+                        loading: true,
+                        error: null,
+                        skipAnonymousSignIn: false,
+                    });
                     const user = await AuthService.signInWithEmail(
                         email,
                         password,
@@ -153,7 +157,11 @@ export const useAuthStore = create(
 
             signUpWithEmail: async (email, password, displayName) => {
                 try {
-                    set({ loading: true, error: null, skipAnonymousSignIn: false });
+                    set({
+                        loading: true,
+                        error: null,
+                        skipAnonymousSignIn: false,
+                    });
                     const user = await AuthService.signUpWithEmail(
                         email,
                         password,
@@ -169,7 +177,11 @@ export const useAuthStore = create(
 
             signInAnonymously: async () => {
                 try {
-                    set({ loading: true, error: null, skipAnonymousSignIn: false });
+                    set({
+                        loading: true,
+                        error: null,
+                        skipAnonymousSignIn: false,
+                    });
                     const user = await AuthService.signInAnonymously();
                     set({ user, loading: false, isAnonymous: true });
                     return user;
@@ -181,7 +193,11 @@ export const useAuthStore = create(
 
             linkWithEmailPassword: async (email, password, displayName) => {
                 try {
-                    set({ loading: true, error: null, skipAnonymousSignIn: false });
+                    set({
+                        loading: true,
+                        error: null,
+                        skipAnonymousSignIn: false,
+                    });
                     const user = await AuthService.linkWithEmailPassword(
                         email,
                         password,
@@ -197,7 +213,11 @@ export const useAuthStore = create(
 
             linkWithGoogle: async (idToken) => {
                 try {
-                    set({ loading: true, error: null, skipAnonymousSignIn: false });
+                    set({
+                        loading: true,
+                        error: null,
+                        skipAnonymousSignIn: false,
+                    });
                     const user = await AuthService.linkWithGoogle(idToken);
                     set({ user, loading: false, isAnonymous: false });
                     return user;
@@ -209,7 +229,11 @@ export const useAuthStore = create(
 
             linkWithApple: async () => {
                 try {
-                    set({ loading: true, error: null, skipAnonymousSignIn: false });
+                    set({
+                        loading: true,
+                        error: null,
+                        skipAnonymousSignIn: false,
+                    });
                     const user = await AuthService.linkWithApple();
                     set({ user, loading: false, isAnonymous: false });
                     return user;
@@ -221,7 +245,11 @@ export const useAuthStore = create(
 
             processGoogleLinking: async (response) => {
                 try {
-                    set({ loading: true, error: null, skipAnonymousSignIn: false });
+                    set({
+                        loading: true,
+                        error: null,
+                        skipAnonymousSignIn: false,
+                    });
                     const user =
                         await AuthService.processGoogleLinking(response);
                     set({ user, loading: false, isAnonymous: false });
@@ -246,9 +274,8 @@ export const useAuthStore = create(
             signOut: async () => {
                 try {
                     set({ loading: true, error: null });
-                    const { useSubscriptionStore } = await import(
-                        "./subscriptionStore"
-                    );
+                    const { useSubscriptionStore } =
+                        await import("./subscriptionStore");
                     await useSubscriptionStore.getState().reset();
                     await AuthService.signOut();
                     set({

@@ -3,6 +3,7 @@ import { ref, get, set } from "firebase/database";
 import { getFirebaseDatabase } from "./firebase";
 import { DeviceIdentityService } from "./deviceIdentityService";
 import { DeviceAuthService } from "./deviceAuthService";
+import logger from "./logger";
 
 const localKey = (userId) => `ai_message_count_${userId}`;
 
@@ -23,7 +24,10 @@ export class MessageUsageService {
                 );
             }
             if (userId && userId !== "guest" && userId !== linkedUid) {
-                await AsyncStorage.setItem(localKey(userId), String(usage.count));
+                await AsyncStorage.setItem(
+                    localKey(userId),
+                    String(usage.count),
+                );
             }
 
             return {
@@ -33,7 +37,7 @@ export class MessageUsageService {
                 sessionMismatch: usage.sessionMismatch === true,
             };
         } catch (error) {
-            console.warn("Failed to load authoritative message usage:", error);
+            logger.warn("Failed to load authoritative message usage:", error);
             return null;
         }
     }
@@ -61,14 +65,17 @@ export class MessageUsageService {
                     ? Number(snapshot.val()) || 0
                     : 0;
                 localCount = Math.max(localCount, remoteCount);
-                await AsyncStorage.setItem(localKey(userId), String(localCount));
+                await AsyncStorage.setItem(
+                    localKey(userId),
+                    String(localCount),
+                );
             } catch (error) {
-                console.warn("Failed to load remote message count:", error);
+                logger.warn("Failed to load remote message count:", error);
             }
 
             return localCount;
         } catch (error) {
-            console.warn("Failed to load message count:", error);
+            logger.warn("Failed to load message count:", error);
             return 0;
         }
     }
@@ -85,7 +92,7 @@ export class MessageUsageService {
                     nextCount,
                 );
             } catch (error) {
-                console.warn("Failed to sync message count:", error);
+                logger.warn("Failed to sync message count:", error);
             }
         }
 
@@ -112,7 +119,7 @@ export class MessageUsageService {
                 count,
             );
         } catch (error) {
-            console.warn("Failed to apply server message count:", error);
+            logger.warn("Failed to apply server message count:", error);
         }
 
         return count;

@@ -4,7 +4,7 @@ import { ActivityIndicator, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppBackground } from "../ui/Glass";
 import { AppLogo } from "./AppLogo";
-import { theme } from "../../constants/theme";
+import { theme } from "../../theme";
 
 export const LoadingScreen = () => (
     <AppBackground>

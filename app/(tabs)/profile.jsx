@@ -16,11 +16,14 @@ import { useSettingsStore } from "../../src/store/settingsStore";
 import { PaywallModal } from "../../src/components/subscription/PaywallModal";
 import { OptionPickerSheet } from "../../src/components/settings/OptionPickerSheet";
 import { CityPickerSheet } from "../../src/components/settings/CityPickerSheet";
-import { ScreenShell, screenContentPadding } from "../../src/components/navigation/ScreenShell";
+import {
+    ScreenShell,
+    screenContentPadding,
+} from "../../src/components/navigation/ScreenShell";
 import { GlassSurface } from "../../src/components/ui/Glass";
 import { GlassSection } from "../../src/components/ui/GlassDashboardCard";
-import { theme } from "../../src/constants/theme";
-import { glass } from "../../src/constants/glass";
+import { theme } from "../../src/theme";
+import { glass } from "../../src/theme";
 import { APP_LINKS } from "../../src/constants/appLinks";
 import {
     MADHAB_OPTIONS,
@@ -87,7 +90,8 @@ export default function ProfileScreen() {
     const cityDisplay = getDisplayCity();
 
     const displayName = user?.displayName ?? "Guest User";
-    const email = user?.email ?? (isAnonymous ? "Anonymous account" : "No email");
+    const email =
+        user?.email ?? (isAnonymous ? "Anonymous account" : "No email");
 
     const madhabLabel =
         MADHAB_OPTIONS.find((option) => option.id === madhab)?.label ?? madhab;

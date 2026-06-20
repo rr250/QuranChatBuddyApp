@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../store/authStore";
+import logger from "../../services/logger";
 
 export const DebugPanel = () => {
     const [isVisible, setIsVisible] = useState(false);
@@ -19,7 +20,7 @@ export const DebugPanel = () => {
             );
         } catch (error) {
             Alert.alert("Error", "Failed to clear AsyncStorage");
-            console.error(error);
+            logger.error(error);
         }
     };
 
@@ -27,14 +28,11 @@ export const DebugPanel = () => {
         try {
             const keys = await AsyncStorage.getAllKeys();
             const stores = await AsyncStorage.multiGet(keys);
-            console.log("=== AsyncStorage Data ===");
-            stores.forEach(([key, value]) => {
-                console.log(`${key}:`, value);
-            });
+            logger.debug("=== AsyncStorage Data ===", Object.fromEntries(stores));
             Alert.alert("Check Console", "AsyncStorage data logged to console");
         } catch (error) {
             Alert.alert("Error", "Failed to read AsyncStorage");
-            console.error(error);
+            logger.error(error);
         }
     };
 

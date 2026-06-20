@@ -2,12 +2,13 @@ import React, { useMemo, useRef, useState } from "react";
 import { View, StyleSheet } from "react-native";
 import { Text, Button } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { theme } from "../../constants/theme";
+import { theme } from "../../theme";
 import { GlassSurface } from "../ui/Glass";
 import { getDailyVerse } from "../../utils/dailyQuran";
 import { usePaywallAction } from "../../hooks/usePaywallAction";
 import { VerseShareCard } from "./VerseShareCard";
 import { shareVerse } from "../../utils/shareVerse";
+import logger from "../../services/logger";
 import { openChatWithPrompt } from "../../utils/openChatWithPrompt";
 import { buildExplainVersePrompt } from "../../utils/verseChatPrompts";
 
@@ -27,7 +28,7 @@ export const QuranVerseCard = ({ placement = null }) => {
             await new Promise((resolve) => requestAnimationFrame(resolve));
             await shareVerse(shareRef, currentVerse);
         } catch (error) {
-            console.error("Error sharing verse:", error);
+            logger.info("Error sharing verse:", error);
         } finally {
             setSharing(false);
         }
@@ -56,11 +57,15 @@ export const QuranVerseCard = ({ placement = null }) => {
                         </View>
                     </View>
 
-                    <Text style={styles.arabicText}>{currentVerse.arabicText}</Text>
+                    <Text style={styles.arabicText}>
+                        {currentVerse.arabicText}
+                    </Text>
                     <Text style={styles.translation}>
                         &quot;{currentVerse.translation}&quot;
                     </Text>
-                    <Text style={styles.reference}>— {currentVerse.reference}</Text>
+                    <Text style={styles.reference}>
+                        — {currentVerse.reference}
+                    </Text>
 
                     <View style={styles.actions}>
                         <Button

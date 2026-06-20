@@ -9,10 +9,13 @@ import {
     Alert,
     ActivityIndicator,
 } from "react-native";
-import { ScreenShell, screenContentPadding } from "../../../src/components/navigation/ScreenShell";
+import {
+    ScreenShell,
+    screenContentPadding,
+} from "../../../src/components/navigation/ScreenShell";
 import { useSurah } from "../../../src/hooks/useQuran";
-import { theme } from "../../../src/constants/theme";
-import { glass } from "../../../src/constants/glass";
+import { theme } from "../../../src/theme";
+import { glass } from "../../../src/theme";
 import { useLocalSearchParams } from "expo-router";
 import { openChatWithPrompt } from "../../../src/utils/openChatWithPrompt";
 import { buildExplainVersePrompt } from "../../../src/utils/verseChatPrompts";
@@ -90,7 +93,7 @@ export default function SurahReaderScreen() {
                     onPress: () => toggleFavoriteVerse(verse.numberInSurah),
                 },
                 { text: "Cancel", style: "cancel" },
-            ]
+            ],
         );
     };
 
@@ -106,11 +109,11 @@ export default function SurahReaderScreen() {
                         markSurahAsCompleted();
                         Alert.alert(
                             "Congratulations!",
-                            `You have completed Surah ${surah.englishName}! 🎉`
+                            `You have completed Surah ${surah.englishName}! 🎉`,
                         );
                     },
                 },
-            ]
+            ],
         );
     };
 
@@ -210,7 +213,8 @@ export default function SurahReaderScreen() {
     const renderProgressBar = () => (
         <View style={styles.progressSection}>
             <Text style={styles.progressText}>
-                {completionPercentage}% · {readVerses.size}/{surah?.numberOfAyahs || 0} verses read
+                {completionPercentage}% · {readVerses.size}/
+                {surah?.numberOfAyahs || 0} verses read
             </Text>
             <View style={styles.progressBar}>
                 <View
@@ -232,14 +236,16 @@ export default function SurahReaderScreen() {
         </TouchableOpacity>
     );
 
-    const readerSubtitle =
-        surah
-            ? `${surah.name} · ${surah.numberOfAyahs} verses · ${surah.revelationType}`
-            : "Loading...";
+    const readerSubtitle = surah
+        ? `${surah.name} · ${surah.numberOfAyahs} verses · ${surah.revelationType}`
+        : "Loading...";
 
     if (loading) {
         return (
-            <ScreenShell title={surahName || "Surah"} subtitle="Loading verses...">
+            <ScreenShell
+                title={surahName || "Surah"}
+                subtitle="Loading verses..."
+            >
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#fff" />
                     <Text style={styles.loadingText}>Loading Surah...</Text>
@@ -250,7 +256,10 @@ export default function SurahReaderScreen() {
 
     if (error) {
         return (
-            <ScreenShell title={surahName || "Surah"} subtitle="Something went wrong">
+            <ScreenShell
+                title={surahName || "Surah"}
+                subtitle="Something went wrong"
+            >
                 <View style={styles.errorContainer}>
                     <Text style={styles.errorText}>{error}</Text>
                 </View>
@@ -270,11 +279,14 @@ export default function SurahReaderScreen() {
             <ScrollView
                 ref={scrollRef}
                 style={styles.scrollView}
-                contentContainerStyle={[styles.scrollContent, screenContentPadding]}
+                contentContainerStyle={[
+                    styles.scrollContent,
+                    screenContentPadding,
+                ]}
                 showsVerticalScrollIndicator={false}
             >
                 {surah?.verses?.map((verse, index) =>
-                    renderVerseItem(verse, index)
+                    renderVerseItem(verse, index),
                 )}
             </ScrollView>
         </ScreenShell>

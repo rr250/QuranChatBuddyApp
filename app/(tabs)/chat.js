@@ -9,10 +9,13 @@ import {
     ActivityIndicator,
     Keyboard,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+    SafeAreaView,
+    useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useChat } from "../../src/hooks/useChat";
 import { MessageBubble } from "../../src/components/chat/MessageBubble";
-import { theme, spacing } from "../../src/constants/theme";
+import { theme, spacing, glass } from "../../src/theme";
 import { useAuthStore } from "../../src/store/authStore";
 import { usePremiumGate } from "../../src/hooks/usePremiumGate";
 import { PaywallModal } from "../../src/components/subscription/PaywallModal";
@@ -20,10 +23,10 @@ import { useChatComposerStore } from "../../src/store/chatComposerStore";
 import { AppBackground } from "../../src/components/ui/Glass";
 import { AppLogo } from "../../src/components/common/AppLogo";
 import { ScreenHeader } from "../../src/components/navigation/ScreenHeader";
-import { glass } from "../../src/constants/glass";
 import { CHAT_BOTTOM_BAR_HEIGHT } from "../../src/constants/layout";
 import { AuthService } from "../../src/services/authService";
 import { MessageUsageService } from "../../src/services/messageUsageService";
+import logger from "../../src/services/logger";
 
 export default function ChatScreen() {
     const [paywallVisible, setPaywallVisible] = useState(false);
@@ -76,9 +79,9 @@ export default function ChatScreen() {
                 await loadChatHistory();
             } catch (error) {
                 if (error?.code === "device-restore-unavailable") {
-                    console.warn("Chat bootstrap:", error.message);
+                    logger.warn("Chat bootstrap:", error.message);
                 } else {
-                    console.warn("Chat bootstrap failed:", error);
+                    logger.warn("Chat bootstrap failed:", error);
                 }
                 await loadChatHistory();
             }
@@ -93,8 +96,9 @@ export default function ChatScreen() {
 
     useEffect(() => {
         if (!user?.uid) return;
-
-        MessageUsageService.getCount(user.uid).then(setUsageCount).catch(() => {});
+        MessageUsageService.getCount(user.uid)
+            .then(setUsageCount)
+            .catch(() => {});
     }, [user?.uid]);
 
     useEffect(() => {
@@ -146,9 +150,7 @@ export default function ChatScreen() {
         pendingHandledRef.current = true;
         submitMessage(pendingMessage)
             .then((sent) => {
-                if (sent) {
-                    consumePendingMessage();
-                }
+                if (sent) consumePendingMessage();
             })
             .finally(() => {
                 pendingHandledRef.current = false;
@@ -156,10 +158,14 @@ export default function ChatScreen() {
     }, [historyLoaded, pendingMessage, submitMessage, consumePendingMessage]);
 
     const handleClearChat = () => {
-        Alert.alert("Clear Chat", "Are you sure you want to clear all messages?", [
-            { text: "Cancel", style: "cancel" },
-            { text: "Clear", style: "destructive", onPress: clearChat },
-        ]);
+        Alert.alert(
+            "Clear Chat",
+            "Are you sure you want to clear all messages?",
+            [
+                { text: "Cancel", style: "cancel" },
+                { text: "Clear", style: "destructive", onPress: clearChat },
+            ],
+        );
     };
 
     const quickQuestions = [
@@ -185,7 +191,9 @@ export default function ChatScreen() {
                           style={styles.quickQuestionButton}
                           onPress={() => queueMessage(question)}
                       >
-                          <Text style={styles.quickQuestionText}>{question}</Text>
+                          <Text style={styles.quickQuestionText}>
+                              {question}
+                          </Text>
                       </TouchableOpacity>
                   ))
                 : null}
@@ -219,7 +227,10 @@ export default function ChatScreen() {
                     title="QCB Chat"
                     subtitle="Your Islamic companion"
                     rightAction={
-                        <TouchableOpacity onPress={handleClearChat} style={styles.clearButton}>
+                        <TouchableOpacity
+                            onPress={handleClearChat}
+                            style={styles.clearButton}
+                        >
                             <Text style={styles.clearButtonText}>Clear</Text>
                         </TouchableOpacity>
                     }
@@ -245,8 +256,9 @@ export default function ChatScreen() {
                             <AppLogo size={56} />
                             <Text style={styles.emptyStateTitle}>Welcome</Text>
                             <Text style={styles.emptyStateText}>
-                                Ask about Quranic verses, prayer, hadith, or spiritual guidance.
-                                Use the bar below to start a conversation.
+                                Ask about Quranic verses, prayer, hadith, or
+                                spiritual guidance. Use the bar below to start a
+                                conversation.
                             </Text>
                         </View>
                     }
@@ -273,12 +285,12 @@ const styles = StyleSheet.create({
     emptyStateTitle: {
         fontSize: 22,
         fontWeight: "700",
-        color: "#fff",
+        color: theme.colors.onPrimary,
         marginBottom: spacing.md,
     },
     emptyStateText: {
         fontSize: 15,
-        color: "rgba(255,255,255,0.8)",
+        color: glass.border,
         textAlign: "center",
         lineHeight: 22,
     },
@@ -288,7 +300,7 @@ const styles = StyleSheet.create({
         gap: 8,
         padding: spacing.md,
     },
-    typingText: { color: "rgba(255,255,255,0.8)" },
+    typingText: { color: glass.border },
     quickQuestionButton: {
         backgroundColor: "rgba(0,0,0,0.2)",
         borderRadius: 16,
@@ -297,7 +309,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: glass.cardBorder,
     },
-    quickQuestionText: { color: "#fff", fontSize: 14 },
+    quickQuestionText: { color: theme.colors.onPrimary, fontSize: 14 },
     errorContainer: {
         marginHorizontal: spacing.md,
         padding: spacing.sm,
@@ -312,7 +324,7 @@ const styles = StyleSheet.create({
         backgroundColor: glass.backgroundLight,
         borderRadius: 12,
     },
-    premiumBannerText: { color: "rgba(255,255,255,0.85)", textAlign: "center" },
+    premiumBannerText: { color: glass.border, textAlign: "center" },
     premiumLink: { color: theme.colors.secondary, fontWeight: "700" },
     clearButton: {
         paddingHorizontal: 12,
@@ -322,5 +334,5 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: glass.border,
     },
-    clearButtonText: { color: "#fff", fontWeight: "600" },
+    clearButtonText: { color: theme.colors.onPrimary, fontWeight: "600" },
 });
