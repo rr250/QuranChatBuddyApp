@@ -19,6 +19,7 @@ import { VerseShareCard } from "../quran/VerseShareCard";
 import { shareVerse } from "../../utils/shareVerse";
 import { openChatWithPrompt } from "../../utils/openChatWithPrompt";
 import { buildExplainVersePrompt } from "../../utils/verseChatPrompts";
+import { useAuthStore } from "../../store/authStore";
 
 const CAROUSEL_COUNT = 5;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -81,10 +82,13 @@ const QuoteSlide = ({
     </View>
 );
 
+const FALLBACK_CATEGORY = "Quranic Wisdom";
+
 export const IslamicQuoteCard = ({ placement = null }) => {
     const { withPaywallCheck } = usePaywallAction();
     const paywallOpts = placement ? { placement } : {};
     const shareRef = useRef(null);
+    const user = useAuthStore((state) => state.user);
 
     const verses = useMemo(() => getDailyVerseBatch(CAROUSEL_COUNT), []);
     const [activeIndex, setActiveIndex] = useState(0);
@@ -93,18 +97,25 @@ export const IslamicQuoteCard = ({ placement = null }) => {
     const [sharing, setSharing] = useState(false);
 
     const loadCategory = useCallback(async (verse) => {
-        if (!verse) return "Quranic Wisdom";
+        if (!verse) return FALLBACK_CATEGORY;
 
         const key = categoryCacheKey(verse);
         const cached = await AsyncStorage.getItem(key);
-        if (cached) return cached;
+        if (cached && cached !== FALLBACK_CATEGORY) {
+            return cached;
+        }
 
-        const category = await aiService.getVerseCategory(
-            verse.translation,
-            verse.reference,
-        );
-        await AsyncStorage.setItem(key, category);
-        return category;
+        try {
+            const category = await aiService.getVerseCategory(
+                verse.translation,
+                verse.reference,
+            );
+            await AsyncStorage.setItem(key, category);
+            return category;
+        } catch (error) {
+            logger.warn("Verse category fetch failed:", error);
+            return FALLBACK_CATEGORY;
+        }
     }, []);
 
     useEffect(() => {
@@ -123,14 +134,14 @@ export const IslamicQuoteCard = ({ placement = null }) => {
             }
         };
 
-        if (verses.length) {
+        if (verses.length && user) {
             loadCategories();
         }
 
         return () => {
             cancelled = true;
         };
-    }, [verses, loadCategory]);
+    }, [verses, user, loadCategory]);
 
     const handleShare = async (verse, category) => {
         if (sharing) return;
@@ -204,7 +215,7 @@ export const IslamicQuoteCard = ({ placement = null }) => {
                             item={item}
                             category={
                                 categories[categoryCacheKey(item)] ??
-                                "Quranic Wisdom"
+                                FALLBACK_CATEGORY
                             }
                             loadingCategory={
                                 !categories[categoryCacheKey(item)]

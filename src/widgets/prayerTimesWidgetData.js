@@ -3,12 +3,11 @@ import { PrayerService } from "../services/prayerService";
 import { LocationService } from "../services/locationService";
 import { PRAYER_WIDGET_ITEMS } from "../constants/faithNotifications";
 import { DEFAULT_CITY } from "../constants/prayerOptions";
+import { prayerCacheMatchesSettings } from "../utils/prayerCache";
 import logger from "../services/logger";
 
 const PRAYER_CACHE_KEY = "prayer_times_cache_v1";
 const SETTINGS_KEY = "app_settings_v1";
-
-const todayKey = () => new Date().toISOString().slice(0, 10);
 
 const deserializeTimes = (times) =>
     Object.fromEntries(
@@ -122,7 +121,7 @@ export async function loadPrayerWidgetData() {
         let prayerTimes = null;
         let location = null;
 
-        if (cache?.times && cache.date === todayKey()) {
+        if (prayerCacheMatchesSettings(cache, settings)) {
             prayerTimes = deserializeTimes(cache.times);
             location = cache.location;
         } else {

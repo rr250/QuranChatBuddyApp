@@ -123,8 +123,12 @@ export default function ProfileScreen() {
         const result = await useCurrentLocation();
         if (!result.success) {
             Alert.alert(
-                "Location permission needed",
-                "Enable location access to use your current city for prayer times.",
+                result.reason === "location_unavailable"
+                    ? "Could not detect location"
+                    : "Location permission needed",
+                result.reason === "location_unavailable"
+                    ? "Turn on location services or pick a city manually. Approximate location is enough for prayer times."
+                    : "Enable location access to use your current city for prayer times. Approximate location works too.",
             );
         }
     };

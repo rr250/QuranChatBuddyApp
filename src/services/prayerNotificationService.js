@@ -50,6 +50,13 @@ export class PrayerNotificationService {
 
             await NotificationService.cancelPrayerNotifications();
 
+            const { useSettingsStore } = await import("../store/settingsStore");
+            const settings = useSettingsStore.getState();
+            const prayerSettings = {
+                madhab: settings.madhab,
+                calculationMethod: settings.calculationMethod,
+            };
+
             const location = await LocationService.getCurrentLocation({
                 skipPermissionPrompt: true,
                 allowFreshGps: false,
@@ -68,10 +75,12 @@ export class PrayerNotificationService {
             const todayPrayers = prayerService.calculatePrayerTimes(
                 location,
                 today,
+                prayerSettings,
             );
             const tomorrowPrayers = prayerService.calculatePrayerTimes(
                 location,
                 tomorrow,
+                prayerSettings,
             );
 
             await this.scheduleTodayPrayerNotifications(todayPrayers);

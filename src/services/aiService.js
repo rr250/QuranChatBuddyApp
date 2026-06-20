@@ -20,7 +20,13 @@ class AIService extends BaseService {
     async callCloudFunction(name, data) {
         logger.debug(`${LOG_PREFIX} Calling Firebase function: ${name}`);
         try {
-            await AuthService.ensureAuthenticated();
+            const user = await AuthService.ensureAuthenticated();
+            if (!user) {
+                const authError = new Error("Authentication required");
+                authError.code = "auth/not-authenticated";
+                throw authError;
+            }
+
             const functions = getFirebaseFunctions();
             const callable = httpsCallable(functions, name);
             const result = await callable(data);
@@ -246,16 +252,15 @@ class AIService extends BaseService {
     }
 
     async getVerseCategory(translation, reference) {
-        try {
-            const { content: label } = await this.callCloudFunction(
-                "verseCategory",
-                { translation, reference },
-            );
-            return label || "Quranic Wisdom";
-        } catch (error) {
-            logger.error("Verse category error:", error);
-            return "Quranic Wisdom";
+        const { content: label } = await this.callCloudFunction(
+            "verseCategory",
+            { translation, reference },
+        );
+        const trimmed = label?.trim();
+        if (!trimmed) {
+            throw new Error("Empty verse category response");
         }
+        return trimmed;
     }
 }
 

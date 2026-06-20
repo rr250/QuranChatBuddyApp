@@ -96,8 +96,8 @@ export default {
                             label: "Prayer Times",
                             description:
                                 "Today's prayer times at a glance",
-                            minWidth: "320dp",
-                            minHeight: "110dp",
+                            minWidth: "250dp",
+                            minHeight: "90dp",
                             targetCellWidth: 4,
                             targetCellHeight: 2,
                             resizeMode: "horizontal|vertical",

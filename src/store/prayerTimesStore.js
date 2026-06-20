@@ -3,12 +3,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PrayerService } from "../services/prayerService";
 import { LocationService } from "../services/locationService";
 import { useSettingsStore } from "./settingsStore";
+import {
+    todayKey,
+    buildPrayerLocationKey,
+    buildPrayerSettingsKey,
+} from "../utils/prayerCache";
 import logger from "../services/logger";
 
 const CACHE_KEY = "prayer_times_cache_v1";
 const prayerService = PrayerService.getInstance();
-
-const todayKey = () => new Date().toISOString().slice(0, 10);
 
 const serializeTimes = (times) =>
     Object.fromEntries(
@@ -55,6 +58,16 @@ export const usePrayerTimesStore = create((set, get) => ({
 
     applyCache: (cache) => {
         if (!cache?.times || cache.date !== todayKey()) return false;
+
+        const settings = useSettingsStore.getState();
+        const locationKey = buildPrayerLocationKey(settings, cache.location);
+        const settingsKey = buildPrayerSettingsKey(settings);
+        if (
+            cache.locationKey !== locationKey ||
+            cache.settingsKey !== settingsKey
+        ) {
+            return false;
+        }
 
         const times = deserializeTimes(cache.times);
         set({
@@ -117,6 +130,8 @@ export const usePrayerTimesStore = create((set, get) => ({
                 date: todayKey(),
                 times: serializeTimes(times),
                 location,
+                locationKey: buildPrayerLocationKey(settings, location),
+                settingsKey: buildPrayerSettingsKey(settings),
                 cachedAt: Date.now(),
             };
             await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(cache));

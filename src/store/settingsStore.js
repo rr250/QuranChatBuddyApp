@@ -113,15 +113,25 @@ export const useSettingsStore = create((set, get) => ({
     },
 
     useCurrentLocation: async () => {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") {
+        const granted = await LocationService.requestPermissions();
+        if (!granted) {
             return { success: false, reason: "permission_denied" };
         }
 
+        LocationService.clearLocationCache();
         const location = await LocationService.getCurrentLocation({
             skipPermissionPrompt: true,
             useCache: false,
         });
+
+        if (
+            !location?.latitude ||
+            !location?.longitude ||
+            location.isDefault
+        ) {
+            return { success: false, reason: "location_unavailable" };
+        }
+
         const city = await get().applyDeviceLocation(location);
         return { success: Boolean(city), city };
     },
@@ -154,8 +164,18 @@ export const useSettingsStore = create((set, get) => ({
     },
 
     refreshPrayerTimes: async () => {
+        LocationService.clearLocationCache();
+
         const { usePrayerTimesStore } = await import("./prayerTimesStore");
         await usePrayerTimesStore.getState().loadPrayerTimes(true);
+
+        try {
+            const { PrayerNotificationService } =
+                await import("../services/prayerNotificationService");
+            await PrayerNotificationService.setupFaithReminders();
+        } catch (error) {
+            logger.warn("Prayer notification refresh failed:", error);
+        }
     },
 
     getLocationOverride: () => {

@@ -3,8 +3,59 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert, Platform } from "react-native";
 import logger from "./logger";
 
+const MEMORY_CACHE_MAX_AGE_MS = 30 * 60 * 1000;
+const STORED_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const POSITION_TIMEOUT_MS = 15000;
+
 export class LocationService {
     static currentLocation = null;
+
+    static clearLocationCache() {
+        this.currentLocation = null;
+    }
+
+    static async getPermissionDetails() {
+        try {
+            const permission = await Location.getForegroundPermissionsAsync();
+            return {
+                granted: permission.status === "granted",
+                androidAccuracy: permission.android?.accuracy ?? null,
+                iosAccuracy: permission.ios?.accuracy ?? null,
+            };
+        } catch (error) {
+            logger.warn("Could not read location permission:", error);
+            return {
+                granted: false,
+                androidAccuracy: null,
+                iosAccuracy: null,
+            };
+        }
+    }
+
+    static resolveLocationAccuracy({ androidAccuracy, iosAccuracy } = {}) {
+        if (Platform.OS === "android") {
+            return androidAccuracy === "coarse"
+                ? Location.Accuracy.Low
+                : Location.Accuracy.Balanced;
+        }
+
+        if (Platform.OS === "ios" && iosAccuracy === "reduced") {
+            return Location.Accuracy.Low;
+        }
+
+        return Location.Accuracy.Balanced;
+    }
+
+    static resolveRequiredAccuracyMeters({ androidAccuracy, iosAccuracy } = {}) {
+        if (
+            (Platform.OS === "android" && androidAccuracy === "coarse") ||
+            (Platform.OS === "ios" && iosAccuracy === "reduced")
+        ) {
+            return 5000;
+        }
+
+        return 1000;
+    }
 
     static async requestPermissions() {
         try {
@@ -18,12 +69,17 @@ export class LocationService {
                 return false;
             }
 
-            let { status } = await Location.requestForegroundPermissionsAsync();
+            const current = await this.getPermissionDetails();
+            if (current.granted) {
+                return true;
+            }
+
+            const { status } = await Location.requestForegroundPermissionsAsync();
 
             if (status !== "granted") {
                 Alert.alert(
                     "Location Permission Required",
-                    "This app needs location access to calculate accurate prayer times for your area. Please grant location permission.",
+                    "This app needs location access to calculate accurate prayer times for your area. Approximate location is enough if precise location is unavailable.",
                     [
                         { text: "Cancel", style: "cancel" },
                         {
@@ -75,6 +131,109 @@ export class LocationService {
         return null;
     }
 
+    static buildLocationData(position) {
+        return {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            timestamp: Date.now(),
+            accuracy: position.coords.accuracy,
+        };
+    }
+
+    static async enrichLocationWithAddress(locationData) {
+        try {
+            const address = await Location.reverseGeocodeAsync({
+                latitude: locationData.latitude,
+                longitude: locationData.longitude,
+            });
+
+            if (address?.[0]) {
+                locationData.city =
+                    address[0].city ||
+                    address[0].subregion ||
+                    address[0].district;
+                locationData.country = address[0].country;
+                locationData.region =
+                    address[0].region || address[0].administrativeArea;
+                locationData.postalCode = address[0].postalCode;
+            }
+        } catch (addressError) {
+            logger.debug(
+                "Could not get address information:",
+                addressError,
+            );
+        }
+
+        return locationData;
+    }
+
+    static async persistLastKnownLocation(locationData) {
+        this.currentLocation = locationData;
+
+        try {
+            await AsyncStorage.setItem(
+                "lastKnownLocation",
+                JSON.stringify(locationData),
+            );
+        } catch (storageError) {
+            logger.debug(
+                "Could not save location to storage:",
+                storageError,
+            );
+        }
+    }
+
+    static async fetchDevicePosition(permissionDetails) {
+        const accuracy = this.resolveLocationAccuracy(permissionDetails);
+        const requiredAccuracy =
+            this.resolveRequiredAccuracyMeters(permissionDetails);
+        const isApproximate =
+            permissionDetails.androidAccuracy === "coarse" ||
+            permissionDetails.iosAccuracy === "reduced";
+
+        logger.debug("Fetching device position", {
+            accuracy,
+            isApproximate,
+        });
+
+        const positionOptions = {
+            accuracy,
+            ...(Platform.OS === "android" && {
+                mayShowUserSettingsDialog: !isApproximate,
+            }),
+        };
+
+        try {
+            const position = await Promise.race([
+                Location.getCurrentPositionAsync(positionOptions),
+                new Promise((_, reject) =>
+                    setTimeout(
+                        () => reject(new Error("Location request timed out")),
+                        POSITION_TIMEOUT_MS,
+                    ),
+                ),
+            ]);
+
+            if (position?.coords?.latitude != null) {
+                return position;
+            }
+        } catch (error) {
+            logger.debug("Current position request failed:", error);
+        }
+
+        const lastKnown = await Location.getLastKnownPositionAsync({
+            maxAge: MEMORY_CACHE_MAX_AGE_MS,
+            requiredAccuracy,
+        });
+
+        if (lastKnown?.coords?.latitude != null) {
+            logger.debug("Using OS last known position");
+            return lastKnown;
+        }
+
+        return null;
+    }
+
     static async getCurrentLocation(options = {}) {
         const {
             useCache = true,
@@ -91,31 +250,28 @@ export class LocationService {
 
             if (useCache && this.currentLocation) {
                 const age = Date.now() - this.currentLocation.timestamp;
-                const maxAge = 30 * 60 * 1000; // 30 minutes
-
-                if (age < maxAge) {
+                if (age < MEMORY_CACHE_MAX_AGE_MS) {
                     logger.debug("Using cached location");
                     return this.currentLocation;
                 }
             }
 
-            const lastKnown = await this.getLastKnownLocation();
-            if (skipPermissionPrompt && lastKnown) {
-                this.currentLocation = lastKnown;
-                return lastKnown;
+            const storedLocation = await this.getLastKnownLocation();
+            if (skipPermissionPrompt && useCache && storedLocation) {
+                this.currentLocation = storedLocation;
+                return storedLocation;
             }
 
             const hasPermission = skipPermissionPrompt
-                ? await this.isLocationAvailable()
+                ? (await this.getPermissionDetails()).granted
                 : await this.requestPermissions();
             if (!hasPermission) {
                 const manual = await this.getManualLocation();
                 if (manual) return manual;
 
-                const stored = await this.getLastKnownLocation();
-                if (stored) {
+                if (storedLocation) {
                     logger.debug("No permission, using last known location");
-                    return stored;
+                    return storedLocation;
                 }
 
                 logger.debug("No location permission, using default location");
@@ -123,79 +279,50 @@ export class LocationService {
             }
 
             if (!allowFreshGps) {
-                const stored = await this.getLastKnownLocation();
-                if (stored) {
+                if (storedLocation) {
                     logger.debug("Using stored location (GPS fetch skipped)");
-                    this.currentLocation = stored;
-                    return stored;
+                    this.currentLocation = storedLocation;
+                    return storedLocation;
                 }
+
+                const permissionDetails = await this.getPermissionDetails();
+                const osLastKnown = await Location.getLastKnownPositionAsync({
+                    maxAge: STORED_CACHE_MAX_AGE_MS,
+                    requiredAccuracy: this.resolveRequiredAccuracyMeters(
+                        permissionDetails,
+                    ),
+                });
+
+                if (osLastKnown?.coords?.latitude != null) {
+                    const locationData = await this.enrichLocationWithAddress(
+                        this.buildLocationData(osLastKnown),
+                    );
+                    await this.persistLastKnownLocation(locationData);
+                    return locationData;
+                }
+
                 logger.debug(
                     "No cached location available, skipping GPS fetch",
                 );
                 return this.getDefaultLocation();
             }
 
-            logger.debug("Getting current location...");
+            const permissionDetails = await this.getPermissionDetails();
+            const position = await this.fetchDevicePosition(permissionDetails);
 
-            const location = await Promise.race([
-                Location.getCurrentPositionAsync({
-                    accuracy: Location.Accuracy.Balanced,
-                    maximumAge: 300000,
-                }),
-                new Promise((_, reject) =>
-                    setTimeout(
-                        () => reject(new Error("Location request timed out")),
-                        10000,
-                    ),
-                ),
-            ]);
-
-            const locationData = {
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude,
-                timestamp: Date.now(),
-                accuracy: location.coords.accuracy,
-            };
-
-            logger.debug("Location obtained:", locationData);
-
-            try {
-                const address = await Location.reverseGeocodeAsync({
-                    latitude: location.coords.latitude,
-                    longitude: location.coords.longitude,
-                });
-
-                if (address && address[0]) {
-                    locationData.city =
-                        address[0].city ||
-                        address[0].subregion ||
-                        address[0].district;
-                    locationData.country = address[0].country;
-                    locationData.region =
-                        address[0].region || address[0].administrativeArea;
-                    locationData.postalCode = address[0].postalCode;
+            if (!position) {
+                if (storedLocation) {
+                    logger.debug("Falling back to stored location");
+                    return storedLocation;
                 }
-            } catch (addressError) {
-                logger.debug(
-                    "Could not get address information:",
-                    addressError,
-                );
+
+                return this.getDefaultLocation();
             }
 
-            this.currentLocation = locationData;
-
-            try {
-                await AsyncStorage.setItem(
-                    "lastKnownLocation",
-                    JSON.stringify(locationData),
-                );
-            } catch (storageError) {
-                logger.debug(
-                    "Could not save location to storage:",
-                    storageError,
-                );
-            }
-
+            const locationData = await this.enrichLocationWithAddress(
+                this.buildLocationData(position),
+            );
+            await this.persistLastKnownLocation(locationData);
             return locationData;
         } catch (error) {
             logger.error("Error getting current location:", error);
@@ -217,9 +344,8 @@ export class LocationService {
             if (stored) {
                 const location = JSON.parse(stored);
                 const age = Date.now() - location.timestamp;
-                const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 
-                if (age < maxAge) {
+                if (age < STORED_CACHE_MAX_AGE_MS) {
                     return location;
                 }
             }
@@ -248,20 +374,17 @@ export class LocationService {
                 return null;
             }
 
+            const permissionDetails = await this.getPermissionDetails();
+            const accuracy = this.resolveLocationAccuracy(permissionDetails);
+
             return await Location.watchPositionAsync(
                 {
-                    accuracy: Location.Accuracy.Balanced,
-                    timeInterval: 60000, // 1 minute
-                    distanceInterval: 100, // 100 meters
+                    accuracy,
+                    timeInterval: 60000,
+                    distanceInterval: 100,
                 },
                 (location) => {
-                    const locationData = {
-                        latitude: location.coords.latitude,
-                        longitude: location.coords.longitude,
-                        timestamp: Date.now(),
-                        accuracy: location.coords.accuracy,
-                    };
-
+                    const locationData = this.buildLocationData(location);
                     this.currentLocation = locationData;
                     callback(locationData);
                 },
@@ -348,8 +471,8 @@ export class LocationService {
     static async isLocationAvailable() {
         try {
             const isEnabled = await Location.hasServicesEnabledAsync();
-            const { status } = await Location.getForegroundPermissionsAsync();
-            return isEnabled && status === "granted";
+            const permission = await this.getPermissionDetails();
+            return isEnabled && permission.granted;
         } catch (error) {
             logger.error("Error checking location availability:", error);
             return false;
