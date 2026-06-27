@@ -20,6 +20,7 @@
       }
     },
     "production": {
+      "autoIncrement": true,
       "environment": "production",
       "android": {
         "buildType": "app-bundle"
@@ -27,6 +28,11 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "completed"
+      }
+    }
   }
 }

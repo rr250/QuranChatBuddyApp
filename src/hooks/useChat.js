@@ -10,6 +10,9 @@ const createWelcomeMessage = () => ({
     timestamp: new Date(),
 });
 
+const stripTransientMessageFields = (messages) =>
+    messages.map(({ animate, ...message }) => message);
+
 export const useChat = (userId = "default_user") => {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -25,7 +28,7 @@ export const useChat = (userId = "default_user") => {
             try {
                 await AsyncStorage.setItem(
                     `chat_messages_${userId}`,
-                    JSON.stringify(newMessages),
+                    JSON.stringify(stripTransientMessageFields(newMessages)),
                 );
             } catch (err) {
                 logger.error("Error saving messages:", err);
@@ -37,7 +40,8 @@ export const useChat = (userId = "default_user") => {
     const loadChatHistory = useCallback(async () => {
         try {
             const saved = await AsyncStorage.getItem(`chat_messages_${userId}`);
-            setMessages(saved ? JSON.parse(saved) : [createWelcomeMessage()]);
+            const parsed = saved ? JSON.parse(saved) : [createWelcomeMessage()];
+            setMessages(stripTransientMessageFields(parsed));
         } catch (err) {
             logger.error("Error loading chat history:", err);
             setMessages([createWelcomeMessage()]);

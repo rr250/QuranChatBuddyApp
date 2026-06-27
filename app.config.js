@@ -54,6 +54,10 @@ export default {
                 "android.permission.WAKE_LOCK",
                 "com.android.vending.BILLING",
             ],
+            blockedPermissions: [
+                "android.permission.ACTIVITY_RECOGNITION",
+                "com.google.android.gms.permission.ACTIVITY_RECOGNITION",
+            ],
         },
         plugins: [
             "expo-router",
