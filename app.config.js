@@ -44,12 +44,8 @@ export default {
             permissions: [
                 "android.permission.ACCESS_COARSE_LOCATION",
                 "android.permission.ACCESS_FINE_LOCATION",
-                "android.permission.ACCESS_BACKGROUND_LOCATION",
-                "android.permission.FOREGROUND_SERVICE",
-                "android.permission.FOREGROUND_SERVICE_LOCATION",
                 "android.permission.POST_NOTIFICATIONS",
                 "android.permission.RECEIVE_BOOT_COMPLETED",
-                "android.permission.USE_EXACT_ALARM",
                 "android.permission.VIBRATE",
                 "android.permission.WAKE_LOCK",
                 "com.android.vending.BILLING",
@@ -57,6 +53,9 @@ export default {
             blockedPermissions: [
                 "android.permission.ACTIVITY_RECOGNITION",
                 "com.google.android.gms.permission.ACTIVITY_RECOGNITION",
+                "android.permission.USE_EXACT_ALARM",
+                "android.permission.ACCESS_BACKGROUND_LOCATION",
+                "android.permission.FOREGROUND_SERVICE_LOCATION",
             ],
         },
         plugins: [
@@ -80,13 +79,9 @@ export default {
             [
                 "expo-location",
                 {
-                    locationAlwaysAndWhenInUsePermission:
-                        "Quran Chat Buddy uses your location to calculate accurate prayer times and Qibla direction.",
-                    locationAlwaysPermission:
-                        "Quran Chat Buddy needs background location access to send prayer time reminders.",
                     locationWhenInUsePermission:
                         "Quran Chat Buddy uses your location to calculate prayer times and Qibla direction.",
-                    isAndroidBackgroundLocationEnabled: true,
+                    isAndroidBackgroundLocationEnabled: false,
                 },
             ],
             "expo-apple-authentication",

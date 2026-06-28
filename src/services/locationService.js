@@ -94,18 +94,6 @@ export class LocationService {
 
             logger.debug("Foreground location permission granted");
 
-            if (Platform.OS === "ios") {
-                const backgroundStatus =
-                    await Location.requestBackgroundPermissionsAsync();
-                if (backgroundStatus.status !== "granted") {
-                    logger.debug(
-                        "Background location permission not granted, but foreground is available",
-                    );
-                } else {
-                    logger.debug("Background location permission granted");
-                }
-            }
-
             return true;
         } catch (error) {
             logger.error("Error requesting location permissions:", error);
